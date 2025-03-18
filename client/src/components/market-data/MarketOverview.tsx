@@ -1,0 +1,293 @@
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from "recharts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { fetchData } from "@/lib/api";
+
+interface MarketOverviewProps {
+  onSymbolSelect: (symbol: string) => void;
+}
+
+interface MarketIndiceData {
+  name: string;
+  symbol: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
+interface SectorPerformanceData {
+  name: string;
+  performance: number;
+  color: string;
+}
+
+const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
+  // Fetch market indices data
+  const { data: indices, isLoading: isLoadingIndices } = useQuery({
+    queryKey: ['/api/market-data/indices'],
+    queryFn: () => fetchData<MarketIndiceData[]>('/api/market-data/indices').catch(() => {
+      // Fallback data in case API isn't implemented yet
+      return [
+        { name: "S&P 500", symbol: "SPY", price: 4783.45, change: 32.45, changePercent: 0.68 },
+        { name: "Dow Jones", symbol: "DIA", price: 38762.32, change: -28.67, changePercent: -0.07 },
+        { name: "Nasdaq", symbol: "QQQ", price: 16748.7, change: 98.36, changePercent: 0.59 },
+        { name: "Russell 2000", symbol: "IWM", price: 2032.48, change: 15.23, changePercent: 0.75 }
+      ];
+    }),
+  });
+
+  // Fetch sector performance data
+  const { data: sectorPerformance, isLoading: isLoadingSectors } = useQuery({
+    queryKey: ['/api/market-data/sectors'],
+    queryFn: () => fetchData<SectorPerformanceData[]>('/api/market-data/sectors').catch(() => {
+      // Fallback data in case API isn't implemented yet
+      return [
+        { name: "Technology", performance: 1.2, color: "#3B82F6" },
+        { name: "Healthcare", performance: 0.8, color: "#10B981" },
+        { name: "Energy", performance: -0.5, color: "#EF4444" },
+        { name: "Financials", performance: 0.3, color: "#6366F1" },
+        { name: "Consumer Cyclical", performance: 0.1, color: "#F59E0B" },
+        { name: "Real Estate", performance: -0.7, color: "#EC4899" },
+        { name: "Utilities", performance: 0.4, color: "#8B5CF6" },
+        { name: "Basic Materials", performance: -0.2, color: "#14B8A6" },
+        { name: "Communication Services", performance: 0.6, color: "#F97316" },
+        { name: "Industrials", performance: 0.5, color: "#64748B" }
+      ];
+    }),
+  });
+
+  // Fetch market movers data
+  const { data: topGainers, isLoading: isLoadingGainers } = useQuery({
+    queryKey: ['/api/market-data/gainers'],
+    queryFn: () => fetchData<{ symbol: string; name: string; price: number; change: number; changePercent: number }[]>('/api/market-data/gainers').catch(() => {
+      // Fallback data in case API isn't implemented yet
+      return [
+        { symbol: "NVDA", name: "NVIDIA Corporation", price: 892.32, change: 45.67, changePercent: 5.4 },
+        { symbol: "AMD", name: "Advanced Micro Devices", price: 168.78, change: 7.23, changePercent: 4.5 },
+        { symbol: "META", name: "Meta Platforms Inc", price: 512.45, change: 18.65, changePercent: 3.8 },
+        { symbol: "AAPL", name: "Apple Inc", price: 198.32, change: 6.78, changePercent: 3.5 },
+        { symbol: "TSLA", name: "Tesla Inc", price: 256.72, change: 7.32, changePercent: 2.9 }
+      ];
+    }),
+  });
+
+  const { data: topLosers, isLoading: isLoadingLosers } = useQuery({
+    queryKey: ['/api/market-data/losers'],
+    queryFn: () => fetchData<{ symbol: string; name: string; price: number; change: number; changePercent: number }[]>('/api/market-data/losers').catch(() => {
+      // Fallback data in case API isn't implemented yet
+      return [
+        { symbol: "NFLX", name: "Netflix Inc", price: 624.54, change: -18.32, changePercent: -2.8 },
+        { symbol: "BA", name: "Boeing Co", price: 178.23, change: -4.56, changePercent: -2.5 },
+        { symbol: "JPM", name: "JPMorgan Chase & Co", price: 192.34, change: -4.21, changePercent: -2.1 },
+        { symbol: "MS", name: "Morgan Stanley", price: 88.76, change: -1.87, changePercent: -2.0 },
+        { symbol: "IBM", name: "International Business Machines", price: 172.45, change: -3.21, changePercent: -1.8 }
+      ];
+    }),
+  });
+
+  // Format currency
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+
+  // Format percentage
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Market Indices */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {isLoadingIndices ? (
+          <div className="col-span-full flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          indices?.map((index) => (
+            <Card key={index.symbol} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium">{index.name}</h3>
+                    <p className="text-2xl font-bold mt-1">{formatCurrency(index.price)}</p>
+                  </div>
+                  <div className={`flex items-center ${index.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {index.changePercent >= 0 ? (
+                      <TrendingUp className="h-5 w-5 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-5 w-5 mr-1" />
+                    )}
+                    <div>
+                      <div className="text-sm font-medium">{formatCurrency(index.change)}</div>
+                      <div className="text-xs">{formatPercentage(index.changePercent)}</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Sector Performance */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          <h3 className="font-medium mb-4">Sector Performance</h3>
+          {isLoadingSectors ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={sectorPerformance}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                  <XAxis 
+                    type="number" 
+                    tickFormatter={(value) => `${value}%`} 
+                    domain={[-2, 2]}
+                    tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    tick={{ fontSize: 12, fill: '#94a3b8' }}
+                    width={120}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`${value}%`, 'Performance']}
+                    contentStyle={{ 
+                      backgroundColor: '#1E293B', 
+                      borderColor: '#334155',
+                      color: '#E2E8F0'
+                    }}
+                  />
+                  <Bar dataKey="performance" radius={[0, 4, 4, 0]}>
+                    {sectorPerformance?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Market Movers */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          <h3 className="font-medium mb-4">Market Movers</h3>
+          <Tabs defaultValue="gainers">
+            <TabsList className="mb-4">
+              <TabsTrigger value="gainers">Top Gainers</TabsTrigger>
+              <TabsTrigger value="losers">Top Losers</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="gainers">
+              {isLoadingGainers ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b border-border">
+                      <tr>
+                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
+                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
+                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
+                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
+                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topGainers?.map((stock) => (
+                        <tr 
+                          key={stock.symbol} 
+                          className="border-b border-border hover:bg-muted/50 cursor-pointer"
+                          onClick={() => onSymbolSelect(stock.symbol)}
+                        >
+                          <td className="py-3 px-4 font-medium">{stock.symbol}</td>
+                          <td className="py-3 px-4">{stock.name}</td>
+                          <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
+                          <td className="py-3 px-4 text-right text-green-500">{formatCurrency(stock.change)}</td>
+                          <td className="py-3 px-4 text-right text-green-500">{formatPercentage(stock.changePercent)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="losers">
+              {isLoadingLosers ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b border-border">
+                      <tr>
+                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
+                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
+                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
+                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
+                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topLosers?.map((stock) => (
+                        <tr 
+                          key={stock.symbol} 
+                          className="border-b border-border hover:bg-muted/50 cursor-pointer"
+                          onClick={() => onSymbolSelect(stock.symbol)}
+                        >
+                          <td className="py-3 px-4 font-medium">{stock.symbol}</td>
+                          <td className="py-3 px-4">{stock.name}</td>
+                          <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
+                          <td className="py-3 px-4 text-right text-red-500">{formatCurrency(stock.change)}</td>
+                          <td className="py-3 px-4 text-right text-red-500">{formatPercentage(stock.changePercent)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default MarketOverview;

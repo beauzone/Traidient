@@ -1,0 +1,488 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { fetchData, deleteData, postData } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Plus, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+interface Order {
+  id: string;
+  symbol: string;
+  side: 'buy' | 'sell';
+  type: 'market' | 'limit' | 'stop' | 'stop_limit';
+  status: 'open' | 'filled' | 'canceled' | 'rejected' | 'expired';
+  quantity: number;
+  filledQuantity: number;
+  limitPrice?: number;
+  stopPrice?: number;
+  createdAt: string;
+  updatedAt: string;
+  submittedBy: 'user' | 'system';
+  strategyName?: string;
+}
+
+// Schema for new order form
+const orderSchema = z.object({
+  symbol: z.string().min(1, "Symbol is required"),
+  side: z.enum(["buy", "sell"], {
+    required_error: "Side is required",
+  }),
+  type: z.enum(["market", "limit", "stop", "stop_limit"], {
+    required_error: "Order type is required",
+  }),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  limitPrice: z.number().optional(),
+  stopPrice: z.number().optional(),
+  timeInForce: z.enum(["day", "gtc", "opg", "cls", "ioc", "fok"], {
+    required_error: "Time in force is required",
+  }),
+}).refine(data => {
+  if (data.type === 'limit' || data.type === 'stop_limit') {
+    return data.limitPrice !== undefined && data.limitPrice > 0;
+  }
+  return true;
+}, {
+  message: "Limit price is required for limit and stop-limit orders",
+  path: ["limitPrice"],
+}).refine(data => {
+  if (data.type === 'stop' || data.type === 'stop_limit') {
+    return data.stopPrice !== undefined && data.stopPrice > 0;
+  }
+  return true;
+}, {
+  message: "Stop price is required for stop and stop-limit orders",
+  path: ["stopPrice"],
+});
+
+type OrderFormValues = z.infer<typeof orderSchema>;
+
+const OrdersTable = () => {
+  const [orderTab, setOrderTab] = useState("open");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  // Fetch orders
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['/api/trading/orders'],
+    queryFn: () => fetchData<Order[]>('/api/trading/orders'),
+    refetchInterval: 15000, // Refresh every 15 seconds
+  });
+
+  // Filter orders based on tab
+  const filteredOrders = orders.filter((order) => {
+    if (orderTab === "open") {
+      return order.status === "open";
+    } else if (orderTab === "filled") {
+      return order.status === "filled";
+    } else if (orderTab === "canceled") {
+      return order.status === "canceled" || order.status === "rejected" || order.status === "expired";
+    }
+    return true;
+  });
+
+  // Set up form for new order
+  const form = useForm<OrderFormValues>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      symbol: "",
+      side: "buy",
+      type: "market",
+      quantity: 1,
+      timeInForce: "day",
+    },
+  });
+
+  // Watch order type to conditionally show form fields
+  const orderType = form.watch("type");
+
+  // Cancel order mutation
+  const cancelOrder = useMutation({
+    mutationFn: (orderId: string) => deleteData(`/api/trading/orders/${orderId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/trading/orders'] });
+      toast({
+        title: "Order canceled",
+        description: "Your order has been canceled successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to cancel order",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Place order mutation
+  const placeOrder = useMutation({
+    mutationFn: (data: OrderFormValues) => postData('/api/trading/orders', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/trading/orders'] });
+      toast({
+        title: "Order placed",
+        description: "Your order has been submitted successfully.",
+      });
+      setIsAddDialogOpen(false);
+      form.reset();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to place order",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handle form submission
+  const onSubmit = (values: OrderFormValues) => {
+    placeOrder.mutate(values);
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  // Get status badge
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'open':
+        return <Badge variant="outline" className="bg-blue-500 bg-opacity-20 text-blue-500 border-none">Open</Badge>;
+      case 'filled':
+        return <Badge variant="outline" className="bg-green-500 bg-opacity-20 text-green-500 border-none">Filled</Badge>;
+      case 'canceled':
+        return <Badge variant="outline" className="bg-yellow-500 bg-opacity-20 text-yellow-500 border-none">Canceled</Badge>;
+      case 'rejected':
+        return <Badge variant="outline" className="bg-red-500 bg-opacity-20 text-red-500 border-none">Rejected</Badge>;
+      case 'expired':
+        return <Badge variant="outline" className="bg-gray-500 bg-opacity-20 text-gray-500 border-none">Expired</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Orders</CardTitle>
+            <CardDescription>
+              Manage your trading orders
+            </CardDescription>
+          </div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Place Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Place New Order</DialogTitle>
+                <DialogDescription>
+                  Enter the details for your new order
+                </DialogDescription>
+              </DialogHeader>
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="symbol"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Symbol</FormLabel>
+                        <FormControl>
+                          <Input placeholder="AAPL" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the stock symbol
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="side"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Side</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select side" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="buy">Buy</SelectItem>
+                              <SelectItem value="sell">Sell</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Order Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="market">Market</SelectItem>
+                              <SelectItem value="limit">Limit</SelectItem>
+                              <SelectItem value="stop">Stop</SelectItem>
+                              <SelectItem value="stop_limit">Stop Limit</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="1" 
+                            step="1" 
+                            {...field} 
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {(orderType === "limit" || orderType === "stop_limit") && (
+                    <FormField
+                      control={form.control}
+                      name="limitPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Limit Price</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min="0.01" 
+                              step="0.01" 
+                              {...field} 
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {(orderType === "stop" || orderType === "stop_limit") && (
+                    <FormField
+                      control={form.control}
+                      name="stopPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Stop Price</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min="0.01" 
+                              step="0.01" 
+                              {...field} 
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="timeInForce"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Time in Force</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select time in force" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="day">Day</SelectItem>
+                            <SelectItem value="gtc">Good Till Canceled</SelectItem>
+                            <SelectItem value="opg">Market on Open</SelectItem>
+                            <SelectItem value="cls">Market on Close</SelectItem>
+                            <SelectItem value="ioc">Immediate or Cancel</SelectItem>
+                            <SelectItem value="fok">Fill or Kill</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <DialogFooter>
+                    <Button type="submit" disabled={placeOrder.isPending}>
+                      {placeOrder.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Placing Order...
+                        </>
+                      ) : (
+                        "Place Order"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={orderTab} onValueChange={setOrderTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-4 max-w-md">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="open">Open</TabsTrigger>
+            <TabsTrigger value="filled">Filled</TabsTrigger>
+            <TabsTrigger value="canceled">Canceled</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No orders found</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {orderTab === "open" ? "Place an order to start trading" : "No matching orders for the selected filter"}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Side</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created At</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell>{order.symbol}</TableCell>
+                    <TableCell>
+                      <Badge variant={order.side === 'buy' ? 'default' : 'destructive'}>
+                        {order.side.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{order.type}</TableCell>
+                    <TableCell>
+                      {order.filledQuantity > 0 && order.filledQuantity < order.quantity ? (
+                        <span>{order.filledQuantity}/{order.quantity}</span>
+                      ) : (
+                        <span>{order.quantity}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {order.type === 'market' ? (
+                        'Market'
+                      ) : order.type === 'limit' ? (
+                        `$${order.limitPrice}`
+                      ) : order.type === 'stop' ? (
+                        `Stop $${order.stopPrice}`
+                      ) : (
+                        `Stop $${order.stopPrice} / Limit $${order.limitPrice}`
+                      )}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(order.status)}</TableCell>
+                    <TableCell>{formatDate(order.createdAt)}</TableCell>
+                    <TableCell>
+                      {order.submittedBy === 'user' ? (
+                        <Badge variant="outline">Manual</Badge>
+                      ) : (
+                        <Badge variant="outline">{order.strategyName || 'System'}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {order.status === 'open' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => cancelOrder.mutate(order.id)}
+                          disabled={cancelOrder.isPending}
+                          title="Cancel Order"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export default OrdersTable;
