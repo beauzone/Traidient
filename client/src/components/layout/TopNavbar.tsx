@@ -5,8 +5,7 @@ import { Link } from "wouter";
 import { 
   Bell, 
   Sun, 
-  Moon,
-  Plus
+  Moon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -64,16 +63,7 @@ const TopNavbar = () => {
             </div>
           </div>
           <div className="flex items-center">
-            <div className="flex">
-              {/* Primary button for create new strategy */}
-              <Link href="/bot-builder">
-                <Button className="inline-flex items-center">
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Strategy
-                </Button>
-              </Link>
-            </div>
-            <div className="ml-4 flex items-center md:ml-6">
+            <div className="flex items-center md:ml-6">
               {/* Notification dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
