@@ -92,17 +92,14 @@ const Sidebar = () => {
                   key={item.path}
                   href={item.path}
                   onClick={closeMobileMenu}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
+                    location === item.path
+                      ? "bg-accent bg-opacity-10 border-l-2 border-primary"
+                      : ""
+                  }`}
                 >
-                  <a
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
-                      location === item.path
-                        ? "bg-accent bg-opacity-10 border-l-2 border-primary"
-                        : ""
-                    }`}
-                  >
-                    {item.icon}
-                    {item.name}
-                  </a>
+                  {item.icon}
+                  {item.name}
                 </Link>
               ))}
             </div>
@@ -117,17 +114,14 @@ const Sidebar = () => {
                     key={item.path}
                     href={item.path}
                     onClick={closeMobileMenu}
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
+                      location === item.path
+                        ? "bg-accent bg-opacity-10 border-l-2 border-primary"
+                        : ""
+                    }`}
                   >
-                    <a
-                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
-                        location === item.path
-                          ? "bg-accent bg-opacity-10 border-l-2 border-primary"
-                          : ""
-                      }`}
-                    >
-                      {item.icon}
-                      {item.name}
-                    </a>
+                    {item.icon}
+                    {item.name}
                   </Link>
                 ))}
               </div>

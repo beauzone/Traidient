@@ -15,6 +15,7 @@ import Backtest from "@/pages/backtest";
 import LiveTrading from "@/pages/live-trading";
 import MarketData from "@/pages/market-data";
 import Settings from "@/pages/settings";
+import Integrations from "@/pages/integrations";
 import NotFound from "@/pages/not-found";
 
 // Protected Route Component
@@ -79,6 +80,9 @@ function AppRoutes() {
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
+      </Route>
+      <Route path="/integrations">
+        <ProtectedRoute component={Integrations} />
       </Route>
       <Route path="/">
         <Redirect to="/dashboard" />
