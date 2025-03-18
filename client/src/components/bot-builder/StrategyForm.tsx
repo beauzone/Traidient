@@ -76,13 +76,24 @@ const StrategyForm = ({ initialStrategy }: StrategyFormProps) => {
   const [assetInput, setAssetInput] = useState("");
   
   // Prepare default values
+  // Format the strategy if it's an object
+  const formatStrategy = () => {
+    if (!initialStrategy?.strategy) return "";
+    
+    if (typeof initialStrategy.strategy === 'object') {
+      return JSON.stringify(initialStrategy.strategy, null, 2);
+    } else {
+      return initialStrategy.strategy.toString();
+    }
+  };
+
   const defaultValues: StrategyFormValues = {
     name: "",
     description: initialStrategy?.explanation || "",
     type: "ai-generated",
     source: {
       type: "natural-language",
-      content: initialStrategy?.strategy || "",
+      content: formatStrategy(),
     },
     configuration: {
       assets: ["AAPL"],

@@ -112,12 +112,13 @@ export async function optimizeStrategy(
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content || '{}';
+    const result = JSON.parse(content);
     
     return {
-      optimizedStrategy: result.optimizedStrategy,
-      changes: result.changes,
-      expectedImprovements: result.expectedImprovements
+      optimizedStrategy: result.optimizedStrategy || '',
+      changes: result.changes || '',
+      expectedImprovements: result.expectedImprovements || ''
     };
   } catch (error) {
     console.error("Error optimizing strategy:", error);
