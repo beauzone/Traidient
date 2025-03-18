@@ -36,7 +36,7 @@ export async function generateStrategy(prompt: string): Promise<{
       response_format: { type: "json_object" }
     });
 
-    const content = response.choices[0].message.content || '{}';
+    const content = response.choices[0].message.content ?? '{}';
     const result = JSON.parse(content);
     
     return {
@@ -68,7 +68,7 @@ export async function explainStrategy(strategyCode: string): Promise<string> {
       ]
     });
 
-    return response.choices[0].message.content || "No explanation provided";
+    return response.choices[0].message.content ?? "No explanation provided";
   } catch (error) {
     console.error("Error explaining strategy:", error);
     throw new Error("Failed to explain strategy with OpenAI: " + (error as Error).message);
@@ -112,7 +112,7 @@ export async function optimizeStrategy(
       response_format: { type: "json_object" }
     });
 
-    const content = response.choices[0].message.content || '{}';
+    const content = response.choices[0].message.content ?? '{}';
     const result = JSON.parse(content);
     
     return {
