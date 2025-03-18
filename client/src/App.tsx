@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/context/AuthContext";
+import { AccountProvider } from "@/context/AccountContext";
 import { useAuth } from "@/hooks/useAuth";
 
 // Pages
@@ -100,8 +101,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppRoutes />
-        <Toaster />
+        <AccountProvider>
+          <AppRoutes />
+          <Toaster />
+        </AccountProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
