@@ -7,7 +7,18 @@ import StockDetail from "@/components/market-data/StockDetail";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchData } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { WatchlistItem } from "@/types";
+
+interface WatchlistItem {
+  id: number;
+  symbol: string;
+  name: string;
+  lastPrice: string;
+  change: string;
+  changePercent: string;
+  volume: string;
+  marketCap: string;
+  isPositive: boolean;
+}
 
 const MarketDataPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -39,10 +50,7 @@ const MarketDataPage = () => {
           </Card>
 
           <Card className="md:col-span-3">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Market Data</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
                 <TabsList className="mb-4">
                   <TabsTrigger value="overview">Market Overview</TabsTrigger>

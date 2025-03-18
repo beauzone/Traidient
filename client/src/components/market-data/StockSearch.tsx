@@ -6,7 +6,18 @@ import { Search, Plus, Loader2 } from "lucide-react";
 import { postData } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { WatchlistItem } from "@/types";
+
+interface WatchlistItem {
+  id: number;
+  symbol: string;
+  name: string;
+  lastPrice: string;
+  change: string;
+  changePercent: string;
+  volume: string;
+  marketCap: string;
+  isPositive: boolean;
+}
 
 interface StockSearchProps {
   onSymbolSelect: (symbol: string) => void;
