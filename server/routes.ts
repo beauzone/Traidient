@@ -1145,9 +1145,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isMarketOpen) {
         try {
           // If market is open, first try to get real-time data from Alpaca API
-          // Get API integration for market data
-          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-          const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          // Try to get user-specific API integration for market data, fallback to environment variables
+          let alpacaAPI;
+          try {
+            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            console.log("Using user's Alpaca API integration");
+          } catch (err) {
+            console.log("No user-specific Alpaca integration found, using environment variables");
+            alpacaAPI = new AlpacaAPI();
+          }
           
           // Get asset information
           const assetInfo = await alpacaAPI.getAssetInformation(symbol);
@@ -1288,9 +1295,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isMarketOpen) {
         try {
           // During market hours, first try Alpaca API
-          // Get API integration for market data
-          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-          const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          // Try to get user-specific API integration for market data, fallback to environment variables
+          let alpacaAPI;
+          try {
+            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            console.log("Using user's Alpaca API integration for historical data");
+          } catch (err) {
+            console.log("No user-specific Alpaca integration found, using environment variables for historical data");
+            alpacaAPI = new AlpacaAPI();
+          }
           
           // Get historical data from Alpaca during market hours
           const historicalData = await alpacaAPI.getMarketData(symbol, timeframe, limit);

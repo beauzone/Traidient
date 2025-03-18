@@ -10,8 +10,11 @@ export class AlpacaAPI {
     this.apiKey = integration?.credentials.apiKey || process.env.ALPACA_API_KEY || "";
     this.apiSecret = integration?.credentials.apiSecret || process.env.ALPACA_API_SECRET || "";
     
-    // Use v2 API endpoints
-    this.tradingBaseUrl = "https://paper-api.alpaca.markets/v2";
+    // Use v2 API endpoints - can switch between paper and live
+    const isPaperTrading = true; // Set to false for live trading with real money
+    this.tradingBaseUrl = isPaperTrading 
+      ? "https://paper-api.alpaca.markets/v2" 
+      : "https://api.alpaca.markets/v2";
     this.dataBaseUrl = "https://data.alpaca.markets/v2";
     
     // Log if we're missing API credentials
