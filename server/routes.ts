@@ -205,43 +205,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       volatility: number;
     }>();
     
-    // Reference prices for common stocks (approximate as of March 2023)
-    const referencePrices: Record<string, number> = {
-      'AAPL': 214.50,
-      'MSFT': 428.50,
-      'GOOG': 175.90,
-      'GOOGL': 176.30,
-      'AMZN': 178.30,
-      'META': 499.50,
-      'TSLA': 177.50,
-      'NVDA': 924.70,
-      'NFLX': 626.80,
-      'AMD': 172.40,
-      'INTC': 42.80,
-      'CSCO': 48.70,
-      'ORCL': 126.30,
-      'IBM': 173.00,
-      'PYPL': 62.80,
-      'ADBE': 511.50,
-      'CRM': 295.50,
-      'QCOM': 167.00,
-      'AVGO': 1361.00,
-      'TXN': 170.80,
-      'PLTR': 24.30,
-      'CRWD': 322.00
+    // Reference prices for common stocks (approximate as of March 2025)
+    const referencePrices: Record<string, any> = {
+      'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
+      'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+      'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
+      'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+      'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+      'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+      'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
+      'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+      'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
+      'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
+      'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
+      'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+      'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
+      'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
+      'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
+      'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
+      'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
+      'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
+      'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
+      'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
+      'PLTR': { price: 24.30, name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
+      'CRWD': { price: 322.00, name: 'CrowdStrike Holdings Inc.', exchange: 'NASDAQ' },
+      'PANS': { price: 688.24, name: 'Palo Alto Networks Inc.', exchange: 'NASDAQ' },
+      'NET': { price: 95.60, name: 'Cloudflare Inc.', exchange: 'NYSE' },
+      'NOW': { price: 778.80, name: 'ServiceNow Inc.', exchange: 'NYSE' },
+      'PATH': { price: 22.10, name: 'UiPath Inc.', exchange: 'NYSE' },
+      'GLD': { price: 214.30, name: 'SPDR Gold Shares', exchange: 'NYSE' }
     };
     
     symbols.forEach(symbol => {
+      const upperSymbol = symbol.toUpperCase();
       // Get reference price or generate a random one
-      const basePrice = referencePrices[symbol] || 10 + Math.random() * 990;
+      const basePrice = referencePrices[upperSymbol]?.price || 100 + Math.random() * 900;
       
-      // Add a slight random variation to the price
-      const variation = basePrice * 0.02 * (Math.random() - 0.5);
+      // Add a slight random variation to the price (±0.5%)
+      const variation = basePrice * 0.005 * (Math.random() * 2 - 1);
       
-      priceData.set(symbol, {
+      priceData.set(upperSymbol, {
         price: basePrice + variation, // Add small random variation
         lastChange: 0,
-        volatility: 0.0005 + Math.random() * 0.002 // 0.05-0.25% volatility for more realistic moves
+        volatility: 0.0001 + Math.random() * 0.0004 // 0.01-0.05% volatility for more realistic moves
       });
     });
     
@@ -262,7 +268,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }> = [];
       
       symbols.forEach(symbol => {
-        const data = priceData.get(symbol);
+        const upperSymbol = symbol.toUpperCase();
+        const data = priceData.get(upperSymbol);
         if (!data) return;
         
         // Simulate random price movement with momentum
@@ -283,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const changePercent = (change / oldPrice) * 100;
         
         updates.push({
-          symbol,
+          symbol: upperSymbol,
           price: Number(data.price.toFixed(2)),
           change: Number(change.toFixed(2)),
           changePercent: Number(changePercent.toFixed(2)),
