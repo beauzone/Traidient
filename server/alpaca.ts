@@ -9,8 +9,15 @@ export class AlpacaAPI {
   constructor(integration?: ApiIntegration) {
     this.apiKey = integration?.credentials.apiKey || process.env.ALPACA_API_KEY || "";
     this.apiSecret = integration?.credentials.apiSecret || process.env.ALPACA_API_SECRET || "";
+    
+    // Use v2 API endpoints
     this.tradingBaseUrl = "https://paper-api.alpaca.markets/v2";
     this.dataBaseUrl = "https://data.alpaca.markets/v2";
+    
+    // Log if we're missing API credentials
+    if (!this.apiKey || !this.apiSecret) {
+      console.warn("Warning: Alpaca API credentials not provided. Some features may not work correctly.");
+    }
   }
 
   async getAccount(): Promise<any> {

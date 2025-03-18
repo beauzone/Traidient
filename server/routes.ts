@@ -205,12 +205,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       volatility: number;
     }>();
     
+    // Reference prices for common stocks (approximate as of March 2023)
+    const referencePrices: Record<string, number> = {
+      'AAPL': 214.50,
+      'MSFT': 428.50,
+      'GOOG': 175.90,
+      'GOOGL': 176.30,
+      'AMZN': 178.30,
+      'META': 499.50,
+      'TSLA': 177.50,
+      'NVDA': 924.70,
+      'NFLX': 626.80,
+      'AMD': 172.40,
+      'INTC': 42.80,
+      'CSCO': 48.70,
+      'ORCL': 126.30,
+      'IBM': 173.00,
+      'PYPL': 62.80,
+      'ADBE': 511.50,
+      'CRM': 295.50,
+      'QCOM': 167.00,
+      'AVGO': 1361.00,
+      'TXN': 170.80,
+      'PLTR': 24.30,
+      'CRWD': 322.00
+    };
+    
     symbols.forEach(symbol => {
-      // Initialize with random prices between $10 and $1000
+      // Get reference price or generate a random one
+      const basePrice = referencePrices[symbol] || 10 + Math.random() * 990;
+      
+      // Add a slight random variation to the price
+      const variation = basePrice * 0.02 * (Math.random() - 0.5);
+      
       priceData.set(symbol, {
-        price: 10 + Math.random() * 990,
+        price: basePrice + variation, // Add small random variation
         lastChange: 0,
-        volatility: 0.01 + Math.random() * 0.04 // 1-5% volatility
+        volatility: 0.0005 + Math.random() * 0.002 // 0.05-0.25% volatility for more realistic moves
       });
     });
     
@@ -267,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: updates
         }));
       }
-    }, 2000); // Send updates every 2 seconds
+    }, 1000); // Send updates every 1 second for more realistic ticker-like updates
     
     // Store the interval reference
     userSimulations?.set(ws, interval);
