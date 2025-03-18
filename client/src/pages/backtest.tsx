@@ -378,7 +378,7 @@ const BacktestPage = () => {
                         {field.value.map((asset) => (
                           <div
                             key={asset}
-                            className="bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-full flex items-center"
+                            className="bg-primary/10 text-primary text-sm px-3 py-1 rounded-md flex items-center border border-primary/20 w-auto h-8"
                           >
                             <span>{asset}</span>
                           </div>
