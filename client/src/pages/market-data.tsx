@@ -39,27 +39,30 @@ const MarketDataPage = () => {
           </Card>
 
           <Card className="md:col-span-3">
-            <CardHeader>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Market Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
+                <TabsList className="mb-4">
                   <TabsTrigger value="overview">Market Overview</TabsTrigger>
                   <TabsTrigger value="detail" disabled={!selectedSymbol}>Asset Details</TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="overview" className="mt-0">
+                  <MarketOverview onSymbolSelect={handleSymbolSelect} />
+                </TabsContent>
+                
+                <TabsContent value="detail" className="mt-0">
+                  {selectedSymbol ? (
+                    <StockDetail symbol={selectedSymbol} />
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Select a symbol to view details</p>
+                    </div>
+                  )}
+                </TabsContent>
               </Tabs>
-            </CardHeader>
-            <CardContent>
-              <TabsContent value="overview" className="mt-0">
-                <MarketOverview onSymbolSelect={handleSymbolSelect} />
-              </TabsContent>
-              <TabsContent value="detail" className="mt-0">
-                {selectedSymbol ? (
-                  <StockDetail symbol={selectedSymbol} />
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">Select a symbol to view details</p>
-                  </div>
-                )}
-              </TabsContent>
             </CardContent>
           </Card>
         </div>
