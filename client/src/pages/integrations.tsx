@@ -51,7 +51,7 @@ import { Loader2, PlusCircle, Trash2, Edit, RefreshCw } from "lucide-react";
 const integrationSchema = z.object({
   provider: z.string().min(1, { message: "Provider is required" }),
   apiKey: z.string().min(1, { message: "API key is required" }),
-  apiSecret: z.string().min(1, { message: "API secret is required" }),
+  apiSecret: z.string().optional(),
   description: z.string().optional(),
 });
 
@@ -96,7 +96,7 @@ const IntegrationsPage = () => {
 
   // Add integration mutation
   const addIntegrationMutation = useMutation({
-    mutationFn: (data: IntegrationFormValues) => postData('/api/integrations', data),
+    mutationFn: (data: any) => postData('/api/integrations', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/integrations'] });
       setIsAddDialogOpen(false);
@@ -117,12 +117,14 @@ const IntegrationsPage = () => {
 
   // Update integration mutation
   const updateIntegrationMutation = useMutation({
-    mutationFn: (data: IntegrationFormValues & { id: number }) => 
+    mutationFn: (data: any) => 
       updateData(`/api/integrations/${data.id}`, {
         provider: data.provider,
-        apiKey: data.apiKey,
-        apiSecret: data.apiSecret,
+        type: data.type,
+        credentials: data.credentials,
         description: data.description,
+        isActive: data.isActive,
+        isPrimary: data.isPrimary
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/integrations'] });
@@ -175,14 +177,42 @@ const IntegrationsPage = () => {
 
   // Handle form submission
   const onSubmit = (values: IntegrationFormValues) => {
+    // Prepare data for API request
+    const integrationData = {
+      ...values,
+      // Add type field based on provider
+      type: getIntegrationType(values.provider),
+      // Format credentials object
+      credentials: {
+        apiKey: values.apiKey,
+        ...(values.apiSecret ? { apiSecret: values.apiSecret } : {})
+      },
+      // Default to active and non-primary unless specified
+      isActive: true,
+      isPrimary: false
+    };
+    
     if (editingIntegration) {
       updateIntegrationMutation.mutate({
-        ...values,
+        ...integrationData,
         id: editingIntegration.id,
       });
     } else {
-      addIntegrationMutation.mutate(values);
+      addIntegrationMutation.mutate(integrationData);
     }
+  };
+  
+  // Helper to determine integration type based on provider
+  const getIntegrationType = (provider: string): string => {
+    const providerMap: Record<string, string> = {
+      'alpaca': 'exchange',
+      'polygon': 'data',
+      'finnhub': 'data',
+      'binance': 'exchange',
+      'openai': 'ai'
+    };
+    
+    return providerMap[provider.toLowerCase()] || 'other';
   };
 
   return (
@@ -256,18 +286,18 @@ const IntegrationsPage = () => {
                     name="apiSecret"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>API Secret</FormLabel>
+                        <FormLabel>API Secret (Optional for some providers)</FormLabel>
                         <FormControl>
                           <Input 
                             type="password"
-                            placeholder="Enter your API secret" 
+                            placeholder="Enter your API secret if required" 
                             {...field} 
                           />
                         </FormControl>
                         <FormDescription>
                           {editingIntegration 
                             ? "Leave blank to keep current API secret." 
-                            : "The API secret provided by your trading platform."}
+                            : "The API secret provided by your trading platform. Not required for services like Polygon.io."}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
