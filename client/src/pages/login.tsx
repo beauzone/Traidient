@@ -27,16 +27,12 @@ const Login = () => {
         
         <p className="mt-10 text-center text-sm text-muted-foreground">
           By signing in, you agree to our{" "}
-          <Link href="/terms">
-            <a className="font-medium text-primary hover:text-primary/80">
-              Terms of Service
-            </a>
+          <Link href="/terms" className="font-medium text-primary hover:text-primary/80">
+            Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy">
-            <a className="font-medium text-primary hover:text-primary/80">
-              Privacy Policy
-            </a>
+          <Link href="/privacy" className="font-medium text-primary hover:text-primary/80">
+            Privacy Policy
           </Link>
         </p>
       </div>
