@@ -1558,9 +1558,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/sectors', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Import Yahoo Finance API
-      const yahooFinance = await import('./yahoo').then(module => module.default);
-      
       try {
         // Get sector performance data from Yahoo Finance
         const sectors = await yahooFinance.getSectorPerformance();
@@ -1598,9 +1595,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Import Yahoo Finance API
-      const yahooFinance = await import('./yahoo').then(module => module.default);
-      
       try {
         // Get top gainers from Yahoo Finance
         const gainers = await yahooFinance.getTopGainers(5);
@@ -1634,9 +1628,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Import Yahoo Finance API
-      const yahooFinance = await import('./yahoo').then(module => module.default);
-      
       try {
         // Get top losers from Yahoo Finance
         const losers = await yahooFinance.getTopLosers(5);
