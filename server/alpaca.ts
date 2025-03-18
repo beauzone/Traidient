@@ -1,21 +1,21 @@
 import { ApiIntegration } from "@shared/schema";
 
-// Mock class for Alpaca API integration for the MVP
-// This would normally use the actual Alpaca SDK
 export class AlpacaAPI {
   private apiKey: string;
   private apiSecret: string;
-  private baseUrl: string;
+  private tradingBaseUrl: string;
+  private dataBaseUrl: string;
 
   constructor(integration?: ApiIntegration) {
-    this.apiKey = integration?.credentials.apiKey || process.env.ALPACA_API_KEY || "demo-api-key";
-    this.apiSecret = integration?.credentials.apiSecret || process.env.ALPACA_API_SECRET || "demo-api-secret";
-    this.baseUrl = "https://paper-api.alpaca.markets/v2";
+    this.apiKey = integration?.credentials.apiKey || process.env.ALPACA_API_KEY || "";
+    this.apiSecret = integration?.credentials.apiSecret || process.env.ALPACA_API_SECRET || "";
+    this.tradingBaseUrl = "https://paper-api.alpaca.markets/v2";
+    this.dataBaseUrl = "https://data.alpaca.markets/v2";
   }
 
   async getAccount(): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/account`, {
+      const response = await fetch(`${this.tradingBaseUrl}/account`, {
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
           "APCA-API-SECRET-KEY": this.apiSecret
@@ -35,7 +35,7 @@ export class AlpacaAPI {
 
   async getPositions(): Promise<any[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/positions`, {
+      const response = await fetch(`${this.tradingBaseUrl}/positions`, {
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
           "APCA-API-SECRET-KEY": this.apiSecret
@@ -55,7 +55,7 @@ export class AlpacaAPI {
 
   async getOrders(): Promise<any[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/orders`, {
+      const response = await fetch(`${this.tradingBaseUrl}/orders`, {
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
           "APCA-API-SECRET-KEY": this.apiSecret
@@ -83,7 +83,7 @@ export class AlpacaAPI {
     stop_price?: number;
   }): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/orders`, {
+      const response = await fetch(`${this.tradingBaseUrl}/orders`, {
         method: 'POST',
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
@@ -106,7 +106,24 @@ export class AlpacaAPI {
 
   async getMarketData(symbol: string, timeframe: string = '1D', limit: number = 100): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/stocks/${symbol}/bars?timeframe=${timeframe}&limit=${limit}`, {
+      // Convert timeframe to Alpaca Data API format
+      const timeframeParts = timeframe.match(/^(\d+)([DMWY])$/);
+      if (!timeframeParts) {
+        throw new Error(`Invalid timeframe format: ${timeframe}`);
+      }
+      const [_, amount, unit] = timeframeParts;
+      const adjustedTimeframe = `${amount}${unit.toLowerCase()}`;
+
+      const today = new Date();
+      const pastDate = new Date();
+      pastDate.setDate(today.getDate() - 30); // Get data for last 30 days
+      
+      const startDate = pastDate.toISOString().split('T')[0];
+      const endDate = today.toISOString().split('T')[0];
+      
+      const url = `${this.dataBaseUrl}/stocks/${symbol}/bars?timeframe=${adjustedTimeframe}&start=${startDate}&end=${endDate}&limit=${limit}`;
+      
+      const response = await fetch(url, {
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
           "APCA-API-SECRET-KEY": this.apiSecret
@@ -126,7 +143,7 @@ export class AlpacaAPI {
 
   async getAssetInformation(symbol: string): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/assets/${symbol}`, {
+      const response = await fetch(`${this.tradingBaseUrl}/assets/${symbol}`, {
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
           "APCA-API-SECRET-KEY": this.apiSecret
@@ -141,6 +158,27 @@ export class AlpacaAPI {
     } catch (error) {
       console.error("Error fetching Alpaca asset information:", error);
       throw new Error("Failed to fetch Alpaca asset information");
+    }
+  }
+  
+  // Method to get latest quote for a symbol
+  async getQuote(symbol: string): Promise<any> {
+    try {
+      const response = await fetch(`${this.dataBaseUrl}/stocks/${symbol}/quotes/latest`, {
+        headers: {
+          "APCA-API-KEY-ID": this.apiKey,
+          "APCA-API-SECRET-KEY": this.apiSecret
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching quote: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching Alpaca quote:", error);
+      throw new Error("Failed to fetch Alpaca quote");
     }
   }
 
