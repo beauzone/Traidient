@@ -1069,41 +1069,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Symbol is required' });
       }
       
-      // Get API integration for market data
-      const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-      const alpacaAPI = new AlpacaAPI(alpacaIntegration);
-      
-      // Get asset information
-      const assetInfo = await alpacaAPI.getAssetInformation(symbol);
-      
-      // Get the latest quote from Alpaca
-      const quoteData = await alpacaAPI.getQuote(symbol);
-      const quote = quoteData.quote;
-      
-      // Calculate price change from previous day (this is simplified)
-      const price = quote.ap || quote.bp || 100; // Ask price or bid price
-      const prevPrice = price * (1 - (Math.random() * 0.05 - 0.025)); // For demonstration
-      const change = price - prevPrice;
-      const changePercent = (change / prevPrice) * 100;
-      
-      const responseQuote = {
-        symbol: symbol,
-        name: assetInfo.name || symbol,
-        price: price,
-        change: change,
-        changePercent: changePercent,
-        open: price * (1 - Math.random() * 0.02),
-        high: price * (1 + Math.random() * 0.02),
-        low: price * (1 - Math.random() * 0.03),
-        volume: Math.floor(Math.random() * 10000000), // Not typically in quote data
-        marketCap: Math.floor(Math.random() * 1000000000000),
-        peRatio: 15 + Math.random() * 25, // Not typically in quote data
-        dividend: Math.random() * 3,
-        eps: 5 + Math.random() * 15, // Not typically in quote data
-        exchange: assetInfo.exchange || "NASDAQ",
+      // Reference prices for common stocks (approximate as of March 2025)
+      const referencePrices: Record<string, any> = {
+        'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
+        'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+        'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
+        'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+        'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+        'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+        'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
+        'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+        'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
+        'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
+        'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
+        'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+        'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
+        'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
+        'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
+        'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
+        'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
+        'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
+        'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
+        'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
+        'PLTR': { price: 24.30, name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
+        'CRWD': { price: 322.00, name: 'CrowdStrike Holdings Inc.', exchange: 'NASDAQ' },
+        'PANS': { price: 688.24, name: 'Palo Alto Networks Inc.', exchange: 'NASDAQ' }
       };
       
-      res.json(responseQuote);
+      try {
+        // Try to get real data from Alpaca API
+        // Get API integration for market data
+        const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+        const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+        
+        // Get asset information
+        const assetInfo = await alpacaAPI.getAssetInformation(symbol);
+        
+        // Get the latest quote from Alpaca
+        const quoteData = await alpacaAPI.getQuote(symbol);
+        const quote = quoteData.quote;
+        
+        // Calculate price change from previous day (this is simplified)
+        const price = quote.ap || quote.bp || 100; // Ask price or bid price
+        const prevPrice = price * (1 - (Math.random() * 0.05 - 0.025)); // For demonstration
+        const change = price - prevPrice;
+        const changePercent = (change / prevPrice) * 100;
+        
+        const responseQuote = {
+          symbol: symbol,
+          name: assetInfo.name || symbol,
+          price: price,
+          change: change,
+          changePercent: changePercent,
+          open: price * (1 - Math.random() * 0.02),
+          high: price * (1 + Math.random() * 0.02),
+          low: price * (1 - Math.random() * 0.03),
+          volume: Math.floor(Math.random() * 10000000), // Not typically in quote data
+          marketCap: Math.floor(Math.random() * 1000000000000),
+          peRatio: 15 + Math.random() * 25, // Not typically in quote data
+          dividend: Math.random() * 3,
+          eps: 5 + Math.random() * 15, // Not typically in quote data
+          exchange: assetInfo.exchange || "NASDAQ",
+          isSimulated: false
+        };
+        
+        res.json(responseQuote);
+      } catch (apiError) {
+        console.log(`Falling back to simulation data for ${symbol} due to API error:`, apiError);
+        
+        // Fall back to simulation data
+        const refData = referencePrices[symbol.toUpperCase()];
+        const basePrice = refData?.price || 100 + Math.random() * 900;
+        const name = refData?.name || symbol;
+        const exchange = refData?.exchange || "NASDAQ";
+        
+        // Add a small random variation to the price (±1%)
+        const priceVariation = basePrice * 0.01 * (Math.random() * 2 - 1);
+        const currentPrice = basePrice + priceVariation;
+        
+        // Calculate a plausible daily change (±2%)
+        const changeDirection = Math.random() > 0.5 ? 1 : -1;
+        const changeAmount = basePrice * (Math.random() * 0.02) * changeDirection;
+        const changePercent = (changeAmount / basePrice) * 100;
+        
+        const responseQuote = {
+          symbol: symbol.toUpperCase(),
+          name: name,
+          price: currentPrice,
+          change: parseFloat(changeAmount.toFixed(2)),
+          changePercent: parseFloat(changePercent.toFixed(2)),
+          open: basePrice - basePrice * 0.005 * (Math.random() * 2 - 1),
+          high: basePrice + basePrice * 0.01 * Math.random(),
+          low: basePrice - basePrice * 0.01 * Math.random(),
+          volume: Math.floor(Math.random() * 10000000),
+          marketCap: Math.floor(basePrice * 1000000000 * (1 + Math.random())),
+          peRatio: 15 + Math.random() * 25,
+          dividend: Math.random() * 3,
+          eps: 5 + Math.random() * 15,
+          exchange: exchange,
+          isSimulated: true
+        };
+        
+        res.json(responseQuote);
+      }
     } catch (error) {
       console.error('Get quote error:', error);
       res.status(500).json({ message: 'Error fetching quote' });
@@ -1124,14 +1192,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Symbol is required' });
       }
       
-      // Get API integration for market data
-      const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-      const alpacaAPI = new AlpacaAPI(alpacaIntegration);
-      
-      // Get historical data
-      const historicalData = await alpacaAPI.getMarketData(symbol, timeframe, limit);
-      
-      res.json(historicalData);
+      try {
+        // Try to get real data from Alpaca API
+        // Get API integration for market data
+        const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+        const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+        
+        // Get historical data
+        const historicalData = await alpacaAPI.getMarketData(symbol, timeframe, limit);
+        
+        res.json({
+          ...historicalData,
+          isSimulated: false
+        });
+      } catch (apiError) {
+        console.log(`Falling back to simulation data for historical ${symbol} due to API error:`, apiError);
+        
+        // Generate realistic historical data if the API fails
+        const today = new Date();
+        const startDate = new Date();
+        startDate.setDate(today.getDate() - 100); // 100 days of data
+        
+        // Reference prices for common stocks to get a realistic base price
+        const referencePrices: Record<string, any> = {
+          'AAPL': { price: 214.50 },
+          'MSFT': { price: 428.50 },
+          'GOOG': { price: 175.90 },
+          'GOOGL': { price: 176.30 },
+          'AMZN': { price: 178.30 },
+          'META': { price: 499.50 },
+          'TSLA': { price: 177.50 },
+          'NVDA': { price: 924.70 },
+          'NFLX': { price: 626.80 },
+          'PLTR': { price: 24.30 },
+          'CRWD': { price: 322.00 },
+          'PANS': { price: 688.24 }
+        };
+        
+        const endPrice = referencePrices[symbol.toUpperCase()]?.price || 100 + Math.random() * 900;
+        
+        // Generate a trend line with some randomness
+        const trend = Math.random() > 0.5 ? 1 : -1; // Upward or downward trend
+        const volatility = 0.01 + Math.random() * 0.02; // 1-3% daily volatility
+        
+        const bars = [];
+        let currentPrice = endPrice * (1 - trend * 0.2); // Start ~20% away from current price
+        
+        for (let i = 0; i < limit; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          
+          // Skip weekends
+          if (date.getDay() === 0 || date.getDay() === 6) continue;
+          
+          // Add some daily randomness while maintaining the overall trend
+          const dailyChange = (trend * 0.002) + (volatility * (Math.random() * 2 - 1));
+          currentPrice = currentPrice * (1 + dailyChange);
+          
+          // Ensure price is positive
+          currentPrice = Math.max(0.01, currentPrice);
+          
+          // Calculate daily ranges
+          const open = currentPrice * (1 + (Math.random() * 0.01 - 0.005));
+          const high = Math.max(open, currentPrice) * (1 + Math.random() * 0.01);
+          const low = Math.min(open, currentPrice) * (1 - Math.random() * 0.01);
+          const close = currentPrice;
+          const volume = Math.floor(1000000 + Math.random() * 10000000);
+          
+          bars.push({
+            t: date.toISOString(),
+            o: parseFloat(open.toFixed(2)),
+            h: parseFloat(high.toFixed(2)),
+            l: parseFloat(low.toFixed(2)),
+            c: parseFloat(close.toFixed(2)),
+            v: volume
+          });
+        }
+        
+        res.json({
+          symbol: symbol.toUpperCase(),
+          bars: bars,
+          isSimulated: true
+        });
+      }
     } catch (error) {
       console.error('Get historical data error:', error);
       res.status(500).json({ message: 'Error fetching historical data' });
@@ -1187,6 +1330,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Remove from watchlist error:', error);
       res.status(500).json({ message: 'Error removing from watchlist' });
+    }
+  });
+
+  // Additional market data endpoints
+  app.get('/api/market-data/indices', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      // Simulated index data for UI display
+      const indices = [
+        {
+          name: 'S&P 500',
+          symbol: 'SPX',
+          price: 5427.25,
+          change: 32.16,
+          changePercent: 0.60
+        },
+        {
+          name: 'Dow Jones',
+          symbol: 'DJIA',
+          price: 38456.78,
+          change: -105.43,
+          changePercent: -0.27
+        },
+        {
+          name: 'Nasdaq',
+          symbol: 'IXIC',
+          price: 18050.12,
+          change: 130.27,
+          changePercent: 0.73
+        },
+        {
+          name: 'Russell 2000',
+          symbol: 'RUT',
+          price: 2187.43,
+          change: 15.32,
+          changePercent: 0.71
+        }
+      ];
+      
+      res.json(indices);
+    } catch (error) {
+      console.error('Get indices error:', error);
+      res.status(500).json({ message: 'Error fetching market indices' });
+    }
+  });
+
+  app.get('/api/market-data/sectors', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      // Simulated sector performance data for UI display
+      const sectors = [
+        { name: 'Technology', performance: 1.72, color: '#4f46e5' },
+        { name: 'Healthcare', performance: 0.83, color: '#06b6d4' },
+        { name: 'Financials', performance: 0.21, color: '#3b82f6' },
+        { name: 'Consumer Discretionary', performance: 0.95, color: '#6366f1' },
+        { name: 'Energy', performance: -1.25, color: '#f43f5e' },
+        { name: 'Materials', performance: -0.37, color: '#ec4899' },
+        { name: 'Industrials', performance: 0.42, color: '#8b5cf6' },
+        { name: 'Utilities', performance: -0.15, color: '#a855f7' },
+        { name: 'Real Estate', performance: 0.08, color: '#d946ef' }
+      ];
+      
+      res.json(sectors);
+    } catch (error) {
+      console.error('Get sectors error:', error);
+      res.status(500).json({ message: 'Error fetching sector performance' });
+    }
+  });
+
+  app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      // Simulated top gainers data for UI display
+      const gainers = [
+        { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 938.46, change: 13.76, changePercent: 1.49 },
+        { symbol: 'MRVL', name: 'Marvell Technology, Inc.', price: 72.35, change: 4.18, changePercent: 6.13 },
+        { symbol: 'PANW', name: 'Palo Alto Networks Inc', price: 311.78, change: 9.52, changePercent: 3.15 },
+        { symbol: 'AMD', name: 'Advanced Micro Devices Inc', price: 175.24, change: 4.83, changePercent: 2.83 },
+        { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92 }
+      ];
+      
+      res.json(gainers);
+    } catch (error) {
+      console.error('Get gainers error:', error);
+      res.status(500).json({ message: 'Error fetching top gainers' });
+    }
+  });
+
+  app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      // Simulated top losers data for UI display
+      const losers = [
+        { symbol: 'CVX', name: 'Chevron Corporation', price: 155.61, change: -2.43, changePercent: -1.54 },
+        { symbol: 'XOM', name: 'Exxon Mobil Corporation', price: 113.65, change: -1.54, changePercent: -1.34 },
+        { symbol: 'WMT', name: 'Walmart Inc', price: 59.53, change: -0.75, changePercent: -1.24 },
+        { symbol: 'VZ', name: 'Verizon Communications Inc', price: 41.02, change: -0.48, changePercent: -1.16 },
+        { symbol: 'INTC', name: 'Intel Corporation', price: 41.93, change: -0.47, changePercent: -1.11 }
+      ];
+      
+      res.json(losers);
+    } catch (error) {
+      console.error('Get losers error:', error);
+      res.status(500).json({ message: 'Error fetching top losers' });
     }
   });
 
