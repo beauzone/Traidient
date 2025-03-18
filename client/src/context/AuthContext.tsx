@@ -96,8 +96,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await apiRequest('POST', '/api/auth/login', { username, password });
-      const data = await response.json();
+      // The apiRequest in lib/api.ts already processes the response to JSON
+      const data = await apiRequest('POST', '/api/auth/login', { username, password });
 
       localStorage.setItem('token', data.token);
       setToken(data.token);
@@ -113,8 +113,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const register = async (userData: RegisterData) => {
     try {
-      const response = await apiRequest('POST', '/api/auth/register', userData);
-      const data = await response.json();
+      // The apiRequest in lib/api.ts already processes the response to JSON
+      const data = await apiRequest('POST', '/api/auth/register', userData);
 
       localStorage.setItem('token', data.token);
       setToken(data.token);
@@ -139,8 +139,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const updateUser = async (userData: Partial<User>) => {
     try {
-      const response = await apiRequest('PUT', '/api/users/profile', userData);
-      const updatedUser = await response.json();
+      // The apiRequest in lib/api.ts already processes the response to JSON
+      const updatedUser = await apiRequest('PUT', '/api/users/profile', userData);
       setUser(updatedUser);
     } catch (error) {
       console.error('User update failed:', error);
