@@ -85,6 +85,22 @@ interface TrendingTicker {
   exchange: string;
 }
 
+// Type definition for sector performance
+interface SectorPerformance {
+  name: string;
+  performance: number;
+  color: string;
+}
+
+// Type definition for market mover (gainer or loser)
+interface MarketMover {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
 /**
  * Yahoo Finance API service for retrieving stock data
  * This is useful for:
@@ -272,14 +288,70 @@ export class YahooFinanceAPI {
     const day = now.getDay();
     const hour = now.getHours();
     const minute = now.getMinutes();
+    const month = now.getMonth();
+    const date = now.getDate();
+    const year = now.getFullYear();
     
     // Market is closed on weekends (0 = Sunday, 6 = Saturday)
     if (day === 0 || day === 6) {
       return false;
     }
     
+    // Check for major US holidays (simplified implementation)
+    // These are approximations and should be updated annually for exact dates
+    
+    // New Year's Day - January 1st or closest weekday
+    if (month === 0 && date === 1) {
+      return false;
+    }
+    
+    // Martin Luther King Jr. Day - Third Monday in January
+    if (month === 0 && day === 1 && date >= 15 && date <= 21) {
+      return false;
+    }
+    
+    // President's Day - Third Monday in February
+    if (month === 1 && day === 1 && date >= 15 && date <= 21) {
+      return false;
+    }
+    
+    // Good Friday - This varies by year, simplified check
+    // For 2025, Good Friday is April 18th
+    if (year === 2025 && month === 3 && date === 18) {
+      return false;
+    }
+    
+    // Memorial Day - Last Monday in May
+    if (month === 4 && day === 1 && date >= 25) {
+      return false;
+    }
+    
+    // Juneteenth - June 19th
+    if (month === 5 && date === 19) {
+      return false;
+    }
+    
+    // Independence Day - July 4th
+    if (month === 6 && date === 4) {
+      return false;
+    }
+    
+    // Labor Day - First Monday in September
+    if (month === 8 && day === 1 && date <= 7) {
+      return false;
+    }
+    
+    // Thanksgiving Day - Fourth Thursday in November
+    if (month === 10 && day === 4 && date >= 22 && date <= 28) {
+      return false;
+    }
+    
+    // Christmas - December 25th
+    if (month === 11 && date === 25) {
+      return false;
+    }
+    
     // Convert current time to Eastern Time (ET) - this is a simplification
-    // A proper implementation would use a timezone library
     // Assuming the server is in UTC, Eastern Time is UTC-4 or UTC-5 depending on daylight saving
     // For simplicity, we'll just subtract 4 hours (approximating ET during DST)
     const etHour = (hour - 4 + 24) % 24;
@@ -290,6 +362,22 @@ export class YahooFinanceAPI {
     }
     
     if (etHour === 9 && minute < 30) {
+      return false;
+    }
+    
+    // Early closings (1:00 PM ET) on days before certain holidays
+    // Day before Independence Day
+    if (month === 6 && date === 3 && (etHour >= 13)) {
+      return false;
+    }
+    
+    // Day after Thanksgiving
+    if (month === 10 && day === 5 && date >= 23 && date <= 29 && (etHour >= 13)) {
+      return false;
+    }
+    
+    // Christmas Eve
+    if (month === 11 && date === 24 && (etHour >= 13)) {
       return false;
     }
     
@@ -307,13 +395,13 @@ export class YahooFinanceAPI {
       return result.quotes.map(quote => {
         // Safe property access with fallbacks
         const symbol = typeof quote.symbol === 'string' ? quote.symbol : '';
-        const longName = typeof quote.longName === 'string' ? quote.longName : '';
-        const shortName = typeof quote.shortName === 'string' ? quote.shortName : '';
-        const price = typeof quote.regularMarketPrice === 'number' ? quote.regularMarketPrice : 0;
-        const change = typeof quote.regularMarketChange === 'number' ? quote.regularMarketChange : 0;
-        const changePercent = typeof quote.regularMarketChangePercent === 'number' ? quote.regularMarketChangePercent : 0;
-        const fullExchangeName = typeof quote.fullExchangeName === 'string' ? quote.fullExchangeName : '';
-        const exchangeName = typeof quote.exchange === 'string' ? quote.exchange : 'UNKNOWN';
+        const longName = 'longName' in quote && typeof quote.longName === 'string' ? quote.longName : '';
+        const shortName = 'shortName' in quote && typeof quote.shortName === 'string' ? quote.shortName : '';
+        const price = 'regularMarketPrice' in quote && typeof quote.regularMarketPrice === 'number' ? quote.regularMarketPrice : 0;
+        const change = 'regularMarketChange' in quote && typeof quote.regularMarketChange === 'number' ? quote.regularMarketChange : 0;
+        const changePercent = 'regularMarketChangePercent' in quote && typeof quote.regularMarketChangePercent === 'number' ? quote.regularMarketChangePercent : 0;
+        const fullExchangeName = 'fullExchangeName' in quote && typeof quote.fullExchangeName === 'string' ? quote.fullExchangeName : '';
+        const exchangeName = 'exchange' in quote && typeof quote.exchange === 'string' ? quote.exchange : 'UNKNOWN';
         
         return {
           symbol,
@@ -327,6 +415,130 @@ export class YahooFinanceAPI {
     } catch (error) {
       console.error('Error fetching trending tickers:', error);
       throw new Error('Failed to fetch trending tickers');
+    }
+  }
+  
+  /**
+   * Get sector performance data
+   * @returns List of sector performance data
+   */
+  async getSectorPerformance(): Promise<SectorPerformance[]> {
+    try {
+      // Sector ETFs that represent different market sectors
+      const sectorSymbols = {
+        'Technology': 'XLK',
+        'Financials': 'XLF',
+        'Healthcare': 'XLV',
+        'Consumer Discretionary': 'XLY',
+        'Consumer Staples': 'XLP',
+        'Energy': 'XLE',
+        'Materials': 'XLB',
+        'Industrials': 'XLI',
+        'Utilities': 'XLU',
+        'Real Estate': 'XLRE',
+        'Communication Services': 'XLC'
+      };
+      
+      // Fetch quotes for all sector ETFs
+      const symbols = Object.values(sectorSymbols);
+      const quotesPromises = symbols.map(symbol => this.getQuote(symbol));
+      const quotes = await Promise.all(quotesPromises);
+      
+      // Map of sector colors
+      const sectorColors: Record<string, string> = {
+        'Technology': '#4f46e5',
+        'Financials': '#3b82f6',
+        'Healthcare': '#06b6d4',
+        'Consumer Discretionary': '#6366f1',
+        'Consumer Staples': '#0ea5e9',
+        'Energy': '#f43f5e',
+        'Materials': '#ec4899',
+        'Industrials': '#8b5cf6',
+        'Utilities': '#a855f7',
+        'Real Estate': '#d946ef',
+        'Communication Services': '#14b8a6'
+      };
+      
+      // Map quotes to sector performance data
+      const sectors: SectorPerformance[] = [];
+      
+      // Find the sector name for each symbol
+      for (const quote of quotes) {
+        const sectorName = Object.entries(sectorSymbols).find(([_, s]) => s === quote.symbol)?.[0];
+        if (sectorName) {
+          sectors.push({
+            name: sectorName,
+            performance: quote.changePercent,
+            color: sectorColors[sectorName] || '#4f46e5'
+          });
+        }
+      }
+      
+      // Sort by performance (descending)
+      return sectors.sort((a, b) => b.performance - a.performance);
+    } catch (error) {
+      console.error('Error fetching sector performance:', error);
+      throw new Error('Failed to fetch sector performance data');
+    }
+  }
+  
+  /**
+   * Get top gainers from Yahoo Finance
+   * @param limit Number of gainers to return
+   * @returns List of top gainers
+   */
+  async getTopGainers(limit: number = 5): Promise<MarketMover[]> {
+    try {
+      // Use Yahoo Finance trending API to get all active symbols
+      const trending = await this.getTrendingTickers();
+      
+      // Sort by change percent (descending) to get top gainers
+      const gainers = trending
+        .filter(ticker => ticker.changePercent > 0)
+        .sort((a, b) => b.changePercent - a.changePercent)
+        .slice(0, limit)
+        .map(ticker => ({
+          symbol: ticker.symbol,
+          name: ticker.name,
+          price: ticker.price,
+          change: ticker.change,
+          changePercent: ticker.changePercent
+        }));
+      
+      return gainers;
+    } catch (error) {
+      console.error('Error fetching top gainers:', error);
+      throw new Error('Failed to fetch top gainers data');
+    }
+  }
+  
+  /**
+   * Get top losers from Yahoo Finance
+   * @param limit Number of losers to return
+   * @returns List of top losers
+   */
+  async getTopLosers(limit: number = 5): Promise<MarketMover[]> {
+    try {
+      // Use Yahoo Finance trending API to get all active symbols
+      const trending = await this.getTrendingTickers();
+      
+      // Sort by change percent (ascending) to get top losers
+      const losers = trending
+        .filter(ticker => ticker.changePercent < 0)
+        .sort((a, b) => a.changePercent - b.changePercent)
+        .slice(0, limit)
+        .map(ticker => ({
+          symbol: ticker.symbol,
+          name: ticker.name,
+          price: ticker.price,
+          change: ticker.change,
+          changePercent: ticker.changePercent
+        }));
+      
+      return losers;
+    } catch (error) {
+      console.error('Error fetching top losers:', error);
+      throw new Error('Failed to fetch top losers data');
     }
   }
 }

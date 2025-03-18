@@ -1418,39 +1418,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Additional market data endpoints
   app.get('/api/market-data/indices', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Simulated index data for UI display
-      const indices = [
-        {
-          name: 'S&P 500',
-          symbol: 'SPX',
-          price: 5427.25,
-          change: 32.16,
-          changePercent: 0.60
-        },
-        {
-          name: 'Dow Jones',
-          symbol: 'DJIA',
-          price: 38456.78,
-          change: -105.43,
-          changePercent: -0.27
-        },
-        {
-          name: 'Nasdaq',
-          symbol: 'IXIC',
-          price: 18050.12,
-          change: 130.27,
-          changePercent: 0.73
-        },
-        {
-          name: 'Russell 2000',
-          symbol: 'RUT',
-          price: 2187.43,
-          change: 15.32,
-          changePercent: 0.71
-        }
-      ];
+      // Import Yahoo Finance API
+      const yahooFinance = await import('./yahoo').then(module => module.default);
       
-      res.json(indices);
+      try {
+        // Get market indices data from Yahoo Finance
+        // Major US market indices
+        const indexSymbols = [
+          '^GSPC',  // S&P 500
+          '^DJI',   // Dow Jones Industrial Average
+          '^IXIC',  // NASDAQ Composite
+          '^RUT',   // Russell 2000
+          '^VIX'    // Volatility Index
+        ];
+        
+        // Fetch all quotes in parallel for better performance
+        const quotesPromises = indexSymbols.map(symbol => yahooFinance.getQuote(symbol));
+        const quotes = await Promise.all(quotesPromises);
+        
+        // Format the indices data for the frontend
+        const indices = quotes.map(quote => ({
+          name: quote.name,
+          symbol: quote.symbol,
+          price: quote.price,
+          change: quote.change,
+          changePercent: quote.changePercent,
+          dataSource: "yahoo"
+        }));
+        
+        res.json(indices);
+      } catch (error) {
+        console.error('Yahoo Finance API error for market indices:', error);
+        
+        // Fallback to reference data if Yahoo Finance fails
+        const indices = [
+          {
+            name: 'S&P 500',
+            symbol: '^GSPC',
+            price: 5427.25,
+            change: 32.16,
+            changePercent: 0.60,
+            dataSource: "reference"
+          },
+          {
+            name: 'Dow Jones',
+            symbol: '^DJI',
+            price: 38456.78,
+            change: -105.43,
+            changePercent: -0.27,
+            dataSource: "reference"
+          },
+          {
+            name: 'Nasdaq',
+            symbol: '^IXIC',
+            price: 18050.12,
+            change: 130.27,
+            changePercent: 0.73,
+            dataSource: "reference"
+          },
+          {
+            name: 'Russell 2000',
+            symbol: '^RUT',
+            price: 2187.43,
+            change: 15.32,
+            changePercent: 0.71,
+            dataSource: "reference"
+          },
+          {
+            name: 'Volatility Index',
+            symbol: '^VIX',
+            price: 22.34,
+            change: -1.23,
+            changePercent: -5.22,
+            dataSource: "reference"
+          }
+        ];
+        
+        res.json(indices);
+      }
     } catch (error) {
       console.error('Get indices error:', error);
       res.status(500).json({ message: 'Error fetching market indices' });
@@ -1459,20 +1504,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/sectors', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Simulated sector performance data for UI display
-      const sectors = [
-        { name: 'Technology', performance: 1.72, color: '#4f46e5' },
-        { name: 'Healthcare', performance: 0.83, color: '#06b6d4' },
-        { name: 'Financials', performance: 0.21, color: '#3b82f6' },
-        { name: 'Consumer Discretionary', performance: 0.95, color: '#6366f1' },
-        { name: 'Energy', performance: -1.25, color: '#f43f5e' },
-        { name: 'Materials', performance: -0.37, color: '#ec4899' },
-        { name: 'Industrials', performance: 0.42, color: '#8b5cf6' },
-        { name: 'Utilities', performance: -0.15, color: '#a855f7' },
-        { name: 'Real Estate', performance: 0.08, color: '#d946ef' }
-      ];
+      // Import Yahoo Finance API
+      const yahooFinance = await import('./yahoo').then(module => module.default);
       
-      res.json(sectors);
+      try {
+        // Get sector performance data from Yahoo Finance
+        const sectors = await yahooFinance.getSectorPerformance();
+        
+        // Add dataSource field to each sector
+        const sectorsWithSource = sectors.map(sector => ({
+          ...sector,
+          dataSource: "yahoo"
+        }));
+        
+        res.json(sectorsWithSource);
+      } catch (error) {
+        console.error('Yahoo Finance API error for sector performance:', error);
+        
+        // Fallback to reference data if Yahoo Finance fails
+        const sectors = [
+          { name: 'Technology', performance: 1.72, color: '#4f46e5', dataSource: "reference" },
+          { name: 'Healthcare', performance: 0.83, color: '#06b6d4', dataSource: "reference" },
+          { name: 'Financials', performance: 0.21, color: '#3b82f6', dataSource: "reference" },
+          { name: 'Consumer Discretionary', performance: 0.95, color: '#6366f1', dataSource: "reference" },
+          { name: 'Energy', performance: -1.25, color: '#f43f5e', dataSource: "reference" },
+          { name: 'Materials', performance: -0.37, color: '#ec4899', dataSource: "reference" },
+          { name: 'Industrials', performance: 0.42, color: '#8b5cf6', dataSource: "reference" },
+          { name: 'Utilities', performance: -0.15, color: '#a855f7', dataSource: "reference" },
+          { name: 'Real Estate', performance: 0.08, color: '#d946ef', dataSource: "reference" }
+        ];
+        
+        res.json(sectors);
+      }
     } catch (error) {
       console.error('Get sectors error:', error);
       res.status(500).json({ message: 'Error fetching sector performance' });
@@ -1481,16 +1544,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Simulated top gainers data for UI display
-      const gainers = [
-        { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 938.46, change: 13.76, changePercent: 1.49 },
-        { symbol: 'MRVL', name: 'Marvell Technology, Inc.', price: 72.35, change: 4.18, changePercent: 6.13 },
-        { symbol: 'PANW', name: 'Palo Alto Networks Inc', price: 311.78, change: 9.52, changePercent: 3.15 },
-        { symbol: 'AMD', name: 'Advanced Micro Devices Inc', price: 175.24, change: 4.83, changePercent: 2.83 },
-        { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92 }
-      ];
+      // Import Yahoo Finance API
+      const yahooFinance = await import('./yahoo').then(module => module.default);
       
-      res.json(gainers);
+      try {
+        // Get top gainers from Yahoo Finance
+        const gainers = await yahooFinance.getTopGainers(5);
+        
+        // Add dataSource field to each gainer
+        const gainersWithSource = gainers.map(gainer => ({
+          ...gainer,
+          dataSource: "yahoo"
+        }));
+        
+        res.json(gainersWithSource);
+      } catch (error) {
+        console.error('Yahoo Finance API error for top gainers:', error);
+        
+        // Fallback to reference data if Yahoo Finance fails
+        const gainers = [
+          { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 938.46, change: 13.76, changePercent: 1.49, dataSource: "reference" },
+          { symbol: 'MRVL', name: 'Marvell Technology, Inc.', price: 72.35, change: 4.18, changePercent: 6.13, dataSource: "reference" },
+          { symbol: 'PANW', name: 'Palo Alto Networks Inc', price: 311.78, change: 9.52, changePercent: 3.15, dataSource: "reference" },
+          { symbol: 'AMD', name: 'Advanced Micro Devices Inc', price: 175.24, change: 4.83, changePercent: 2.83, dataSource: "reference" },
+          { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92, dataSource: "reference" }
+        ];
+        
+        res.json(gainers);
+      }
     } catch (error) {
       console.error('Get gainers error:', error);
       res.status(500).json({ message: 'Error fetching top gainers' });
@@ -1499,16 +1580,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Simulated top losers data for UI display
-      const losers = [
-        { symbol: 'CVX', name: 'Chevron Corporation', price: 155.61, change: -2.43, changePercent: -1.54 },
-        { symbol: 'XOM', name: 'Exxon Mobil Corporation', price: 113.65, change: -1.54, changePercent: -1.34 },
-        { symbol: 'WMT', name: 'Walmart Inc', price: 59.53, change: -0.75, changePercent: -1.24 },
-        { symbol: 'VZ', name: 'Verizon Communications Inc', price: 41.02, change: -0.48, changePercent: -1.16 },
-        { symbol: 'INTC', name: 'Intel Corporation', price: 41.93, change: -0.47, changePercent: -1.11 }
-      ];
+      // Import Yahoo Finance API
+      const yahooFinance = await import('./yahoo').then(module => module.default);
       
-      res.json(losers);
+      try {
+        // Get top losers from Yahoo Finance
+        const losers = await yahooFinance.getTopLosers(5);
+        
+        // Add dataSource field to each loser
+        const losersWithSource = losers.map(loser => ({
+          ...loser,
+          dataSource: "yahoo"
+        }));
+        
+        res.json(losersWithSource);
+      } catch (error) {
+        console.error('Yahoo Finance API error for top losers:', error);
+        
+        // Fallback to reference data if Yahoo Finance fails
+        const losers = [
+          { symbol: 'CVX', name: 'Chevron Corporation', price: 155.61, change: -2.43, changePercent: -1.54, dataSource: "reference" },
+          { symbol: 'XOM', name: 'Exxon Mobil Corporation', price: 113.65, change: -1.54, changePercent: -1.34, dataSource: "reference" },
+          { symbol: 'WMT', name: 'Walmart Inc', price: 59.53, change: -0.75, changePercent: -1.24, dataSource: "reference" },
+          { symbol: 'VZ', name: 'Verizon Communications Inc', price: 41.02, change: -0.48, changePercent: -1.16, dataSource: "reference" },
+          { symbol: 'INTC', name: 'Intel Corporation', price: 41.93, change: -0.47, changePercent: -1.11, dataSource: "reference" }
+        ];
+        
+        res.json(losers);
+      }
     } catch (error) {
       console.error('Get losers error:', error);
       res.status(500).json({ message: 'Error fetching top losers' });
