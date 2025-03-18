@@ -18,6 +18,7 @@ import LiveTrading from "@/pages/live-trading";
 import MarketData from "@/pages/market-data";
 import Settings from "@/pages/settings";
 import Integrations from "@/pages/integrations";
+import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
 
 // Protected Route Component
@@ -88,6 +89,9 @@ function AppRoutes() {
       </Route>
       <Route path="/integrations">
         <ProtectedRoute component={Integrations} />
+      </Route>
+      <Route path="/broker-configuration">
+        <ProtectedRoute component={BrokerConfiguration} />
       </Route>
       <Route path="/">
         <Redirect to="/dashboard" />

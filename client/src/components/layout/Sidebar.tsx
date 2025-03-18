@@ -15,7 +15,8 @@ import {
   Plug,
   HelpCircle,
   X,
-  Menu
+  Menu,
+  DollarSign
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -43,6 +44,7 @@ const Sidebar = () => {
   const accountItems = [
     { path: "/settings", name: "Settings", icon: <Settings className="mr-3 flex-shrink-0 h-5 w-5" /> },
     { path: "/integrations", name: "Integrations", icon: <Plug className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/broker-configuration", name: "Broker Accounts", icon: <DollarSign className="mr-3 flex-shrink-0 h-5 w-5" /> },
     { path: "/help", name: "Help & Support", icon: <HelpCircle className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
