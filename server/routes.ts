@@ -1695,6 +1695,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // TRADING ROUTES
+  app.get('/api/trading/orders', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Try to get API integration for trading
+      try {
+        let alpacaAPI;
+        try {
+          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+          alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          console.log("Using user's Alpaca API integration for orders");
+        } catch (err) {
+          console.log("No user-specific Alpaca integration found, using environment variables for orders");
+          alpacaAPI = new AlpacaAPI();
+        }
+        
+        // Get real orders from Alpaca
+        const orders = await alpacaAPI.getOrders();
+        console.log(`Retrieved ${orders.length} orders from Alpaca`);
+        
+        // Format for frontend
+        const formattedOrders = orders.map((order: any) => ({
+          id: order.id,
+          symbol: order.symbol,
+          side: order.side,
+          type: order.type,
+          status: order.status,
+          quantity: parseFloat(order.qty),
+          filledQuantity: parseFloat(order.filled_qty || 0),
+          limitPrice: order.limit_price ? parseFloat(order.limit_price) : undefined,
+          stopPrice: order.stop_price ? parseFloat(order.stop_price) : undefined,
+          createdAt: order.created_at,
+          updatedAt: order.updated_at,
+          submittedBy: 'user', // Assumption - could add a flag in future for system orders
+          strategyName: order.client_order_id || 'Manual Order' // Could use this field for strategy IDs
+        }));
+        
+        res.json(formattedOrders);
+      } catch (alpacaError) {
+        console.error('Error fetching Alpaca orders:', alpacaError);
+        // Return empty array instead of error for UI compatibility
+        res.json([]);
+      }
+    } catch (error) {
+      console.error('Get orders error:', error);
+      res.status(500).json({ message: 'Error fetching orders' });
+    }
+  });
+  
+  app.get('/api/trading/positions', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Try to get API integration for trading
+      try {
+        let alpacaAPI;
+        try {
+          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+          alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          console.log("Using user's Alpaca API integration for positions");
+        } catch (err) {
+          console.log("No user-specific Alpaca integration found, using environment variables for positions");
+          alpacaAPI = new AlpacaAPI();
+        }
+        
+        // Get real positions from Alpaca
+        const positions = await alpacaAPI.getPositions();
+        console.log(`Retrieved ${positions.length} positions from Alpaca`);
+        
+        // Format for frontend
+        const formattedPositions = positions.map((position: any) => ({
+          symbol: position.symbol,
+          assetName: position.symbol, // Alpaca doesn't provide name, just symbol
+          quantity: parseFloat(position.qty),
+          averageEntryPrice: parseFloat(position.avg_entry_price || 0),
+          marketValue: parseFloat(position.market_value || 0),
+          costBasis: parseFloat(position.cost_basis || 0),
+          unrealizedPnL: parseFloat(position.unrealized_pl || 0),
+          unrealizedPnLPercent: parseFloat(position.unrealized_plpc || 0) * 100,
+          currentPrice: parseFloat(position.current_price || 0)
+        }));
+        
+        res.json(formattedPositions);
+      } catch (alpacaError) {
+        console.error('Error fetching Alpaca positions:', alpacaError);
+        // Return empty array instead of error for UI compatibility
+        res.json([]);
+      }
+    } catch (error) {
+      console.error('Get positions error:', error);
+      res.status(500).json({ message: 'Error fetching positions' });
+    }
+  });
+  
+  app.post('/api/trading/orders', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { symbol, side, type, quantity, timeInForce, limitPrice, stopPrice } = req.body;
+      
+      if (!symbol || !side || !type || !quantity || !timeInForce) {
+        return res.status(400).json({ 
+          message: 'Missing required fields. Required: symbol, side, type, quantity, timeInForce' 
+        });
+      }
+      
+      // Try to get API integration for trading
+      try {
+        let alpacaAPI;
+        try {
+          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+          alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          console.log("Using user's Alpaca API integration for order placement");
+        } catch (err) {
+          console.log("No user-specific Alpaca integration found, using environment variables for order placement");
+          alpacaAPI = new AlpacaAPI();
+        }
+        
+        // Format order parameters for Alpaca
+        const orderParams: any = {
+          symbol,
+          qty: quantity.toString(),
+          side,
+          type,
+          time_in_force: timeInForce
+        };
+        
+        // Add limit price if provided and required
+        if ((type === 'limit' || type === 'stop_limit') && limitPrice) {
+          orderParams.limit_price = limitPrice.toString();
+        }
+        
+        // Add stop price if provided and required
+        if ((type === 'stop' || type === 'stop_limit') && stopPrice) {
+          orderParams.stop_price = stopPrice.toString();
+        }
+        
+        // Place the order
+        const order = await alpacaAPI.placeOrder(orderParams);
+        
+        // Format for response
+        const formattedOrder = {
+          id: order.id,
+          symbol: order.symbol,
+          side: order.side,
+          type: order.type,
+          status: order.status,
+          quantity: parseFloat(order.qty),
+          filledQuantity: parseFloat(order.filled_qty || 0),
+          limitPrice: order.limit_price ? parseFloat(order.limit_price) : undefined,
+          stopPrice: order.stop_price ? parseFloat(order.stop_price) : undefined,
+          createdAt: order.created_at,
+          updatedAt: order.updated_at,
+          submittedBy: 'user',
+          strategyName: 'Manual Order'
+        };
+        
+        res.status(201).json(formattedOrder);
+      } catch (alpacaError) {
+        console.error('Error placing Alpaca order:', alpacaError);
+        res.status(400).json({ 
+          message: 'Error placing order with Alpaca', 
+          error: alpacaError.message 
+        });
+      }
+    } catch (error) {
+      console.error('Place order error:', error);
+      res.status(500).json({ message: 'Error placing order' });
+    }
+  });
+  
+  app.get('/api/trading/account', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Try to get API integration for trading
+      try {
+        let alpacaAPI;
+        try {
+          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+          alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          console.log("Using user's Alpaca API integration for account data");
+        } catch (err) {
+          console.log("No user-specific Alpaca integration found, using environment variables for account data");
+          alpacaAPI = new AlpacaAPI();
+        }
+        
+        // Get account information
+        const account = await alpacaAPI.getAccount();
+        
+        // Format for frontend
+        const formattedAccount = {
+          id: account.id,
+          accountNumber: account.account_number,
+          status: account.status,
+          currency: account.currency,
+          cash: parseFloat(account.cash),
+          portfolioValue: parseFloat(account.portfolio_value),
+          buyingPower: parseFloat(account.buying_power),
+          daytradeCount: account.daytrade_count,
+          lastEquity: parseFloat(account.last_equity),
+          longMarketValue: parseFloat(account.long_market_value),
+          shortMarketValue: parseFloat(account.short_market_value),
+          equity: parseFloat(account.equity),
+          lastMaintenanceMargin: parseFloat(account.last_maintenance_margin),
+          maintenanceMargin: parseFloat(account.maintenance_margin),
+          initialMargin: parseFloat(account.initial_margin),
+          daytradeCount: account.daytrade_count,
+          daytradeLimit: 3, // Standard PDT rule
+          isPDT: account.pattern_day_trader || account.trading_blocked,
+          tradingBlocked: account.trading_blocked
+        };
+        
+        res.json(formattedAccount);
+      } catch (alpacaError) {
+        console.error('Error fetching Alpaca account:', alpacaError);
+        res.status(400).json({ 
+          message: 'Error fetching account data from Alpaca', 
+          error: alpacaError.message 
+        });
+      }
+    } catch (error) {
+      console.error('Get account error:', error);
+      res.status(500).json({ message: 'Error fetching account information' });
+    }
+  });
+
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       try {

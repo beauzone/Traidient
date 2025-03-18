@@ -33,30 +33,93 @@ const Dashboard = () => {
     queryFn: () => fetchData<Strategy[]>('/api/strategies'),
   });
 
-  // Sample data for charts - in a real app this would come from the API
-  const [portfolioData] = useState([
-    { date: "2023-01-01", value: 100000 },
-    { date: "2023-01-15", value: 102500 },
-    { date: "2023-02-01", value: 105000 },
-    { date: "2023-02-15", value: 103000 },
-    { date: "2023-03-01", value: 106000 },
-    { date: "2023-03-15", value: 108000 },
-    { date: "2023-04-01", value: 110000 },
-    { date: "2023-04-15", value: 112000 },
-    { date: "2023-05-01", value: 114000 },
-    { date: "2023-05-15", value: 115500 },
-    { date: "2023-06-01", value: 118000 },
-    { date: "2023-06-15", value: 121000 },
-    { date: "2023-07-01", value: 124500 },
-  ]);
+  // Fetch account data from Alpaca
+  const { data: accountData, isLoading: isLoadingAccount } = useQuery({
+    queryKey: ['/api/trading/account'],
+    queryFn: () => fetchData('/api/trading/account'),
+  });
 
-  const [assetAllocationData] = useState([
-    { name: "Stocks", value: 45, color: "#3B82F6" },
-    { name: "ETFs", value: 20, color: "#6366F1" },
-    { name: "Bonds", value: 15, color: "#10B981" },
-    { name: "Crypto", value: 10, color: "#F59E0B" },
-    { name: "Cash", value: 10, color: "#EF4444" },
-  ]);
+  // Fetch positions from Alpaca
+  const { data: positions = [], isLoading: isLoadingPositions } = useQuery({
+    queryKey: ['/api/trading/positions'],
+    queryFn: () => fetchData('/api/trading/positions'),
+  });
+
+  // Fetch orders from Alpaca
+  const { data: orders = [], isLoading: isLoadingOrders } = useQuery({
+    queryKey: ['/api/trading/orders'],
+    queryFn: () => fetchData('/api/trading/orders'),
+  });
+
+  // Generate portfolio history data (we'll hardcode for now, but in a full implementation
+  // we would fetch from an endpoint that returns historical equity values)
+  const [portfolioData] = useState(() => {
+    const today = new Date();
+    const data = [];
+    const baseValue = accountData?.lastEquity || 100000;
+    
+    for (let i = 90; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(today.getDate() - i);
+      // Add some randomness to simulate equity changes over time
+      const randomFactor = 1 + (Math.random() * 0.006 - 0.003); // ±0.3% daily variation
+      const value = i === 0 
+        ? (accountData?.equity || baseValue) 
+        : (baseValue * (1 + (90 - i) * 0.003 * randomFactor)); // Slight upward trend
+        
+      data.push({
+        date: date.toISOString().split('T')[0],
+        value: Math.round(value * 100) / 100,
+      });
+    }
+    
+    return data;
+  });
+
+  // Calculate asset allocation based on actual positions
+  const [assetAllocationData] = useState(() => {
+    if (positions.length === 0 && !accountData) {
+      return [
+        { name: "Cash", value: 100, color: "#EF4444" },
+      ];
+    }
+    
+    // Group positions by asset type/symbol
+    const assetGroups = new Map();
+    let totalEquity = 0;
+    
+    // Add positions
+    positions.forEach((position) => {
+      const value = position.marketValue;
+      totalEquity += value;
+      
+      if (assetGroups.has(position.symbol)) {
+        assetGroups.set(position.symbol, assetGroups.get(position.symbol) + value);
+      } else {
+        assetGroups.set(position.symbol, value);
+      }
+    });
+    
+    // Add cash
+    const cashValue = accountData?.cash || 0;
+    totalEquity += cashValue;
+    assetGroups.set("Cash", cashValue);
+    
+    // Format for chart
+    const colors = ["#3B82F6", "#6366F1", "#10B981", "#F59E0B", "#EF4444", 
+                    "#EC4899", "#8B5CF6", "#14B8A6", "#F97316", "#06B6D4"];
+                    
+    const result = Array.from(assetGroups.entries())
+      .map(([name, value], index) => ({
+        name,
+        value: Math.round((value / totalEquity) * 100),
+        color: colors[index % colors.length]
+      }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+      
+    return result;
+  });
 
   // Strategy actions
   const handlePauseStrategy = (id: number) => {
@@ -88,34 +151,73 @@ const Dashboard = () => {
     });
   };
 
+  // Format currency for display
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+  
+  // Calculate real P&L data from Alpaca account
+  const calculatePnL = () => {
+    if (!accountData) {
+      return {
+        value: "+$0.00",
+        percentage: "0.00%",
+        isPositive: true
+      };
+    }
+    
+    // Calculate P&L based on equity vs last equity
+    const pnlValue = accountData.equity - accountData.lastEquity;
+    const pnlPercentage = (pnlValue / accountData.lastEquity) * 100;
+    const isPositive = pnlValue >= 0;
+    
+    return {
+      value: `${isPositive ? '+' : ''}${formatCurrency(pnlValue)}`,
+      percentage: `${isPositive ? '+' : ''}${pnlPercentage.toFixed(2)}%`,
+      isPositive
+    };
+  };
+  
+  const pnlData = calculatePnL();
+  
   return (
     <MainLayout title="Dashboard">
-      {/* Stats Cards */}
-      <StatsCards
-        activeStrategies={strategies.filter(s => s.status === 'Running').length}
-        totalPnL={{
-          value: "+$5,839.12",
-          percentage: "8.34%",
-          isPositive: true,
-        }}
-        todayTrades={24}
-        alerts={2}
-      />
+      {isLoadingAccount ? (
+        <div className="flex items-center justify-center h-24">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <>
+          {/* Stats Cards */}
+          <StatsCards
+            activeStrategies={strategies.filter(s => s.status === 'Running').length}
+            totalPnL={pnlData}
+            todayTrades={orders.filter(o => new Date(o.createdAt).toDateString() === new Date().toDateString()).length}
+            alerts={0}
+          />
 
-      {/* Charts */}
-      <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <PortfolioChart
-          data={portfolioData}
-          currentValue="$124,394.48"
-          change={{
-            value: "$3,256.83",
-            percentage: "2.7%",
-            isPositive: true,
-          }}
-        />
-        
-        <AssetAllocation data={assetAllocationData} />
-      </div>
+          {/* Charts */}
+          <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <PortfolioChart
+              data={portfolioData}
+              currentValue={formatCurrency(accountData?.equity || 0)}
+              change={{
+                value: pnlData.value,
+                percentage: pnlData.percentage,
+                isPositive: pnlData.isPositive
+              }}
+            />
+            
+            <AssetAllocation data={assetAllocationData} />
+          </div>
+        </>
+      )}
+      
 
       {/* Strategy Performance */}
       <StrategyTable
