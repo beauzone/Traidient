@@ -154,8 +154,8 @@ export default function BrokerConfiguration() {
   const addIntegrationMutation = useMutation({
     mutationFn: (data: BrokerConfig) => {
       // Transform the data to match the API's expected format
-      const apiData = {
-        provider: data.provider,
+      const apiData: any = {
+        provider: data.provider === "generic" ? "alpaca" : data.provider, // Default to alpaca for generic type
         description: data.description || "",
         credentials: {},
       };
@@ -175,10 +175,16 @@ export default function BrokerConfiguration() {
           accountId: data.accountId,
           readOnly: data.readOnly,
         };
-      } else {
-        // Generic provider
+      } else if (data.provider === "generic") {
+        // For generic, use the stored original provider if available
+        if (data.additionalConfig?.originalProvider) {
+          apiData.provider = data.additionalConfig.originalProvider;
+        }
         apiData.credentials = {
-          ...data,
+          apiKey: data.apiKey || "",
+          apiSecret: data.apiSecret || "",
+          endpoint: data.endpoint || "",
+          additionalConfig: data.additionalConfig || {},
         };
       }
 
@@ -205,8 +211,8 @@ export default function BrokerConfiguration() {
   const updateIntegrationMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: BrokerConfig }) => {
       // Transform the data to match the API's expected format
-      const apiData = {
-        provider: data.provider,
+      const apiData: any = {
+        provider: data.provider === "generic" ? "alpaca" : data.provider, // Default to alpaca for generic type
         description: data.description || "",
         credentials: {},
       };
@@ -226,10 +232,16 @@ export default function BrokerConfiguration() {
           accountId: data.accountId,
           readOnly: data.readOnly,
         };
-      } else {
-        // Generic provider
+      } else if (data.provider === "generic") {
+        // For generic, use the stored original provider if available
+        if (data.additionalConfig?.originalProvider) {
+          apiData.provider = data.additionalConfig.originalProvider;
+        }
         apiData.credentials = {
-          ...data,
+          apiKey: data.apiKey || "",
+          apiSecret: data.apiSecret || "",
+          endpoint: data.endpoint || "",
+          additionalConfig: data.additionalConfig || {},
         };
       }
 
