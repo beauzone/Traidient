@@ -64,151 +64,95 @@ export interface IStorage {
   removeFromWatchlist(id: number): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private apiIntegrations: Map<number, ApiIntegration>;
-  private strategies: Map<number, Strategy>;
-  private backtests: Map<number, Backtest>;
-  private deployments: Map<number, Deployment>;
-  private watchlistItems: Map<number, WatchlistItem>;
-  
-  private userIdCounter: number = 1;
-  private apiIntegrationIdCounter: number = 1;
-  private strategyIdCounter: number = 1;
-  private backtestIdCounter: number = 1;
-  private deploymentIdCounter: number = 1;
-  private watchlistIdCounter: number = 1;
+import { db } from './db';
+import { eq, and } from 'drizzle-orm';
 
-  constructor() {
-    this.users = new Map();
-    this.apiIntegrations = new Map();
-    this.strategies = new Map();
-    this.backtests = new Map();
-    this.deployments = new Map();
-    this.watchlistItems = new Map();
-    
-    // Add some initial data
-    this.initializeData();
-  }
-
-  private initializeData() {
-    // This will be called when the storage is first created
-    // to populate with some initial demo data
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username.toLowerCase() === username.toLowerCase()
-    );
+    const result = await db.select().from(users).where(eq(users.username, username.toLowerCase()));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email.toLowerCase() === email.toLowerCase()
-    );
+    const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const now = new Date();
-    const user: User = { 
-      ...insertUser, 
-      id,
-      createdAt: now,
-      subscription: {
-        tier: 'free',
-        status: 'active',
-        expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      settings: {
-        theme: 'dark',
-        notifications: {
-          email: true,
-          push: true,
-          sms: false
-        },
-        defaultExchange: 'alpaca',
-        defaultAssets: ['AAPL', 'MSFT', 'GOOGL', 'AMZN']
-      }
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-
-    const updatedUser = { ...user, ...userData };
-    this.users.set(id, updatedUser);
+    const [updatedUser] = await db.update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
     return updatedUser;
   }
 
   // API Integration methods
   async getApiIntegration(id: number): Promise<ApiIntegration | undefined> {
-    return this.apiIntegrations.get(id);
+    const result = await db.select().from(apiIntegrations).where(eq(apiIntegrations.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getApiIntegrationsByUser(userId: number): Promise<ApiIntegration[]> {
-    return Array.from(this.apiIntegrations.values()).filter(
-      (integration) => integration.userId === userId
-    );
+    return await db.select().from(apiIntegrations).where(eq(apiIntegrations.userId, userId));
   }
 
   async getApiIntegrationByProviderAndUser(userId: number, provider: string): Promise<ApiIntegration | undefined> {
-    return Array.from(this.apiIntegrations.values()).find(
-      (integration) => integration.userId === userId && integration.provider === provider
-    );
+    const result = await db.select().from(apiIntegrations)
+      .where(and(
+        eq(apiIntegrations.userId, userId),
+        eq(apiIntegrations.provider, provider)
+      ));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async createApiIntegration(integration: InsertApiIntegration): Promise<ApiIntegration> {
-    const id = this.apiIntegrationIdCounter++;
-    const now = new Date();
-    const newIntegration: ApiIntegration = {
+    const [newIntegration] = await db.insert(apiIntegrations).values({
       ...integration,
-      id,
-      lastUsed: now,
-      lastStatus: 'ok'
-    };
-    this.apiIntegrations.set(id, newIntegration);
+      lastUsed: new Date(),
+      lastStatus: 'ok',
+      lastError: null
+    }).returning();
     return newIntegration;
   }
 
   async updateApiIntegration(id: number, integrationData: Partial<ApiIntegration>): Promise<ApiIntegration | undefined> {
-    const integration = this.apiIntegrations.get(id);
-    if (!integration) return undefined;
-
-    const updatedIntegration = { ...integration, ...integrationData };
-    this.apiIntegrations.set(id, updatedIntegration);
+    const [updatedIntegration] = await db.update(apiIntegrations)
+      .set(integrationData)
+      .where(eq(apiIntegrations.id, id))
+      .returning();
     return updatedIntegration;
   }
 
   async deleteApiIntegration(id: number): Promise<boolean> {
-    return this.apiIntegrations.delete(id);
+    const result = await db.delete(apiIntegrations).where(eq(apiIntegrations.id, id));
+    return result.count > 0;
   }
 
   // Strategy methods
   async getStrategy(id: number): Promise<Strategy | undefined> {
-    return this.strategies.get(id);
+    const result = await db.select().from(strategies).where(eq(strategies.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getStrategiesByUser(userId: number): Promise<Strategy[]> {
-    return Array.from(this.strategies.values()).filter(
-      (strategy) => strategy.userId === userId
-    );
+    return await db.select().from(strategies).where(eq(strategies.userId, userId));
   }
 
   async createStrategy(strategy: InsertStrategy): Promise<Strategy> {
-    const id = this.strategyIdCounter++;
     const now = new Date();
-    const newStrategy: Strategy = {
+    const [newStrategy] = await db.insert(strategies).values({
       ...strategy,
-      id,
       status: 'draft',
       versions: [{
         version: 1,
@@ -219,147 +163,128 @@ export class MemStorage implements IStorage {
       performance: {},
       createdAt: now,
       updatedAt: now
-    };
-    this.strategies.set(id, newStrategy);
+    }).returning();
     return newStrategy;
   }
 
   async updateStrategy(id: number, strategyData: Partial<Strategy>): Promise<Strategy | undefined> {
-    const strategy = this.strategies.get(id);
-    if (!strategy) return undefined;
-
     const now = new Date();
-    const updatedStrategy = { 
-      ...strategy, 
-      ...strategyData,
-      updatedAt: now
-    };
-    
-    this.strategies.set(id, updatedStrategy);
+    const [updatedStrategy] = await db.update(strategies)
+      .set({
+        ...strategyData,
+        updatedAt: now
+      })
+      .where(eq(strategies.id, id))
+      .returning();
     return updatedStrategy;
   }
 
   async deleteStrategy(id: number): Promise<boolean> {
-    return this.strategies.delete(id);
+    const result = await db.delete(strategies).where(eq(strategies.id, id));
+    return result.count > 0;
   }
 
   // Backtest methods
   async getBacktest(id: number): Promise<Backtest | undefined> {
-    return this.backtests.get(id);
+    const result = await db.select().from(backtests).where(eq(backtests.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getBacktestsByStrategy(strategyId: number): Promise<Backtest[]> {
-    return Array.from(this.backtests.values()).filter(
-      (backtest) => backtest.strategyId === strategyId
-    );
+    return await db.select().from(backtests).where(eq(backtests.strategyId, strategyId));
   }
 
   async getBacktestsByUser(userId: number): Promise<Backtest[]> {
-    return Array.from(this.backtests.values()).filter(
-      (backtest) => backtest.userId === userId
-    );
+    return await db.select().from(backtests).where(eq(backtests.userId, userId));
   }
 
   async createBacktest(backtest: InsertBacktest): Promise<Backtest> {
-    const id = this.backtestIdCounter++;
-    const now = new Date();
-    const newBacktest: Backtest = {
+    const [newBacktest] = await db.insert(backtests).values({
       ...backtest,
-      id,
       status: 'queued',
       results: {},
-      createdAt: now
-    };
-    this.backtests.set(id, newBacktest);
+      createdAt: new Date(),
+      completedAt: null,
+      error: null
+    }).returning();
     return newBacktest;
   }
 
   async updateBacktest(id: number, backtestData: Partial<Backtest>): Promise<Backtest | undefined> {
-    const backtest = this.backtests.get(id);
-    if (!backtest) return undefined;
-
-    const updatedBacktest = { ...backtest, ...backtestData };
-    this.backtests.set(id, updatedBacktest);
+    const [updatedBacktest] = await db.update(backtests)
+      .set(backtestData)
+      .where(eq(backtests.id, id))
+      .returning();
     return updatedBacktest;
   }
 
   async deleteBacktest(id: number): Promise<boolean> {
-    return this.backtests.delete(id);
+    const result = await db.delete(backtests).where(eq(backtests.id, id));
+    return result.count > 0;
   }
 
   // Deployment methods
   async getDeployment(id: number): Promise<Deployment | undefined> {
-    return this.deployments.get(id);
+    const result = await db.select().from(deployments).where(eq(deployments.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getDeploymentsByUser(userId: number): Promise<Deployment[]> {
-    return Array.from(this.deployments.values()).filter(
-      (deployment) => deployment.userId === userId
-    );
+    return await db.select().from(deployments).where(eq(deployments.userId, userId));
   }
 
   async getDeploymentsByStrategy(strategyId: number): Promise<Deployment[]> {
-    return Array.from(this.deployments.values()).filter(
-      (deployment) => deployment.strategyId === strategyId
-    );
+    return await db.select().from(deployments).where(eq(deployments.strategyId, strategyId));
   }
 
   async createDeployment(deployment: InsertDeployment): Promise<Deployment> {
-    const id = this.deploymentIdCounter++;
     const now = new Date();
-    const newDeployment: Deployment = {
+    const [newDeployment] = await db.insert(deployments).values({
       ...deployment,
-      id,
       status: 'starting',
       runtime: {},
       performance: {},
       createdAt: now,
-      updatedAt: now
-    };
-    this.deployments.set(id, newDeployment);
+      updatedAt: now,
+      environment: deployment.environment || 'production'
+    }).returning();
     return newDeployment;
   }
 
   async updateDeployment(id: number, deploymentData: Partial<Deployment>): Promise<Deployment | undefined> {
-    const deployment = this.deployments.get(id);
-    if (!deployment) return undefined;
-
     const now = new Date();
-    const updatedDeployment = { 
-      ...deployment, 
-      ...deploymentData,
-      updatedAt: now
-    };
-    this.deployments.set(id, updatedDeployment);
+    const [updatedDeployment] = await db.update(deployments)
+      .set({
+        ...deploymentData,
+        updatedAt: now
+      })
+      .where(eq(deployments.id, id))
+      .returning();
     return updatedDeployment;
   }
 
   async deleteDeployment(id: number): Promise<boolean> {
-    return this.deployments.delete(id);
+    const result = await db.delete(deployments).where(eq(deployments.id, id));
+    return result.count > 0;
   }
 
   // Watchlist methods
   async getWatchlistItems(userId: number): Promise<WatchlistItem[]> {
-    return Array.from(this.watchlistItems.values()).filter(
-      (item) => item.userId === userId
-    );
+    return await db.select().from(watchlist).where(eq(watchlist.userId, userId));
   }
 
   async addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem> {
-    const id = this.watchlistIdCounter++;
-    const now = new Date();
-    const newItem: WatchlistItem = {
+    const [newItem] = await db.insert(watchlist).values({
       ...item,
-      id,
-      createdAt: now
-    };
-    this.watchlistItems.set(id, newItem);
+      createdAt: new Date()
+    }).returning();
     return newItem;
   }
 
   async removeFromWatchlist(id: number): Promise<boolean> {
-    return this.watchlistItems.delete(id);
+    const result = await db.delete(watchlist).where(eq(watchlist.id, id));
+    return result.count > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
