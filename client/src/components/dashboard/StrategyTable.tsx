@@ -129,37 +129,55 @@ const StrategyTable = ({
                   </TableCell>
                   <TableCell>
                     <div className="flex -space-x-1 overflow-hidden">
-                      {strategy.assets.slice(0, 3).map((asset, idx) => (
+                      {Array.isArray(strategy.assets) && strategy.assets.slice(0, 3).map((asset, idx) => (
                         <span key={idx} className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-background border border-border text-xs font-medium">
                           {asset}
                         </span>
                       ))}
-                      {strategy.assets.length > 3 && (
+                      {Array.isArray(strategy.assets) && strategy.assets.length > 3 && (
                         <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-background border border-border text-xs font-medium">
                           +{strategy.assets.length - 3}
                         </span>
                       )}
+                      {!Array.isArray(strategy.assets) && (
+                        <span className="text-xs text-muted-foreground">No assets</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className={`text-sm font-medium ${strategy.profitLoss.isPositive ? 'text-secondary' : 'text-destructive'}`}>
-                      {strategy.profitLoss.value} ({strategy.profitLoss.percentage})
-                    </div>
+                    {strategy.profitLoss && typeof strategy.profitLoss === 'object' && 
+                     'isPositive' in strategy.profitLoss && 
+                     'value' in strategy.profitLoss && 
+                     'percentage' in strategy.profitLoss ? (
+                      <div className={`text-sm font-medium ${strategy.profitLoss.isPositive ? 'text-secondary' : 'text-destructive'}`}>
+                        {strategy.profitLoss.value} ({strategy.profitLoss.percentage})
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Not available</div>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{strategy.winRate}%</div>
-                    <div className="mt-1 w-20 h-1.5 bg-background rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${
-                          strategy.winRate >= 60 ? 'bg-secondary' : 
-                          strategy.winRate >= 40 ? 'bg-accent' : 'bg-destructive'
-                        }`} 
-                        style={{ width: `${strategy.winRate}%` }}
-                      ></div>
-                    </div>
+                    {typeof strategy.winRate === 'number' ? (
+                      <>
+                        <div className="text-sm">{strategy.winRate}%</div>
+                        <div className="mt-1 w-20 h-1.5 bg-background rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full ${
+                              strategy.winRate >= 60 ? 'bg-secondary' : 
+                              strategy.winRate >= 40 ? 'bg-accent' : 'bg-destructive'
+                            }`} 
+                            style={{ width: `${strategy.winRate}%` }}
+                          ></div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Not available</div>
+                    )}
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(strategy.status)}
+                    {strategy.status ? getStatusBadge(strategy.status) : (
+                      <Badge variant="outline" className="bg-muted bg-opacity-20 text-muted-foreground border-none">Unknown</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
@@ -167,7 +185,7 @@ const StrategyTable = ({
                         <Edit className="h-4 w-4" />
                       </Button>
                       
-                      {strategy.status === 'Running' ? (
+                      {strategy.status && strategy.status === 'Running' ? (
                         <Button variant="ghost" size="icon" onClick={() => onPause(strategy.id)}>
                           <Pause className="h-4 w-4" />
                         </Button>
