@@ -5,6 +5,7 @@ import { generateStrategy, explainStrategy, optimizeStrategy } from "./openai";
 import AlpacaAPI from "./alpaca";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { WebSocketServer, WebSocket } from 'ws';
 import { 
   insertUserSchema, 
   insertApiIntegrationSchema, 
@@ -51,6 +52,226 @@ interface AuthRequest extends Request {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server on a different path than Vite's HMR
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Store active connections by user ID
+  const marketDataConnections = new Map<number, Set<WebSocket>>();
+  
+  // Handle WebSocket connections
+  wss.on('connection', (ws: WebSocket) => {
+    console.log('WebSocket client connected');
+    let userId: number | null = null;
+    let subscribedSymbols: Set<string> = new Set();
+    
+    ws.on('message', async (message: string) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Handle authentication
+        if (data.type === 'auth') {
+          try {
+            const decoded = jwt.verify(data.token, JWT_SECRET) as { userId: number };
+            const user = await storage.getUser(decoded.userId);
+            
+            if (!user) {
+              ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+              return;
+            }
+            
+            userId = user.id;
+            
+            // Store connection for this user
+            if (!marketDataConnections.has(userId)) {
+              marketDataConnections.set(userId, new Set());
+            }
+            marketDataConnections.get(userId)?.add(ws);
+            
+            ws.send(JSON.stringify({ 
+              type: 'auth_success',
+              message: 'Successfully authenticated'
+            }));
+          } catch (error) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Invalid authentication token'
+            }));
+          }
+        }
+        // Handle subscribing to market data
+        else if (data.type === 'subscribe') {
+          if (!userId) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'You must authenticate first'
+            }));
+            return;
+          }
+          
+          const symbols = Array.isArray(data.symbols) ? data.symbols : [data.symbols];
+          
+          // Add symbols to subscription list
+          symbols.forEach((symbol: string) => {
+            subscribedSymbols.add(symbol.toUpperCase());
+          });
+          
+          ws.send(JSON.stringify({ 
+            type: 'subscribe_success',
+            message: `Subscribed to ${symbols.join(', ')}`,
+            symbols: Array.from(subscribedSymbols)
+          }));
+          
+          // Start sending market data (in a real app, this would tap into a real data feed)
+          // For demo purposes, we'll simulate price updates
+          startMarketDataSimulation(userId, ws, subscribedSymbols);
+        }
+        // Handle unsubscribing from market data
+        else if (data.type === 'unsubscribe') {
+          if (!userId) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'You must authenticate first'
+            }));
+            return;
+          }
+          
+          const symbols = Array.isArray(data.symbols) ? data.symbols : [data.symbols];
+          
+          // Remove symbols from subscription list
+          symbols.forEach((symbol: string) => {
+            subscribedSymbols.delete(symbol.toUpperCase());
+          });
+          
+          ws.send(JSON.stringify({ 
+            type: 'unsubscribe_success',
+            message: `Unsubscribed from ${symbols.join(', ')}`,
+            symbols: Array.from(subscribedSymbols)
+          }));
+        }
+      } catch (error) {
+        console.error('WebSocket message processing error:', error);
+        ws.send(JSON.stringify({ 
+          type: 'error', 
+          message: 'Error processing message'
+        }));
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+      
+      // Remove connection from user's connections
+      if (userId && marketDataConnections.has(userId)) {
+        marketDataConnections.get(userId)?.delete(ws);
+        
+        // If no more connections for this user, remove the user entry
+        if (marketDataConnections.get(userId)?.size === 0) {
+          marketDataConnections.delete(userId);
+        }
+      }
+    });
+    
+    // Send an initial connection acknowledgment
+    ws.send(JSON.stringify({ 
+      type: 'connection_established',
+      message: 'Connected to market data service'
+    }));
+  });
+  
+  // Maps to store active simulation intervals by user and connection
+  const marketDataSimulations = new Map<number, Map<WebSocket, NodeJS.Timeout>>();
+  
+  // Function to start simulated market data updates
+  function startMarketDataSimulation(userId: number, ws: WebSocket, symbols: Set<string>) {
+    // Make sure we have a mapping for this user
+    if (!marketDataSimulations.has(userId)) {
+      marketDataSimulations.set(userId, new Map());
+    }
+    
+    // Clear any existing interval for this connection
+    const userSimulations = marketDataSimulations.get(userId);
+    if (userSimulations?.has(ws)) {
+      clearInterval(userSimulations.get(ws));
+    }
+    
+    // Only start sending data if there are symbols to track
+    if (symbols.size === 0) return;
+    
+    // Create price simulation data for each symbol
+    const priceData = new Map<string, {
+      price: number;
+      lastChange: number;
+      volatility: number;
+    }>();
+    
+    symbols.forEach(symbol => {
+      // Initialize with random prices between $10 and $1000
+      priceData.set(symbol, {
+        price: 10 + Math.random() * 990,
+        lastChange: 0,
+        volatility: 0.01 + Math.random() * 0.04 // 1-5% volatility
+      });
+    });
+    
+    // Set up interval to send simulated price updates
+    const interval = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        clearInterval(interval);
+        userSimulations?.delete(ws);
+        return;
+      }
+      
+      const updates: Array<{
+        symbol: string;
+        price: number;
+        change: number;
+        changePercent: number;
+        timestamp: string;
+      }> = [];
+      
+      symbols.forEach(symbol => {
+        const data = priceData.get(symbol);
+        if (!data) return;
+        
+        // Simulate random price movement with momentum
+        const momentum = data.lastChange > 0 ? 0.6 : 0.4; // Slight upward bias
+        const randomFactor = Math.random();
+        const direction = randomFactor > momentum ? -1 : 1;
+        
+        // Generate change amount based on volatility
+        const changeAmount = direction * data.price * data.volatility * Math.random();
+        
+        // Update price
+        const oldPrice = data.price;
+        data.price = Math.max(0.01, data.price + changeAmount);
+        data.lastChange = changeAmount;
+        
+        // Calculate change metrics
+        const change = data.price - oldPrice;
+        const changePercent = (change / oldPrice) * 100;
+        
+        updates.push({
+          symbol,
+          price: Number(data.price.toFixed(2)),
+          change: Number(change.toFixed(2)),
+          changePercent: Number(changePercent.toFixed(2)),
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Only send update if there are changes
+      if (updates.length > 0) {
+        ws.send(JSON.stringify({
+          type: 'market_data',
+          data: updates
+        }));
+      }
+    }, 2000); // Send updates every 2 seconds
+    
+    // Store the interval reference
+    userSimulations?.set(ws, interval);
+  }
 
   // AUTH ROUTES
   app.post('/api/auth/register', async (req: Request, res: Response) => {
