@@ -71,7 +71,13 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
               <Badge variant={marketStatus.isMarketOpen ? "default" : "secondary"} className="px-1 py-0">
                 {marketStatus.isMarketOpen ? "Market Open" : "Market Closed"}
               </Badge>
-              <span>Data Source: {marketStatus.dataSource}</span>
+              <span>Data Source: {
+                marketStatus.dataSource === 'yahoo' ? 'Yahoo Finance' : 
+                marketStatus.dataSource === 'alpaca' ? 'Alpaca API' : 
+                marketStatus.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
+                marketStatus.dataSource === 'reference-data-fallback' ? 'Reference Data' :
+                marketStatus.dataSource
+              }</span>
             </div>
           )}
         </CardDescription>

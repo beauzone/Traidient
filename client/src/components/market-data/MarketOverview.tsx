@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   LineChart, 
   Line, 
@@ -16,8 +17,9 @@ import {
   Legend
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Clock, Database } from "lucide-react";
 import { fetchData } from "@/lib/api";
+import { useMarketData } from "@/hooks/useMarketData";
 
 interface MarketOverviewProps {
   onSymbolSelect: (symbol: string) => void;
@@ -38,6 +40,8 @@ interface SectorPerformanceData {
 }
 
 const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
+  // Use market data hook to get market status
+  const { marketStatus } = useMarketData();
   // Fetch market indices data
   const { data: indices, isLoading: isLoadingIndices } = useQuery({
     queryKey: ['/api/market-data/indices'],

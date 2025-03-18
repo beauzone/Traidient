@@ -41,6 +41,8 @@ interface QuoteData {
   dividend: number;
   eps: number;
   exchange: string;
+  isSimulated?: boolean;
+  dataSource?: string;
 }
 
 interface HistoricalDataPoint {
@@ -74,7 +76,9 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
         peRatio: 30.5,
         dividend: 0.96,
         eps: 5.98,
-        exchange: "NASDAQ"
+        exchange: "NASDAQ",
+        isSimulated: true,
+        dataSource: "reference-data-fallback"
       };
     }),
   });
@@ -190,6 +194,25 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     {formatCurrency(quote.change)} ({formatPercentage(quote.changePercent)})
                   </span>
                 </div>
+
+                {quote.dataSource && (
+                  <div className="mt-2">
+                    <span className="text-xs text-muted-foreground flex items-center">
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                        quote.dataSource === 'alpaca' ? 'bg-green-500' : 
+                        quote.dataSource === 'yahoo' ? 'bg-yellow-500' : 
+                        quote.dataSource === 'alpaca-simulation' ? 'bg-blue-500' :
+                        'bg-gray-500'
+                      }`}></span>
+                      Source: {quote.dataSource === 'yahoo' ? 'Yahoo Finance' : 
+                               quote.dataSource === 'alpaca' ? 'Alpaca API' : 
+                               quote.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
+                               quote.dataSource === 'reference-data-fallback' ? 'Reference Data' :
+                               quote.dataSource}
+                      {quote.isSimulated && ' (Simulated)'}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="mt-6 grid grid-cols-2 gap-4">
                   <div>
