@@ -588,6 +588,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Error fetching backtest' });
     }
   });
+  
+  app.put('/api/backtests/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const backtest = await storage.getBacktest(id);
+      
+      if (!backtest) {
+        return res.status(404).json({ message: 'Backtest not found' });
+      }
+      
+      if (backtest.userId !== req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: Not your backtest' });
+      }
+      
+      // Only allow status updates for running or queued backtests
+      if ((backtest.status !== 'running' && backtest.status !== 'queued') && req.body.status === 'cancelled') {
+        return res.status(400).json({ message: 'Cannot cancel a backtest that is not running or queued' });
+      }
+      
+      const updatedBacktest = await storage.updateBacktest(id, {
+        ...req.body,
+        // If cancelling, set completedAt
+        ...(req.body.status === 'cancelled' ? { completedAt: new Date() } : {})
+      });
+      
+      res.json(updatedBacktest);
+    } catch (error) {
+      console.error('Update backtest error:', error);
+      res.status(500).json({ message: 'Error updating backtest' });
+    }
+  });
 
   app.get('/api/backtests', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {

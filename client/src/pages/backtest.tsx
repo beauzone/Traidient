@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import MainLayout from "@/components/layout/MainLayout";
-import { fetchData, postData } from "@/lib/api";
+import { fetchData, postData, updateData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -52,7 +52,8 @@ import {
   DollarSign,
   BarChart as BarChartIcon,
   Loader2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  X
 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -79,7 +80,7 @@ interface Backtest {
   id: number;
   userId: number;
   strategyId: number;
-  status: 'queued' | 'running' | 'completed' | 'failed';
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   configuration: {
     startDate: string;
     endDate: string;
@@ -225,6 +226,29 @@ const BacktestPage = () => {
     onError: (error) => {
       toast({
         title: "Failed to start backtest",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Cancel backtest mutation
+  const cancelBacktest = useMutation({
+    mutationFn: (backtestId: number) => updateData(`/api/backtests/${backtestId}`, { 
+      status: 'cancelled' 
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/backtests', currentBacktest?.id] });
+      toast({
+        title: "Backtest cancelled",
+        description: "The backtest has been cancelled successfully.",
+      });
+      // Reset the current backtest to allow starting a new one
+      setCurrentBacktest(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to cancel backtest",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
@@ -448,6 +472,15 @@ const BacktestPage = () => {
                     <p className="text-sm text-muted-foreground max-w-md mt-2 text-center">
                       We're analyzing your strategy's performance over the selected time period. This may take a few moments.
                     </p>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="mt-6"
+                      onClick={() => cancelBacktest.mutate(currentBacktest.id)}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Cancel Backtest
+                    </Button>
                   </div>
                 ) : currentBacktest.status === 'failed' ? (
                   <div className="h-96 flex flex-col items-center justify-center text-center">
