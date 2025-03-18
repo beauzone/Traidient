@@ -1,7 +1,15 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "demo-api-key" });
+// Configure OpenAI with more options to support both traditional and project-scoped API keys
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY || "demo-api-key",
+  dangerouslyAllowBrowser: false,
+  defaultHeaders: {
+    "Content-Type": "application/json"
+  },
+  defaultQuery: undefined
+});
 
 export async function generateStrategy(prompt: string): Promise<{
   strategy: string;
@@ -28,12 +36,13 @@ export async function generateStrategy(prompt: string): Promise<{
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content || '{}';
+    const result = JSON.parse(content);
     
     return {
-      strategy: result.strategy,
-      explanation: result.explanation,
-      configuration: result.configuration
+      strategy: result.strategy || '',
+      explanation: result.explanation || '',
+      configuration: result.configuration || {}
     };
   } catch (error) {
     console.error("Error generating strategy:", error);

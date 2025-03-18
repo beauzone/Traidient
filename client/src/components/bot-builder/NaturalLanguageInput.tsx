@@ -53,10 +53,20 @@ const NaturalLanguageInput = ({ onStrategyGenerated }: NaturalLanguageInputProps
       });
       onStrategyGenerated(data);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Strategy generation error:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          (error instanceof Error ? error.message : "Failed to generate strategy");
+      
+      // Check if it's an API key issue
+      const isApiKeyIssue = errorMessage.toLowerCase().includes("api key") || 
+                            errorMessage.toLowerCase().includes("authentication");
+      
       toast({
         title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate strategy",
+        description: isApiKeyIssue 
+          ? "OpenAI API key is invalid or missing. Please contact an administrator."
+          : errorMessage,
         variant: "destructive",
       });
     }
