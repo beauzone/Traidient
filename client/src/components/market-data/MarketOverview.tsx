@@ -122,6 +122,33 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Market Status Indicator */}
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-2xl font-bold">Market Overview</h2>
+        <div className="flex items-center space-x-3">
+          <Badge 
+            variant={marketStatus?.isMarketOpen ? "default" : "outline"}
+            className={`flex items-center space-x-1 ${marketStatus?.isMarketOpen ? 'bg-green-500/20 text-green-500 hover:bg-green-500/20' : 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20'}`}
+          >
+            <Clock className="h-3 w-3" />
+            <span>{marketStatus?.isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
+          </Badge>
+          
+          <Badge 
+            variant="outline"
+            className="flex items-center space-x-1 bg-blue-500/20 text-blue-500"
+          >
+            <Database className="h-3 w-3" />
+            <span>Data: {
+              marketStatus?.dataSource === 'yahoo' ? 'Yahoo Finance' : 
+              marketStatus?.dataSource === 'alpaca' ? 'Alpaca API' : 
+              marketStatus?.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
+              marketStatus?.dataSource || 'Unknown Source'
+            }</span>
+          </Badge>
+        </div>
+      </div>
+      
       {/* Market Indices */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoadingIndices ? (
