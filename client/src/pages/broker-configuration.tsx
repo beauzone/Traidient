@@ -137,6 +137,10 @@ export default function BrokerConfiguration() {
     defaultValues: {
       provider: "generic",
       description: "",
+      apiKey: "",
+      apiSecret: "",
+      endpoint: "",
+      additionalConfig: {}
     },
   });
 
@@ -304,6 +308,7 @@ export default function BrokerConfiguration() {
       apiKey: "",
       apiSecret: "",
       endpoint: "",
+      additionalConfig: {}
     });
   };
 
@@ -341,9 +346,16 @@ export default function BrokerConfiguration() {
     } else {
       // Generic provider
       genericForm.reset({
-        provider: integration.provider,
+        provider: "generic", // Always set to generic for the form
         description: integration.description || "",
-        ...integration.credentials,
+        apiKey: integration.credentials?.apiKey || "",
+        apiSecret: integration.credentials?.apiSecret || "",
+        endpoint: integration.credentials?.endpoint || "",
+        // We store the original provider in credentials for reference
+        additionalConfig: {
+          originalProvider: integration.provider,
+          ...integration.credentials?.additionalConfig
+        }
       });
     }
   };
