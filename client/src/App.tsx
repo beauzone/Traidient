@@ -10,6 +10,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Strategies from "@/pages/strategies";
+import EditStrategy from "@/pages/edit-strategy";
 import BotBuilder from "@/pages/bot-builder";
 import Backtest from "@/pages/backtest";
 import LiveTrading from "@/pages/live-trading";
@@ -65,6 +66,9 @@ function AppRoutes() {
       </Route>
       <Route path="/strategies">
         <ProtectedRoute component={Strategies} />
+      </Route>
+      <Route path="/strategies/:id">
+        <ProtectedRoute component={EditStrategy} />
       </Route>
       <Route path="/bot-builder">
         <ProtectedRoute component={BotBuilder} />
