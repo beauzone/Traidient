@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateStrategy, explainStrategy, optimizeStrategy } from "./openai";
 import AlpacaAPI from "./alpaca";
+import { YahooFinanceAPI } from "./yahoo";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
@@ -55,6 +56,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize WebSocket server on a different path than Vite's HMR
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Initialize the Yahoo Finance API
+  const yahooFinance = new YahooFinanceAPI();
   
   // Store active connections by user ID
   const marketDataConnections = new Map<number, Set<WebSocket>>();
@@ -182,7 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Maps to store active simulation intervals by user and connection
   const marketDataSimulations = new Map<number, Map<WebSocket, NodeJS.Timeout>>();
   
-  // Function to start simulated market data updates
+  // Function to start real/simulated market data updates
   function startMarketDataSimulation(userId: number, ws: WebSocket, symbols: Set<string>) {
     // Make sure we have a mapping for this user
     if (!marketDataSimulations.has(userId)) {
@@ -197,6 +201,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Only start sending data if there are symbols to track
     if (symbols.size === 0) return;
+    
+    // First, check if the market is open
+    const isMarketOpen = yahooFinance.isMarketOpen();
     
     // Create price simulation data for each symbol
     const priceData = new Map<string, {
@@ -251,8 +258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     });
     
-    // Set up interval to send simulated price updates
-    const interval = setInterval(() => {
+    // Set up interval to send price updates
+    const interval = setInterval(async () => {
       if (ws.readyState !== WebSocket.OPEN) {
         clearInterval(interval);
         userSimulations?.delete(ws);
@@ -265,47 +272,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
         change: number;
         changePercent: number;
         timestamp: string;
+        isSimulated: boolean;
+        dataSource: string;
       }> = [];
       
-      symbols.forEach(symbol => {
-        const upperSymbol = symbol.toUpperCase();
-        const data = priceData.get(upperSymbol);
-        if (!data) return;
-        
-        // Simulate random price movement with momentum
-        const momentum = data.lastChange > 0 ? 0.6 : 0.4; // Slight upward bias
-        const randomFactor = Math.random();
-        const direction = randomFactor > momentum ? -1 : 1;
-        
-        // Generate change amount based on volatility
-        const changeAmount = direction * data.price * data.volatility * Math.random();
-        
-        // Update price
-        const oldPrice = data.price;
-        data.price = Math.max(0.01, data.price + changeAmount);
-        data.lastChange = changeAmount;
-        
-        // Calculate change metrics
-        const change = data.price - oldPrice;
-        const changePercent = (change / oldPrice) * 100;
-        
-        updates.push({
-          symbol: upperSymbol,
-          price: Number(data.price.toFixed(2)),
-          change: Number(change.toFixed(2)),
-          changePercent: Number(changePercent.toFixed(2)),
-          timestamp: new Date().toISOString()
-        });
-      });
+      try {
+        // For market hours: Simulate data from Alpaca (in a real app, you'd use Alpaca's streaming API)
+        // For non-market hours: Use Yahoo Finance API for real quotes
+        if (isMarketOpen) {
+          // During market hours - simulate real-time price movements
+          symbols.forEach(symbol => {
+            const upperSymbol = symbol.toUpperCase();
+            const data = priceData.get(upperSymbol);
+            if (!data) return;
+            
+            // Simulate random price movement with momentum
+            const momentum = data.lastChange > 0 ? 0.6 : 0.4; // Slight upward bias
+            const randomFactor = Math.random();
+            const direction = randomFactor > momentum ? -1 : 1;
+            
+            // Generate change amount based on volatility
+            const changeAmount = direction * data.price * data.volatility * Math.random();
+            
+            // Update price
+            const oldPrice = data.price;
+            data.price = Math.max(0.01, data.price + changeAmount);
+            data.lastChange = changeAmount;
+            
+            // Calculate change metrics
+            const change = data.price - oldPrice;
+            const changePercent = (change / oldPrice) * 100;
+            
+            updates.push({
+              symbol: upperSymbol,
+              price: Number(data.price.toFixed(2)),
+              change: Number(change.toFixed(2)),
+              changePercent: Number(changePercent.toFixed(2)),
+              timestamp: new Date().toISOString(),
+              isSimulated: true,
+              dataSource: "alpaca-simulation" // In production, use real Alpaca
+            });
+          });
+        } else {
+          // Outside market hours - use Yahoo Finance for actual quotes
+          // We'll fetch one symbol at a time to avoid rate limiting
+          // In a production app, you might use a queue or batch processing
+          const symbolsArray = Array.from(symbols);
+          for (let i = 0; i < symbolsArray.length; i++) {
+            const symbol = symbolsArray[i];
+            try {
+              const quote = await yahooFinance.getQuote(symbol);
+              
+              updates.push({
+                symbol: quote.symbol,
+                price: quote.price,
+                change: quote.change,
+                changePercent: quote.changePercent,
+                timestamp: new Date().toISOString(),
+                isSimulated: false,
+                dataSource: "yahoo"
+              });
+            } catch (err) {
+              console.error(`Error fetching Yahoo quote for ${symbol}:`, err);
+              
+              // Fallback to reference data if Yahoo API fails
+              const upperSymbol = symbol.toUpperCase();
+              const refData = priceData.get(upperSymbol);
+              
+              if (refData) {
+                updates.push({
+                  symbol: upperSymbol,
+                  price: Number(refData.price.toFixed(2)),
+                  change: 0,
+                  changePercent: 0,
+                  timestamp: new Date().toISOString(),
+                  isSimulated: true,
+                  dataSource: "reference-data-fallback"
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error updating market data:', error);
+      }
       
       // Only send update if there are changes
       if (updates.length > 0) {
         ws.send(JSON.stringify({
           type: 'market_data',
-          data: updates
+          data: updates,
+          marketStatus: {
+            isMarketOpen,
+            dataSource: isMarketOpen ? "alpaca-simulation" : "yahoo"
+          }
         }));
       }
-    }, 1000); // Send updates every 1 second for more realistic ticker-like updates
+    }, isMarketOpen ? 1000 : 5000); // Update every 1 second during market hours, every 5 seconds otherwise
     
     // Store the interval reference
     userSimulations?.set(ws, interval);
@@ -1076,10 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Symbol is required' });
       }
       
-      // Import Yahoo Finance API
-      const yahooFinance = await import('./yahoo').then(module => module.default);
-      
-      // Check if market is open
+      // Check if market is open using our Yahoo Finance API
       const isMarketOpen = yahooFinance.isMarketOpen();
       
       if (isMarketOpen) {
@@ -1222,10 +1282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Symbol is required' });
       }
       
-      // Import Yahoo Finance API
-      const yahooFinance = await import('./yahoo').then(module => module.default);
-      
-      // Check if market is open
+      // Check if market is open using our Yahoo Finance API
       const isMarketOpen = yahooFinance.isMarketOpen();
       
       if (isMarketOpen) {
@@ -1418,9 +1475,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Additional market data endpoints
   app.get('/api/market-data/indices', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Import Yahoo Finance API
-      const yahooFinance = await import('./yahoo').then(module => module.default);
-      
       try {
         // Get market indices data from Yahoo Finance
         // Major US market indices
