@@ -4,6 +4,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import MarketOverview from "@/components/market-data/MarketOverview";
 import StockSearch from "@/components/market-data/StockSearch";
 import StockDetail from "@/components/market-data/StockDetail";
+import { RealtimeQuotes } from "@/components/market-data/RealtimeQuotes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchData } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +36,9 @@ const MarketDataPage = () => {
     setActiveTab("detail");
   };
 
+  // Extract watchlist symbols for real-time quotes
+  const watchlistSymbols = watchlist.map(item => item.symbol);
+
   return (
     <MainLayout title="Market Data">
       <div className="space-y-6">
@@ -55,6 +59,7 @@ const MarketDataPage = () => {
                 <TabsList className="mb-4">
                   <TabsTrigger value="overview">Market Overview</TabsTrigger>
                   <TabsTrigger value="detail" disabled={!selectedSymbol}>Asset Details</TabsTrigger>
+                  <TabsTrigger value="realtime">Real-time Quotes</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="overview" className="mt-0">
@@ -69,6 +74,13 @@ const MarketDataPage = () => {
                       <p className="text-muted-foreground">Select a symbol to view details</p>
                     </div>
                   )}
+                </TabsContent>
+
+                <TabsContent value="realtime" className="mt-0">
+                  <RealtimeQuotes 
+                    initialSymbols={watchlistSymbols} 
+                    onSymbolSelect={handleSymbolSelect} 
+                  />
                 </TabsContent>
               </Tabs>
             </CardContent>
