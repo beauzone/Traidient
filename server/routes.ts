@@ -277,42 +277,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }> = [];
       
       try {
-        // For market hours: Simulate data from Alpaca (in a real app, you'd use Alpaca's streaming API)
-        // For non-market hours: Use Yahoo Finance API for real quotes
+        // For market hours: Try real Alpaca API, fall back to simulation if needed
+        // For non-market hours: Use Yahoo Finance API for actual quotes
         if (isMarketOpen) {
-          // During market hours - simulate real-time price movements
-          symbols.forEach(symbol => {
-            const upperSymbol = symbol.toUpperCase();
-            const data = priceData.get(upperSymbol);
-            if (!data) return;
+          // During market hours - try to use real Alpaca API data first
+          try {
+            // Try to get user-specific API integration for market data, fallback to environment variables
+            let alpacaAPI;
+            try {
+              const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(userId, 'alpaca');
+              alpacaAPI = new AlpacaAPI(alpacaIntegration);
+              console.log("Using user's Alpaca API integration for real-time data");
+            } catch (err) {
+              console.log("No user-specific Alpaca integration found, using environment variables for real-time data");
+              alpacaAPI = new AlpacaAPI();
+            }
             
-            // Simulate random price movement with momentum
-            const momentum = data.lastChange > 0 ? 0.6 : 0.4; // Slight upward bias
-            const randomFactor = Math.random();
-            const direction = randomFactor > momentum ? -1 : 1;
+            // Fetch real-time quotes from Alpaca for the first symbol
+            // In a production app with Alpaca subscription, you'd use their websocket API for all symbols
+            if (symbols.size > 0) {
+              const firstSymbol = Array.from(symbols)[0];
+              try {
+                const quoteData = await alpacaAPI.getQuote(firstSymbol);
+                const quote = quoteData.quote;
+                
+                // Calculate price change (simplified)
+                const price = quote.ap || quote.bp || 0;
+                if (price > 0) {
+                  // We don't have previous close from Alpaca, so we'll use a small random change
+                  const prevPrice = priceData.get(firstSymbol)?.price || price;
+                  const change = price - prevPrice;
+                  const changePercent = (change / prevPrice) * 100;
+                  
+                  updates.push({
+                    symbol: firstSymbol,
+                    price: Number(price.toFixed(2)),
+                    change: Number(change.toFixed(2)),
+                    changePercent: Number(changePercent.toFixed(2)),
+                    timestamp: new Date().toISOString(),
+                    isSimulated: false,
+                    dataSource: "alpaca"
+                  });
+                  
+                  // Update our stored price for next calculation
+                  priceData.set(firstSymbol, {
+                    price: price,
+                    lastChange: change,
+                    volatility: priceData.get(firstSymbol)?.volatility || 0.0002
+                  });
+                  
+                  console.log(`Got real Alpaca data for ${firstSymbol}: ${price}`);
+                }
+              } catch (alpacaErr) {
+                console.error(`Error fetching Alpaca quote for ${firstSymbol}:`, alpacaErr);
+                // Fall through to simulation for this symbol
+              }
+            }
             
-            // Generate change amount based on volatility
-            const changeAmount = direction * data.price * data.volatility * Math.random();
-            
-            // Update price
-            const oldPrice = data.price;
-            data.price = Math.max(0.01, data.price + changeAmount);
-            data.lastChange = changeAmount;
-            
-            // Calculate change metrics
-            const change = data.price - oldPrice;
-            const changePercent = (change / oldPrice) * 100;
-            
-            updates.push({
-              symbol: upperSymbol,
-              price: Number(data.price.toFixed(2)),
-              change: Number(change.toFixed(2)),
-              changePercent: Number(changePercent.toFixed(2)),
-              timestamp: new Date().toISOString(),
-              isSimulated: true,
-              dataSource: "alpaca-simulation" // In production, use real Alpaca
+            // For remaining symbols or if Alpaca failed, use simulation
+            symbols.forEach(symbol => {
+              // Skip the first symbol if we already have data for it
+              if (symbol === Array.from(symbols)[0] && updates.length > 0) return;
+              
+              const upperSymbol = symbol.toUpperCase();
+              const data = priceData.get(upperSymbol);
+              if (!data) return;
+              
+              // Simulate random price movement with momentum
+              const momentum = data.lastChange > 0 ? 0.6 : 0.4; // Slight upward bias
+              const randomFactor = Math.random();
+              const direction = randomFactor > momentum ? -1 : 1;
+              
+              // Generate change amount based on volatility
+              const changeAmount = direction * data.price * data.volatility * Math.random();
+              
+              // Update price
+              const oldPrice = data.price;
+              data.price = Math.max(0.01, data.price + changeAmount);
+              data.lastChange = changeAmount;
+              
+              // Calculate change metrics
+              const change = data.price - oldPrice;
+              const changePercent = (change / oldPrice) * 100;
+              
+              updates.push({
+                symbol: upperSymbol,
+                price: Number(data.price.toFixed(2)),
+                change: Number(change.toFixed(2)),
+                changePercent: Number(changePercent.toFixed(2)),
+                timestamp: new Date().toISOString(),
+                isSimulated: true,
+                dataSource: "alpaca-simulation"
+              });
             });
-          });
+          } catch (error) {
+            console.error("Error in Alpaca market data processing:", error);
+            
+            // Fall back to full simulation if Alpaca API fails completely
+            symbols.forEach(symbol => {
+              const upperSymbol = symbol.toUpperCase();
+              const data = priceData.get(upperSymbol);
+              if (!data) return;
+              
+              // Standard simulation code
+              const momentum = data.lastChange > 0 ? 0.6 : 0.4;
+              const randomFactor = Math.random();
+              const direction = randomFactor > momentum ? -1 : 1;
+              const changeAmount = direction * data.price * data.volatility * Math.random();
+              const oldPrice = data.price;
+              data.price = Math.max(0.01, data.price + changeAmount);
+              data.lastChange = changeAmount;
+              const change = data.price - oldPrice;
+              const changePercent = (change / oldPrice) * 100;
+              
+              updates.push({
+                symbol: upperSymbol,
+                price: Number(data.price.toFixed(2)),
+                change: Number(change.toFixed(2)),
+                changePercent: Number(changePercent.toFixed(2)),
+                timestamp: new Date().toISOString(),
+                isSimulated: true,
+                dataSource: "alpaca-simulation-fallback"
+              });
+            });
+          }
         } else {
           // Outside market hours - use Yahoo Finance for actual quotes
           // We'll fetch one symbol at a time to avoid rate limiting
