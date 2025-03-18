@@ -42,7 +42,7 @@ import {
   PauseCircle,
   StopCircle,
   MoreHorizontal,
-  Flask,
+  TestTube2,
   RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -280,7 +280,7 @@ const StrategiesPage = () => {
                             <Copy className="mr-2 h-4 w-4" /> Clone
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate(`/backtest?strategyId=${strategy.id}`)}>
-                            <Flask className="mr-2 h-4 w-4" /> Backtest
+                            <TestTube2 className="mr-2 h-4 w-4" /> Backtest
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />

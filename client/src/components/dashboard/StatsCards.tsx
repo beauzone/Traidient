@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Bot, LineChart, ArrowUpRight, CircleDollarSign, AlertTriangle } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { Link } from "wouter";
 
 interface StatsCardsProps {
@@ -22,7 +22,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-primary bg-opacity-20 rounded-md p-3">
-                <Bot className="text-primary" />
+                <LucideIcons.Cpu className="text-primary" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -37,7 +37,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
               <Link href="/strategies" className="font-medium text-primary hover:text-primary/80">
-                View all <ArrowUpRight className="inline ml-1 h-4 w-4" />
+                View all <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -50,7 +50,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-secondary bg-opacity-20 rounded-md p-3">
-                <LineChart className="text-secondary" />
+                <LucideIcons.BarChart className="text-secondary" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -58,7 +58,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
                   <dd className="flex items-baseline">
                     <div className="text-lg font-semibold">{totalPnL.value}</div>
                     <span className={`ml-2 text-sm font-medium ${totalPnL.isPositive ? 'text-secondary' : 'text-destructive'}`}>
-                      <ArrowUpRight className="inline mr-1 h-3 w-3" />
+                      <LucideIcons.ArrowUpRight className="inline mr-1 h-3 w-3" />
                       {totalPnL.percentage}
                     </span>
                   </dd>
@@ -69,7 +69,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
               <Link href="/analytics" className="font-medium text-primary hover:text-primary/80">
-                View details <ArrowUpRight className="inline ml-1 h-4 w-4" />
+                View details <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -82,7 +82,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-accent bg-opacity-20 rounded-md p-3">
-                <CircleDollarSign className="text-accent" />
+                <LucideIcons.DollarSign className="text-accent" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -97,7 +97,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
               <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80">
-                View history <ArrowUpRight className="inline ml-1 h-4 w-4" />
+                View history <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -110,7 +110,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 bg-destructive bg-opacity-20 rounded-md p-3">
-                <AlertTriangle className="text-destructive" />
+                <LucideIcons.AlertTriangle className="text-destructive" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -125,7 +125,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
               <Link href="/alerts" className="font-medium text-primary hover:text-primary/80">
-                View alerts <ArrowUpRight className="inline ml-1 h-4 w-4" />
+                View alerts <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>

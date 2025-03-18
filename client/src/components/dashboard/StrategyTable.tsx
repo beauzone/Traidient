@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Edit, Pause, Play, MoreVertical, ArrowUpRight, Robot, Rocket, BarChart2 } from "lucide-react";
+import { Edit, Pause, Play, MoreVertical, ArrowUpRight, Bot, Rocket, BarChart2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,13 +52,13 @@ const StrategyTable = ({
   const getStrategyIcon = (type: string) => {
     switch (type) {
       case 'AI-Generated':
-        return <Robot className="text-primary" />;
+        return <Bot className="text-primary" />;
       case 'Custom':
         return <Rocket className="text-accent" />;
       case 'Template':
         return <BarChart2 className="text-secondary" />;
       default:
-        return <Robot className="text-primary" />;
+        return <Bot className="text-primary" />;
     }
   };
 
