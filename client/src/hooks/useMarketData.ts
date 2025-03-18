@@ -8,6 +8,8 @@ export interface MarketDataUpdate {
   change: number;
   changePercent: number;
   timestamp: string;
+  isSimulated?: boolean;
+  dataSource?: string;
 }
 
 interface MarketDataState {
@@ -19,6 +21,10 @@ export function useMarketData() {
   const [connected, setConnected] = useState(false);
   const [marketData, setMarketData] = useState<MarketDataState>({});
   const [subscribedSymbols, setSubscribedSymbols] = useState<string[]>([]);
+  const [marketStatus, setMarketStatus] = useState<{
+    isMarketOpen: boolean;
+    dataSource: string;
+  }>({ isMarketOpen: false, dataSource: 'unknown' });
   const socketRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
 
@@ -96,6 +102,14 @@ export function useMarketData() {
               
               return newData;
             });
+            
+            // Update market status if provided
+            if (message.marketStatus) {
+              setMarketStatus({
+                isMarketOpen: message.marketStatus.isMarketOpen,
+                dataSource: message.marketStatus.dataSource
+              });
+            }
             break;
             
           case 'error':
@@ -170,6 +184,7 @@ export function useMarketData() {
     connected,
     marketData,
     subscribedSymbols,
+    marketStatus,
     subscribeToSymbols,
     unsubscribeFromSymbols
   };

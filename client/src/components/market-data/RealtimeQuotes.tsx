@@ -16,7 +16,8 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
   const { 
     connected, 
     marketData, 
-    subscribedSymbols, 
+    subscribedSymbols,
+    marketStatus,
     subscribeToSymbols, 
     unsubscribeFromSymbols 
   } = useMarketData();
@@ -63,8 +64,16 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
             {connected ? 'Connected' : 'Disconnected'}
           </Badge>
         </CardTitle>
-        <CardDescription>
-          Watch real-time price updates for your favorite symbols
+        <CardDescription className="space-y-1">
+          <div>Watch real-time price updates for your favorite symbols</div>
+          {connected && (
+            <div className="flex items-center text-xs space-x-2">
+              <Badge variant={marketStatus.isMarketOpen ? "default" : "secondary"} className="px-1 py-0">
+                {marketStatus.isMarketOpen ? "Market Open" : "Market Closed"}
+              </Badge>
+              <span>Data Source: {marketStatus.dataSource}</span>
+            </div>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -121,13 +130,24 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
                   <div className="flex items-center space-x-3">
                     {hasData && (
                       <>
-                        <div
-                          className={`text-sm ${
-                            data.change >= 0 ? 'text-green-500' : 'text-red-500'
-                          }`}
-                        >
-                          {data.change >= 0 ? '+' : ''}
-                          {data.change.toFixed(2)} ({data.changePercent.toFixed(2)}%)
+                        <div className="flex flex-col items-end">
+                          <div
+                            className={`text-sm ${
+                              data.change >= 0 ? 'text-green-500' : 'text-red-500'
+                            }`}
+                          >
+                            {data.change >= 0 ? '+' : ''}
+                            {data.change.toFixed(2)} ({data.changePercent.toFixed(2)}%)
+                          </div>
+                          {data.isSimulated !== undefined && (
+                            <div className="text-xs text-muted-foreground">
+                              Source: {data.dataSource === 'yahoo' ? 'Yahoo Finance' : 
+                                data.dataSource === 'alpaca' ? 'Alpaca API' : 
+                                data.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
+                                data.dataSource === 'reference-data-fallback' ? 'Reference Data' :
+                                data.dataSource || 'Unknown'}
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
