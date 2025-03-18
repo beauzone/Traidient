@@ -157,6 +157,9 @@ export default function BrokerConfiguration() {
       const apiData: any = {
         provider: data.provider === "generic" ? "alpaca" : data.provider, // Default to alpaca for generic type
         description: data.description || "",
+        type: "exchange", // Required field from the schema
+        isActive: true,
+        isPrimary: false,
         credentials: {},
       };
 
@@ -214,6 +217,9 @@ export default function BrokerConfiguration() {
       const apiData: any = {
         provider: data.provider === "generic" ? "alpaca" : data.provider, // Default to alpaca for generic type
         description: data.description || "",
+        type: "exchange", // Required field from the schema
+        isActive: true,
+        isPrimary: false,
         credentials: {},
       };
 
