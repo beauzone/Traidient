@@ -7,6 +7,8 @@ export interface BrokerageAccount {
   accountNumber: string;
   accountType: 'live' | 'paper';
   balance: number;
+  equity?: number;
+  portfolioValue?: number;
   provider: string;
   performance?: number;
 }

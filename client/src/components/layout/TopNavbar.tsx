@@ -110,7 +110,7 @@ const TopNavbar = () => {
                       onClick={() => setSelectedAccount("all")}
                     >
                       <div className="font-semibold">All Accounts</div>
-                      <div>{formatCurrency(accounts.reduce((sum, account) => sum + (account.balance || 0), 0))}</div>
+                      <div>{formatCurrency(accounts.reduce((sum, account) => sum + (account.portfolioValue || account.equity || account.balance || 0), 0))}</div>
                     </DropdownMenuItem>
                     
                     <DropdownMenuSeparator />
@@ -129,7 +129,7 @@ const TopNavbar = () => {
                             <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
                           </div>
                           <div className="flex flex-col items-end">
-                            <div>{formatCurrency(account.balance)}</div>
+                            <div>{formatCurrency(account.portfolioValue || account.equity || account.balance || 0)}</div>
                             {account.performance !== undefined && (
                               <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
                                 {formatPercentage(account.performance)}
@@ -156,7 +156,7 @@ const TopNavbar = () => {
                             <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
                           </div>
                           <div className="flex flex-col items-end">
-                            <div>{formatCurrency(account.balance)}</div>
+                            <div>{formatCurrency(account.portfolioValue || account.equity || account.balance || 0)}</div>
                             {account.performance !== undefined && (
                               <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
                                 {formatPercentage(account.performance)}
