@@ -45,7 +45,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Define common schema properties
 const baseSchema = z.object({
-  description: z.string().optional(),
+  description: z.string().min(1, "Name is required"),
 });
 
 // Define schemas for different broker types
@@ -468,7 +468,7 @@ export default function BrokerConfiguration() {
                           name="description"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Description (Optional)</FormLabel>
+                              <FormLabel>Name</FormLabel>
                               <FormControl>
                                 <Input placeholder="My Alpaca Account" {...field} />
                               </FormControl>
@@ -581,7 +581,7 @@ export default function BrokerConfiguration() {
                           name="description"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Description (Optional)</FormLabel>
+                              <FormLabel>Name</FormLabel>
                               <FormControl>
                                 <Input placeholder="My IBKR Account" {...field} />
                               </FormControl>
@@ -685,7 +685,7 @@ export default function BrokerConfiguration() {
                           name="description"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Description (Optional)</FormLabel>
+                              <FormLabel>Name</FormLabel>
                               <FormControl>
                                 <Input placeholder="Other Broker Account" {...field} />
                               </FormControl>

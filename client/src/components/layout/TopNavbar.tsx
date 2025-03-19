@@ -109,7 +109,7 @@ const TopNavbar = () => {
                     </DropdownMenuItem>
                     
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel>INDIVIDUAL TRADING</DropdownMenuLabel>
+                    <DropdownMenuLabel>LIVE ACCOUNTS</DropdownMenuLabel>
                     
                     {accounts
                       .filter(account => account.accountType === 'live')
@@ -136,7 +136,7 @@ const TopNavbar = () => {
                     }
                     
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel>PAPER</DropdownMenuLabel>
+                    <DropdownMenuLabel>PAPER ACCOUNTS</DropdownMenuLabel>
                     
                     {accounts
                       .filter(account => account.accountType === 'paper')
