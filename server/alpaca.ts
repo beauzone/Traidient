@@ -11,7 +11,9 @@ export class AlpacaAPI {
     this.apiSecret = integration?.credentials.apiSecret || process.env.ALPACA_API_SECRET || "";
     
     // Use v2 API endpoints - can switch between paper and live
-    const isPaperTrading = true; // Set to false for live trading with real money
+    const endpoint = integration?.credentials.additionalFields?.endpoint || "paper";
+    const isPaperTrading = endpoint === "paper";
+    
     this.tradingBaseUrl = isPaperTrading 
       ? "https://paper-api.alpaca.markets/v2" 
       : "https://api.alpaca.markets/v2";
