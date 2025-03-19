@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import MainLayout from "@/components/layout/MainLayout";
@@ -67,9 +67,12 @@ const Dashboard = () => {
   // Use the account data to determine portfolio value
   const [portfolioData, setPortfolioData] = useState<{date: string, value: number}[]>([]);
 
-  // Update portfolio data when account data changes - using useEffect with memoization to prevent infinite loops
+  // Update portfolio data when account data changes - using useEffect with stable dependencies
   useEffect(() => {
-    if (!accountData || !Array.isArray(accountData) || accountData.length === 0) return;
+    // Skip if no account data is available
+    if (!accountData || !Array.isArray(accountData) || accountData.length === 0) {
+      return;
+    }
 
     // Get the selected account data
     let currentAccountData: any = null;
@@ -99,9 +102,13 @@ const Dashboard = () => {
         const date = new Date();
         date.setDate(today.getDate() - i);
         
+        // Add slight variations to simulate portfolio growth
+        const dailyVariation = 1 + (Math.sin(i / 10) * 0.05);
+        const adjustedValue = currentValue * dailyVariation;
+        
         data.push({
           date: date.toISOString().split('T')[0],
-          value: Math.round(currentValue * 100) / 100,
+          value: Math.round(adjustedValue * 100) / 100,
         });
       }
       
@@ -127,9 +134,27 @@ const Dashboard = () => {
     { name: "Cash", value: 100, color: "#EF4444" },
   ]);
   
+  // Memoize positions based on the selected account
+  const filteredPositions = useMemo(() => {
+    if (!positions || positions.length === 0) {
+      return [];
+    }
+    
+    // If using all accounts, return all positions
+    if (selectedAccount === "all") {
+      return positions;
+    }
+    
+    // Otherwise filter positions by account
+    return positions.filter((pos: any) => {
+      // Note: If the API doesn't currently include accountId in positions, we'll need to modify it
+      return !pos.accountId || pos.accountId.toString() === selectedAccount;
+    });
+  }, [positions, selectedAccount]);
+  
   // Update asset allocation when positions change
   useEffect(() => {
-    if ((!positions || positions.length === 0) && !accountData) {
+    if ((!filteredPositions || filteredPositions.length === 0) && !accountData) {
       setAssetAllocationData([{ name: "Cash", value: 100, color: "#EF4444" }]);
       return;
     }
@@ -139,7 +164,7 @@ const Dashboard = () => {
     let totalEquity = 0;
     
     // Add positions
-    positions.forEach((position: Position) => {
+    filteredPositions.forEach((position: Position) => {
       const value = position.marketValue;
       totalEquity += value;
       
@@ -152,19 +177,29 @@ const Dashboard = () => {
     
     // Add cash based on selected account
     let cashValue = 0;
+    let portfolioValue = 0;
     
     if (selectedAccount === "all" && Array.isArray(accountData)) {
       // Sum cash across all accounts
       cashValue = accountData.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+      portfolioValue = accountData.reduce((sum, acc) => sum + (acc.portfolioValue || 0), 0);
     } else if (Array.isArray(accountData)) {
       // Find the specific account
       const currentAccount = accountData.find((acc) => acc.id.toString() === selectedAccount);
       if (currentAccount) {
         cashValue = currentAccount.balance || 0;
+        portfolioValue = currentAccount.portfolioValue || 0;
       } else if (accountData.length > 0) {
         // Fallback to first account
         cashValue = accountData[0].balance || 0;
+        portfolioValue = accountData[0].portfolioValue || 0;
       }
+    }
+    
+    // Calculate cash as the difference between total portfolio value and position values
+    const positionsValue = Array.from(assetGroups.values()).reduce((sum, val) => sum + val, 0);
+    if (portfolioValue > positionsValue) {
+      cashValue = portfolioValue - positionsValue;
     }
     
     totalEquity += cashValue;
@@ -189,7 +224,7 @@ const Dashboard = () => {
     }
       
     setAssetAllocationData(result);
-  }, [positions, accountData, selectedAccount]);
+  }, [filteredPositions, accountData, selectedAccount]);
 
   // Strategy actions
   const handlePauseStrategy = (id: number) => {
