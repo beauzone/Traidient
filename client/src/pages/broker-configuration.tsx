@@ -37,9 +37,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { postData, updateData } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchData } from "@/lib/api";
+import { fetchData, postData, updateData, deleteData } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -289,17 +288,7 @@ export default function BrokerConfiguration() {
   // Mutation to delete a broker integration
   const deleteIntegrationMutation = useMutation({
     mutationFn: (id: number) => {
-      return fetch(`/api/integrations/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }).then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to delete broker integration");
-        }
-        return res.json();
-      });
+      return deleteData(`/api/integrations/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["integrations"] });
