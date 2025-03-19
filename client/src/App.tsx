@@ -20,6 +20,7 @@ import Settings from "@/pages/settings";
 import Integrations from "@/pages/integrations";
 import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
+import DebugPage from "@/pages/debug";
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -92,6 +93,9 @@ function AppRoutes() {
       </Route>
       <Route path="/broker-configuration">
         <ProtectedRoute component={BrokerConfiguration} />
+      </Route>
+      <Route path="/debug">
+        <ProtectedRoute component={DebugPage} />
       </Route>
       <Route path="/">
         <Redirect to="/dashboard" />

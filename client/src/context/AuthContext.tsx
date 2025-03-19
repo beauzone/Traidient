@@ -65,8 +65,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      console.log('Checking auth with token:', storedToken ? 'Token exists' : 'No token found');
+      
       if (token) {
         try {
+          console.log('Making /api/auth/me request with token');
           const response = await fetch('/api/auth/me', {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -76,8 +80,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
           if (response.ok) {
             const userData = await response.json();
+            console.log('Auth successful, user data:', userData);
             setUser(userData);
           } else {
+            console.log('Auth response not OK:', response.status);
             // Token is invalid or expired
             localStorage.removeItem('token');
             setToken(null);
@@ -87,6 +93,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           localStorage.removeItem('token');
           setToken(null);
         }
+      } else {
+        console.log('No token available, user not authenticated');
       }
       setIsLoading(false);
     };
