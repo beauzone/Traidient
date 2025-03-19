@@ -8,18 +8,14 @@ export async function apiRequest<T = any>(
   url: string,
   data?: unknown
 ): Promise<T> {
-  return queryApiRequest(method, url, data)
-    .then(response => {
-      // Check if response status is 204 No Content
-      if (response.status === 204) {
-        return {} as T; // Return empty object for 204 responses
-      }
-      return response.json();
-    })
-    .catch(error => {
-      console.error(`API error (${method} ${url}):`, error);
-      throw error;
-    });
+  try {
+    // The queryApiRequest function already parses the JSON response
+    const response = await queryApiRequest(method, url, data);
+    return response as T;
+  } catch (error) {
+    console.error(`API error (${method} ${url}):`, error);
+    throw error;
+  }
 }
 
 /**
