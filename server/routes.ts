@@ -1045,52 +1045,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Forbidden: Not your strategy' });
       }
       
+      // Create the backtest in the database with status 'queued'
       const backtest = await storage.createBacktest(validatedData);
       
-      // Run the backtest (in a real system, this would be done asynchronously)
-      // For the MVP, we're simulating it
+      // Immediately send a response to the client with the created backtest
+      res.status(202).json(backtest);
       
       // Get API integration for backtest
-      const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-      const alpacaAPI = new AlpacaAPI(alpacaIntegration);
-      
-      // Start running the backtest with a slight delay to simulate processing
-      setTimeout(async () => {
-        try {
-          // Update status to running
-          await storage.updateBacktest(backtest.id, { status: 'running' });
-          
-          // Run the backtest
-          const results = await alpacaAPI.runBacktest(
-            strategy.source.content,
-            backtest.configuration
-          );
-          
-          // Update with results
-          await storage.updateBacktest(backtest.id, {
-            status: 'completed',
-            results,
-            completedAt: new Date()
-          });
-          
-          // Update strategy with backtest reference
-          await storage.updateStrategy(strategy.id, {
-            performance: {
-              ...strategy.performance,
-              lastBacktest: backtest.id
-            }
-          });
-        } catch (error) {
-          console.error('Backtest execution error:', error);
-          await storage.updateBacktest(backtest.id, {
-            status: 'failed',
-            error: (error as Error).message,
-            completedAt: new Date()
-          });
-        }
-      }, 1000);
-      
-      res.status(202).json(backtest);
+      try {
+        // Update status to running
+        await storage.updateBacktest(backtest.id, { status: 'running' });
+        console.log(`Backtest ${backtest.id} status set to running`);
+        
+        // Get user's Alpaca integration
+        const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+        const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+        
+        // Run the backtest (simulated for MVP)
+        console.log(`Running backtest ${backtest.id} with Alpaca API`);
+        const results = await alpacaAPI.runBacktest(
+          strategy.source.content,
+          backtest.configuration
+        );
+        
+        console.log(`Backtest ${backtest.id} completed, updating results`);
+        // Update with results
+        await storage.updateBacktest(backtest.id, {
+          status: 'completed',
+          results,
+          completedAt: new Date()
+        });
+        
+        // Update strategy with backtest reference
+        await storage.updateStrategy(strategy.id, {
+          performance: {
+            ...strategy.performance,
+            lastBacktest: backtest.id
+          }
+        });
+        console.log(`Backtest ${backtest.id} completed successfully`);
+      } catch (error) {
+        console.error('Backtest execution error:', error);
+        await storage.updateBacktest(backtest.id, {
+          status: 'failed',
+          error: (error instanceof Error) ? error.message : 'Unknown error during backtest execution',
+          completedAt: new Date()
+        });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Validation error', errors: error.errors });

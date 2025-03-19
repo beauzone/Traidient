@@ -430,41 +430,119 @@ export class AlpacaAPI {
 
   // Additional mock methods for backtesting
   async runBacktest(strategyCode: string, params: any): Promise<any> {
+    console.log(`Running backtest with strategy: ${strategyCode.substring(0, 50)}... and params:`, params);
     // In a real implementation, this would send the strategy code to a backtesting engine
-    // For MVP, we'll return mock data for demonstration
+    // For MVP, we'll return simulated data for demonstration
+    
+    // Create more realistic backtest results based on params
+    const { startDate, endDate, initialCapital, assets } = params;
+    
+    // Parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const durationDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Generate realistic performance metrics
+    const totalReturn = Math.random() * 20 - 5; // Between -5% and +15%
+    const annualizedReturn = (totalReturn / (durationDays / 365)) * 100;
+    
+    // Calculate final portfolio value
+    const finalValue = initialCapital * (1 + totalReturn / 100);
+    
+    console.log(`Backtest duration: ${durationDays} days, Initial: $${initialCapital}, Final: $${finalValue.toFixed(2)}, Return: ${totalReturn.toFixed(2)}%`);
+    
+    // Generate more realistic trade data
+    const tradeCount = Math.floor(Math.random() * 100) + 20;
+    const trades = [];
+    let currentEquity = initialCapital;
+    
+    // Generate equity curve and trades
+    const equityPoints = Math.min(durationDays, 100); // Cap at 100 points to avoid too much data
+    const equity = [];
+    
+    for (let i = 0; i < equityPoints; i++) {
+      const progress = i / (equityPoints - 1);
+      const dayOffset = Math.floor(progress * durationDays);
+      const timestamp = new Date(start.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+      
+      // Add some volatility to the equity curve
+      const noise = Math.random() * 0.03 - 0.015; // +/- 1.5%
+      const expectedEquity = initialCapital * (1 + (totalReturn / 100) * progress);
+      currentEquity = expectedEquity * (1 + noise);
+      
+      // Record equity point
+      equity.push({
+        timestamp: timestamp.toISOString(),
+        value: currentEquity
+      });
+      
+      // Generate some trades around this date (more frequent at beginning and end)
+      const tradeChance = 0.3 * (1 - Math.abs(progress - 0.5)) + 0.05;
+      
+      if (Math.random() < tradeChance) {
+        const asset = assets[Math.floor(Math.random() * assets.length)];
+        const price = 100 + Math.random() * 200;
+        const quantity = Math.floor(Math.random() * 20) + 1;
+        const value = price * quantity;
+        
+        trades.push({
+          timestamp: timestamp.toISOString(),
+          type: Math.random() > 0.5 ? 'buy' : 'sell',
+          asset: asset,
+          quantity: quantity,
+          price: price,
+          value: value,
+          fees: value * 0.001 // 0.1% fee
+        });
+      }
+    }
+    
+    // Ensure we have at least a few trades
+    if (trades.length < 10) {
+      for (let i = trades.length; i < 10; i++) {
+        const progress = i / 10;
+        const dayOffset = Math.floor(progress * durationDays);
+        const timestamp = new Date(start.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+        const asset = assets[Math.floor(Math.random() * assets.length)];
+        const price = 100 + Math.random() * 200;
+        const quantity = Math.floor(Math.random() * 20) + 1;
+        const value = price * quantity;
+        
+        trades.push({
+          timestamp: timestamp.toISOString(),
+          type: Math.random() > 0.5 ? 'buy' : 'sell',
+          asset: asset,
+          quantity: quantity,
+          price: price,
+          value: value,
+          fees: value * 0.001 // 0.1% fee
+        });
+      }
+    }
+    
+    // Sort trades by timestamp
+    trades.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
     const mockBacktestResults = {
       summary: {
-        totalReturn: Math.random() * 20 - 5, // Between -5% and +15%
-        annualizedReturn: Math.random() * 25 - 5, // Between -5% and +20%
+        totalReturn: totalReturn,
+        annualizedReturn: annualizedReturn,
         sharpeRatio: Math.random() * 3, // Between 0 and 3
         maxDrawdown: Math.random() * -15, // Between 0% and -15%
         winRate: Math.random() * 0.4 + 0.4, // Between 40% and 80%
-        totalTrades: Math.floor(Math.random() * 100) + 20 // Between 20 and 120 trades
+        totalTrades: trades.length
       },
-      trades: Array.from({ length: 50 }, (_, i) => ({
-        timestamp: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-        type: Math.random() > 0.5 ? 'buy' : 'sell',
-        asset: params.assets[Math.floor(Math.random() * params.assets.length)],
-        quantity: Math.floor(Math.random() * 100) + 1,
-        price: Math.random() * 1000 + 50,
-        value: Math.random() * 10000 + 1000,
-        fees: Math.random() * 10
-      })),
-      equity: Array.from({ length: 100 }, (_, i) => ({
-        timestamp: new Date(Date.now() - (100 - i) * 24 * 60 * 60 * 1000).toISOString(),
-        value: 10000 + (Math.random() * 1000 * i / 10)
-      })),
-      positions: Array.from({ length: 5 }, () => ({
-        timestamp: new Date().toISOString(),
-        asset: params.assets[Math.floor(Math.random() * params.assets.length)],
+      trades: trades,
+      equity: equity,
+      positions: Array.from({ length: Math.min(assets.length, 5) }, (_, i) => ({
+        timestamp: end.toISOString(),
+        asset: assets[i % assets.length],
         quantity: Math.floor(Math.random() * 100) + 1,
         value: Math.random() * 10000 + 1000
       }))
     };
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log(`Backtest completed with ${trades.length} trades and ${equity.length} equity points.`);
     
     return mockBacktestResults;
   }
