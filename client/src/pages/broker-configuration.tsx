@@ -159,6 +159,7 @@ export default function BrokerConfiguration() {
         type: "exchange", // Required field from the schema
         isActive: true,
         isPrimary: false,
+        lastUsed: new Date(), // Must be Date object, not string
         credentials: {},
       };
 
@@ -227,6 +228,7 @@ export default function BrokerConfiguration() {
         type: "exchange", // Required field from the schema
         isActive: true,
         isPrimary: false,
+        lastUsed: new Date(), // Must be Date object, not string
         credentials: {},
       };
 
