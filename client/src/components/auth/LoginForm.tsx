@@ -2,7 +2,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,6 +34,7 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -51,6 +52,11 @@ const LoginForm = () => {
         title: "Login successful",
         description: "You have been successfully logged in.",
       });
+      
+      // Redirect to dashboard after successful login
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
       toast({
