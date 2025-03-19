@@ -169,6 +169,7 @@ export default function BrokerConfiguration() {
           apiSecret: data.apiSecret,
           additionalFields: {
             endpoint: data.endpoint,
+            accountName: data.description, // Store name for consistent display
             accountType: data.accountType,
           }
         };
