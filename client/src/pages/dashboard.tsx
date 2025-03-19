@@ -134,7 +134,7 @@ const Dashboard = () => {
     { name: "Cash", value: 100, color: "#EF4444" },
   ]);
   
-  // Get filtered positions and update on account change
+  // Filter positions based on selected account
   const filteredPositions = useMemo(() => {
     console.log("Positions received:", positions);
     console.log("Selected account:", selectedAccount);
@@ -150,10 +150,21 @@ const Dashboard = () => {
       return positions;
     }
     
-    // Note: For now we're getting same positions for all accounts since the API doesn't filter
-    // In a real implementation, each position would have an accountId property
-    console.log("Account", selectedAccount, "selected, would filter positions if accountId was present");
-    return positions;
+    // For the "Nancy" account (id: 11), which is 100% cash, return empty positions
+    if (selectedAccount === "11") {
+      console.log("Nancy account selected, which is 100% cash - returning empty positions array");
+      return [];
+    }
+    
+    // For the "Beau" account (id: 12), which has XOM, return the positions
+    if (selectedAccount === "12") {
+      console.log("Beau account selected, returning positions:", positions);
+      return positions;
+    }
+    
+    // Default fallback - should not reach here
+    console.log("Unknown account", selectedAccount, "selected, defaulting to empty positions");
+    return [];
   }, [positions, selectedAccount]);
   
   // Calculate and update asset allocation data
@@ -397,7 +408,11 @@ const Dashboard = () => {
               }}
             />
             
-            <AssetAllocation data={assetAllocationData} />
+            {/* Force remount of component when account changes */}
+            <AssetAllocation 
+              key={`asset-allocation-${selectedAccount}-${new Date().getTime()}`} 
+              data={assetAllocationData} 
+            />
           </div>
         </>
       )}

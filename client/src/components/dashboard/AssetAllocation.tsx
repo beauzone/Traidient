@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
@@ -13,12 +13,24 @@ interface AssetAllocationProps {
 const COLORS = ['#3B82F6', '#6366F1', '#10B981', '#F59E0B', '#EF4444'];
 
 const AssetAllocation = ({ data }: AssetAllocationProps) => {
+  // Store the data in state with a random key to force re-render
   const [chartData, setChartData] = useState(data);
+  
+  // Use a ref to compare previous data with new data
+  const previousDataRef = useRef<string>("");
   
   // Update chart when data changes
   useEffect(() => {
+    // Stringify data to compare content
+    const currentDataString = JSON.stringify(data);
     console.log("AssetAllocation received new data:", data);
-    setChartData(data);
+    
+    // Only update if data has actually changed
+    if (previousDataRef.current !== currentDataString) {
+      console.log("Data changed, updating chart");
+      setChartData([...data]); // Create a new array to ensure React detects the change
+      previousDataRef.current = currentDataString;
+    }
   }, [data]);
 
   // Calculate the total of all values
