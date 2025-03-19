@@ -57,8 +57,11 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
                   <dt className="text-sm font-medium text-muted-foreground truncate">Total P&L</dt>
                   <dd className="flex items-baseline">
                     <div className="text-lg font-semibold">{totalPnL.value}</div>
-                    <span className={`ml-2 text-sm font-medium ${totalPnL.isPositive ? 'text-secondary' : 'text-destructive'}`}>
-                      <LucideIcons.ArrowUpRight className="inline mr-1 h-3 w-3" />
+                    <span className={`ml-2 text-sm font-medium ${totalPnL.isPositive ? 'text-green-500' : 'text-destructive'}`}>
+                      {totalPnL.isPositive ? 
+                        <LucideIcons.ArrowUp className="inline mr-1 h-3 w-3" /> : 
+                        <LucideIcons.ArrowDown className="inline mr-1 h-3 w-3" />
+                      }
                       {totalPnL.percentage}
                     </span>
                   </dd>
@@ -68,7 +71,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           </div>
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
-              <Link href="/analytics" className="font-medium text-primary hover:text-primary/80">
+              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80">
                 View details <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
               </Link>
             </div>
@@ -124,8 +127,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           </div>
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
-              <Link href="/alerts" className="font-medium text-primary hover:text-primary/80">
-                View alerts <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
+              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80">
+                Configure alerts <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>

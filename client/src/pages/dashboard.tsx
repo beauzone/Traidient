@@ -37,20 +37,30 @@ const Dashboard = () => {
 
   // Fetch account data from Alpaca
   const { data: accountData, isLoading: isLoadingAccount } = useQuery({
-    queryKey: ['/api/trading/account'],
+    queryKey: ['/api/trading/account', selectedAccount],
     queryFn: () => fetchData('/api/trading/account'),
   });
 
   // Fetch positions from Alpaca
   const { data: positions = [], isLoading: isLoadingPositions } = useQuery({
-    queryKey: ['/api/trading/positions'],
-    queryFn: () => fetchData('/api/trading/positions'),
+    queryKey: ['/api/trading/positions', selectedAccount],
+    queryFn: () => {
+      const endpoint = selectedAccount && selectedAccount !== "all" 
+        ? `/api/trading/positions?accountId=${selectedAccount}` 
+        : '/api/trading/positions';
+      return fetchData(endpoint);
+    },
   });
 
   // Fetch orders from Alpaca
   const { data: orders = [], isLoading: isLoadingOrders } = useQuery({
-    queryKey: ['/api/trading/orders'],
-    queryFn: () => fetchData('/api/trading/orders'),
+    queryKey: ['/api/trading/orders', selectedAccount],
+    queryFn: () => {
+      const endpoint = selectedAccount && selectedAccount !== "all" 
+        ? `/api/trading/orders?accountId=${selectedAccount}` 
+        : '/api/trading/orders';
+      return fetchData(endpoint);
+    },
   });
 
   // Portfolio history data from account data
@@ -140,8 +150,23 @@ const Dashboard = () => {
       }
     });
     
-    // Add cash
-    const cashValue = accountData?.cash || 0;
+    // Add cash based on selected account
+    let cashValue = 0;
+    
+    if (selectedAccount === "all" && Array.isArray(accountData)) {
+      // Sum cash across all accounts
+      cashValue = accountData.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+    } else if (Array.isArray(accountData)) {
+      // Find the specific account
+      const currentAccount = accountData.find((acc) => acc.id.toString() === selectedAccount);
+      if (currentAccount) {
+        cashValue = currentAccount.balance || 0;
+      } else if (accountData.length > 0) {
+        // Fallback to first account
+        cashValue = accountData[0].balance || 0;
+      }
+    }
+    
     totalEquity += cashValue;
     assetGroups.set("Cash", cashValue);
     
@@ -152,14 +177,19 @@ const Dashboard = () => {
     const result = Array.from(assetGroups.entries())
       .map(([name, value], index) => ({
         name,
-        value: Math.round((value / totalEquity) * 100),
+        value: totalEquity > 0 ? Math.round((value / totalEquity) * 100) : 0,
         color: colors[index % colors.length]
       }))
       .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value);
+    
+    // If there's no data, show 100% cash
+    if (result.length === 0) {
+      result.push({ name: "Cash", value: 100, color: "#EF4444" });
+    }
       
     setAssetAllocationData(result);
-  }, [positions, accountData]);
+  }, [positions, accountData, selectedAccount]);
 
   // Strategy actions
   const handlePauseStrategy = (id: number) => {
@@ -277,9 +307,18 @@ const Dashboard = () => {
           <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <PortfolioChart
               data={portfolioData}
-              currentValue={Array.isArray(accountData) 
-                ? formatCurrency(accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0))
-                : formatCurrency(0)}
+              currentValue={
+                Array.isArray(accountData) 
+                  ? (selectedAccount === "all"
+                    ? formatCurrency(accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0))
+                    : formatCurrency(
+                        accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.equity || 
+                        accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.balance || 
+                        (accountData.length > 0 ? accountData[0].equity || accountData[0].balance || 0 : 0)
+                      )
+                  )
+                  : formatCurrency(0)
+              }
               change={{
                 value: pnlData.value,
                 percentage: pnlData.percentage,
