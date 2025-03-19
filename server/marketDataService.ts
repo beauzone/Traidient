@@ -103,11 +103,9 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
         if (polygonAPI && polygonAPI.isValid) {
           isMarketOpen = await polygonAPI.isMarketOpen();
           console.log(`Market status from Polygon.io: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
-        } else if (alpacaAPI && alpacaAPI.isValid) {
-          // Alpaca doesn't have a direct market status API, so we'll use time-based check
-          isMarketOpen = alpacaAPI.isMarketOpen ? 
-            alpacaAPI.isMarketOpen() : 
-            (new AlphaVantageAPI()).isMarketOpen();
+        } else if (alpacaAPI) {
+          // Use Alpaca's market status API
+          isMarketOpen = await alpacaAPI.isMarketOpen();
           console.log(`Market status from time-based check: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
         } else {
           // Fallback to Yahoo Finance

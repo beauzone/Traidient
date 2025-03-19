@@ -8,7 +8,7 @@ import { ApiIntegration } from '@shared/schema';
 export default class TiingoAPI {
   private apiKey: string;
   private restBaseUrl: string = 'https://api.tiingo.com';
-  private isValid: boolean;
+  public isValid: boolean;
   private integrationId?: number;
 
   /**

@@ -8,7 +8,7 @@ import { ApiIntegration } from '@shared/schema';
 export default class PolygonAPI {
   private apiKey: string;
   private baseUrl: string = 'https://api.polygon.io';
-  private isValid: boolean;
+  public isValid: boolean;
   private integrationId?: number;
 
   /**

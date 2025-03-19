@@ -8,7 +8,7 @@ import { ApiIntegration } from '@shared/schema';
 export default class AlphaVantageAPI {
   private apiKey: string;
   private baseUrl: string = 'https://www.alphavantage.co/query';
-  private isValid: boolean;
+  public isValid: boolean;
   private integrationId?: number;
 
   /**
