@@ -41,64 +41,92 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
     const fetchAccounts = async () => {
       setIsLoadingAccounts(true);
       try {
-        // This would typically fetch from an actual endpoint like '/api/brokerage-accounts'
-        // For now, we'll use the integration endpoint as a placeholder
+        // Fetch Alpaca integrations
         const integrations = await fetchData('/api/integrations');
-        
         console.log('Fetched integrations:', integrations);
         
-        // Transform integrations into accounts (in a real app, this would be its own endpoint)
-        const accountsData: BrokerageAccount[] = integrations
-          .filter((integration: any) => integration.provider === 'alpaca')
-          .map((integration: any, index: number) => {
+        // Filter Alpaca integrations
+        const alpacaIntegrations = integrations.filter((integration: any) => 
+          integration.provider === 'alpaca'
+        );
+        
+        if (alpacaIntegrations.length === 0) {
+          console.log('No Alpaca integrations found');
+          setAccounts([]);
+          setIsLoadingAccounts(false);
+          return;
+        }
+
+        try {
+          // Try to fetch actual account data from Alpaca API
+          const accountData = await fetchData('/api/trading/account');
+          
+          // Transform integrations into accounts with real account data
+          const accountsData: BrokerageAccount[] = alpacaIntegrations.map((integration: any) => {
             // Determine account type from additional fields
             const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
             
-            // Use description or make a descriptive name
+            // Use description as account name, or create a descriptive name if missing
             const name = integration.description || 
-                        `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account ${index + 1}`;
+                         `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account`;
+            
+            return {
+              id: integration.id,
+              name: name,
+              accountNumber: accountData.accountNumber || `ALP-${integration.id}`,
+              accountType: accountType,
+              balance: accountData.cash || 0,
+              provider: 'Alpaca',
+              performance: calculatePerformance(accountData),
+            };
+          });
+
+          console.log('Processed accounts with real data:', accountsData);
+          setAccounts(accountsData);
+        } catch (accountError) {
+          console.error('Failed to fetch account data, using integration data only:', accountError);
+          
+          // Transform integrations into accounts without real account data
+          const accountsData: BrokerageAccount[] = alpacaIntegrations.map((integration: any, index: number) => {
+            // Determine account type from additional fields
+            const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
+            
+            // Use description as account name, or create a descriptive name if missing
+            const name = integration.description || 
+                         `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account ${index + 1}`;
             
             return {
               id: integration.id,
               name: name,
               accountNumber: `ALP-${integration.id}`,
               accountType: accountType,
-              balance: 10000.00, // Placeholder until we can fetch real balance
+              balance: 0, // Unable to fetch real balance
               provider: 'Alpaca',
-              performance: 4.34, // Placeholder until we can fetch real performance
+              performance: 0, // Unable to fetch real performance
             };
           });
           
-        // If we don't have any accounts, add a demo account just for UI demonstration
-        if (accountsData.length === 0) {
-          accountsData.push({
-            id: 1,
-            name: 'Account 1',
-            accountNumber: 'DEMO-001',
-            accountType: 'paper',
-            balance: 1809.68,
-            provider: 'Alpaca',
-            performance: 4.34,
-          });
+          console.log('Processed accounts with integration data only:', accountsData);
+          setAccounts(accountsData);
         }
-        
-        console.log('Processed accounts:', accountsData);
-        setAccounts(accountsData);
       } catch (error) {
         console.error('Failed to fetch accounts:', error);
-        // Fallback to a demo account if API fails
-        setAccounts([{
-          id: 1,
-          name: 'Account 1',
-          accountNumber: 'DEMO-001',
-          accountType: 'paper',
-          balance: 1809.68,
-          provider: 'Alpaca',
-          performance: 4.34,
-        }]);
+        setAccounts([]);
       } finally {
         setIsLoadingAccounts(false);
       }
+    };
+    
+    // Helper function to calculate performance
+    const calculatePerformance = (accountData: any): number => {
+      if (!accountData || !accountData.equity || !accountData.lastEquity) return 0;
+      
+      const equity = parseFloat(accountData.equity);
+      const lastEquity = parseFloat(accountData.lastEquity);
+      
+      if (lastEquity === 0) return 0;
+      
+      return ((equity - lastEquity) / lastEquity) * 100;
     };
 
     fetchAccounts();
