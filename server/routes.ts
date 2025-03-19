@@ -7,6 +7,7 @@ import { YahooFinanceAPI } from "./yahoo";
 import PolygonAPI from "./polygon";
 import AlphaVantageAPI from "./alphavantage";
 import TiingoAPI from "./tiingo";
+import { startMarketDataStream, stopMarketDataStream, getHistoricalMarketData } from "./marketDataService";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
@@ -130,9 +131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             symbols: Array.from(subscribedSymbols)
           }));
           
-          // Start sending market data (in a real app, this would tap into a real data feed)
-          // For demo purposes, we'll simulate price updates
-          startMarketDataSimulation(userId, ws, subscribedSymbols);
+          // Start streaming market data using the new market data service
+          startMarketDataStream(userId, ws, subscribedSymbols);
         }
         // Handle unsubscribing from market data
         else if (data.type === 'unsubscribe') {

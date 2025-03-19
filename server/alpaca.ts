@@ -6,7 +6,7 @@ export class AlpacaAPI {
   private tradingBaseUrl: string;
   private dataBaseUrl: string;
   private integrationId?: number;
-  private isValid: boolean;
+  public isValid: boolean;
 
   constructor(integration?: ApiIntegration) {
     // Get API keys from integration or environment
@@ -318,6 +318,114 @@ export class AlpacaAPI {
       console.error("Error fetching Alpaca quote:", error);
       throw new Error("Failed to fetch Alpaca quote");
     }
+  }
+  
+  /**
+   * Checks if the US stock market is currently open
+   * @returns Promise with boolean indicating if the market is open
+   */
+  async isMarketOpen(): Promise<boolean> {
+    if (!this.isValid) {
+      console.warn("Alpaca API credentials not provided, using time-based market status check");
+      return this.isMarketOpenByTime();
+    }
+    
+    try {
+      const response = await fetch(`${this.tradingBaseUrl}/clock`, {
+        headers: {
+          "APCA-API-KEY-ID": this.apiKey,
+          "APCA-API-SECRET-KEY": this.apiSecret
+        }
+      });
+      
+      if (!response.ok) {
+        console.warn(`Error fetching Alpaca clock: ${response.statusText}, using time-based check`);
+        return this.isMarketOpenByTime();
+      }
+      
+      const data = await response.json();
+      return data.is_open;
+    } catch (error) {
+      console.warn("Error checking market status via Alpaca:", error);
+      return this.isMarketOpenByTime();
+    }
+  }
+  
+  /**
+   * Fallback function to check if the market is open based on time
+   * @returns Boolean indicating if the market is likely open
+   */
+  private isMarketOpenByTime(): boolean {
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    
+    // Convert to Eastern Time (ET)
+    // This is a simple approximation, a real app would use a timezone library
+    const isDST = this.isDateInDST(now);
+    let etHour = hour - (isDST ? 4 : 5);
+    if (etHour < 0) etHour += 24;
+    
+    // Market is closed on weekends
+    if (day === 0 || day === 6) {
+      return false;
+    }
+    
+    // Regular market hours: 9:30 AM - 4:00 PM ET
+    if ((etHour === 9 && minute >= 30) || (etHour > 9 && etHour < 16)) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Checks if a date is in Daylight Saving Time
+   * This is a simplified check - a production system would use a timezone library
+   */
+  private isDateInDST(date: Date): boolean {
+    // A very simple DST check for US Eastern Time
+    // DST starts on the second Sunday in March
+    // DST ends on the first Sunday in November
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-12
+    
+    // January, February, December are never in DST
+    if (month < 3 || month > 11) {
+      return false;
+    }
+    
+    // April through October are always in DST
+    if (month > 3 && month < 11) {
+      return true;
+    }
+    
+    // March: DST starts on the second Sunday
+    if (month === 3) {
+      // Get the first day of March
+      const firstDay = new Date(year, 2, 1);
+      // Find the first Sunday
+      const firstSunday = 1 + (7 - firstDay.getDay()) % 7;
+      // Second Sunday is firstSunday + 7
+      const secondSunday = firstSunday + 7;
+      // DST starts at 2:00 AM on the second Sunday
+      return date.getDate() > secondSunday || 
+        (date.getDate() === secondSunday && date.getHours() >= 2);
+    }
+    
+    // November: DST ends on the first Sunday
+    if (month === 11) {
+      // Get the first day of November
+      const firstDay = new Date(year, 10, 1);
+      // Find the first Sunday
+      const firstSunday = 1 + (7 - firstDay.getDay()) % 7;
+      // DST ends at 2:00 AM on the first Sunday
+      return date.getDate() < firstSunday || 
+        (date.getDate() === firstSunday && date.getHours() < 2);
+    }
+    
+    return false;
   }
 
   // Additional mock methods for backtesting
