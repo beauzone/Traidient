@@ -1879,55 +1879,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
-      // Try to get API integration for trading
-      try {
-        let alpacaAPI;
-        try {
-          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-          alpacaAPI = new AlpacaAPI(alpacaIntegration);
-          console.log("Using user's Alpaca API integration for account data");
-        } catch (err) {
-          console.log("No user-specific Alpaca integration found, using environment variables for account data");
-          alpacaAPI = new AlpacaAPI();
+      // Get all user's integrations to build account list
+      const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+      
+      // Process all broker accounts
+      const accounts = [];
+      
+      // Process Alpaca accounts
+      const alpacaIntegrations = integrations.filter(i => i.provider === 'alpaca');
+      
+      if (alpacaIntegrations.length > 0) {
+        // Process each Alpaca integration
+        for (const integration of alpacaIntegrations) {
+          try {
+            // Create API client with integration credentials
+            const alpacaAPI = new AlpacaAPI(integration);
+            
+            // Try to get live account data
+            try {
+              console.log("Using user's Alpaca API integration for account data");
+              const account = await alpacaAPI.getAccount();
+              
+              // Format for frontend with account name
+              const accountName = 
+                integration.description || 
+                integration.credentials?.additionalFields?.accountName || 
+                `Alpaca ${integration.credentials?.additionalFields?.accountType === 'live' ? 'Live' : 'Paper'} Account ${accounts.length + 1}`;
+                
+              const formattedAccount = {
+                id: integration.id,
+                name: accountName,
+                accountNumber: account.account_number,
+                accountType: integration.credentials?.additionalFields?.accountType || 'paper',
+                status: account.status,
+                currency: account.currency,
+                balance: parseFloat(account.cash),
+                portfolioValue: parseFloat(account.portfolio_value),
+                buyingPower: parseFloat(account.buying_power),
+                daytradeCount: account.daytrade_count,
+                equity: parseFloat(account.equity),
+                isPDT: account.pattern_day_trader || account.trading_blocked,
+                tradingBlocked: account.trading_blocked,
+                provider: 'Alpaca',
+                performance: parseFloat(account.equity) - parseFloat(account.last_equity)
+              };
+              
+              accounts.push(formattedAccount);
+            } catch (apiError) {
+              console.error("Error fetching Alpaca account:", apiError);
+              
+              // Still add the account with limited info
+              const accountName = 
+                integration.description || 
+                integration.credentials?.additionalFields?.accountName || 
+                `Alpaca ${integration.credentials?.additionalFields?.accountType === 'live' ? 'Live' : 'Paper'} Account ${accounts.length + 1}`;
+              
+              // Add basic account info without live data
+              accounts.push({
+                id: integration.id,
+                name: accountName,
+                accountNumber: `ALP-${integration.id}`,
+                accountType: integration.credentials?.additionalFields?.accountType || 'paper',
+                balance: 0,
+                provider: 'Alpaca',
+                performance: 0
+              });
+            }
+          } catch (err) {
+            console.error("Failed to process Alpaca integration:", err);
+          }
         }
-        
-        // Get account information
-        const account = await alpacaAPI.getAccount();
-        
-        // Format for frontend
-        const formattedAccount = {
-          id: account.id,
-          accountNumber: account.account_number,
-          status: account.status,
-          currency: account.currency,
-          cash: parseFloat(account.cash),
-          portfolioValue: parseFloat(account.portfolio_value),
-          buyingPower: parseFloat(account.buying_power),
-          daytradeCount: account.daytrade_count,
-          lastEquity: parseFloat(account.last_equity),
-          longMarketValue: parseFloat(account.long_market_value),
-          shortMarketValue: parseFloat(account.short_market_value),
-          equity: parseFloat(account.equity),
-          lastMaintenanceMargin: parseFloat(account.last_maintenance_margin),
-          maintenanceMargin: parseFloat(account.maintenance_margin),
-          initialMargin: parseFloat(account.initial_margin),
-          daytradeCount: account.daytrade_count,
-          daytradeLimit: 3, // Standard PDT rule
-          isPDT: account.pattern_day_trader || account.trading_blocked,
-          tradingBlocked: account.trading_blocked
-        };
-        
-        res.json(formattedAccount);
-      } catch (alpacaError) {
-        console.error('Error fetching Alpaca account:', alpacaError);
-        res.status(400).json({ 
-          message: 'Error fetching account data from Alpaca', 
-          error: alpacaError.message 
-        });
+      } else {
+        // Try using environment variables if no user integrations
+        try {
+          console.log("No user-specific Alpaca integration found, using environment variables for account data");
+          const alpacaAPI = new AlpacaAPI();
+          const account = await alpacaAPI.getAccount();
+          
+          accounts.push({
+            id: 0,
+            name: "Default Alpaca Account",
+            accountNumber: account.account_number,
+            accountType: 'paper',
+            status: account.status,
+            currency: account.currency,
+            balance: parseFloat(account.cash),
+            portfolioValue: parseFloat(account.portfolio_value),
+            buyingPower: parseFloat(account.buying_power),
+            equity: parseFloat(account.equity),
+            provider: 'Alpaca',
+            performance: parseFloat(account.equity) - parseFloat(account.last_equity)
+          });
+        } catch (envError) {
+          console.error("Error fetching account with environment variables:", envError);
+        }
+      }
+      
+      // Add other broker types here when implemented
+      
+      // If we have accounts, return them
+      if (accounts.length > 0) {
+        console.log("Processed accounts:", accounts);
+        res.json(accounts);
+      } else {
+        // If no accounts could be processed, return an empty array with a message
+        console.error("Failed to fetch account data, using integration data only:");
+        console.log("Processed accounts with integration data only:", accounts);
+        res.json(accounts);
       }
     } catch (error) {
       console.error('Get account error:', error);
-      res.status(500).json({ message: 'Error fetching account information' });
+      res.status(500).json({ 
+        message: 'Error fetching account information',
+        accounts: []
+      });
     }
   });
 
