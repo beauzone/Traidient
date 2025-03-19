@@ -35,11 +35,11 @@ const Sidebar = () => {
 
   const navItems = [
     { path: "/dashboard", name: "Dashboard", icon: <LineChart className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    { path: "/strategies", name: "Strategies", icon: <Bot className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    { path: "/bot-builder", name: "Bot Builder", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    { path: "/backtest", name: "Backtesting", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
     { path: "/live-trading", name: "Live Trading", icon: <PlayCircle className="mr-3 flex-shrink-0 h-5 w-5" /> },
     { path: "/market-data", name: "Market Data", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/strategies", name: "Strategies", icon: <Bot className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/backtest", name: "Backtesting", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/bot-builder", name: "Bot Builder", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
   const accountItems = [
