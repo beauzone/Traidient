@@ -51,17 +51,22 @@ const TopNavbar = () => {
   
   // Format currency
   const formatCurrency = (value: number) => {
+    // Ensure value is a number and not NaN
+    const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value);
+    }).format(validValue);
   };
   
   // Format percentage
   const formatPercentage = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+    // Ensure value is a number and not NaN
+    const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+    return `${validValue >= 0 ? '+' : ''}${validValue.toFixed(2)}%`;
   };
 
   return (
@@ -105,7 +110,7 @@ const TopNavbar = () => {
                       onClick={() => setSelectedAccount("all")}
                     >
                       <div className="font-semibold">All Accounts</div>
-                      <div>{formatCurrency(accounts.reduce((sum, account) => sum + account.balance, 0))}</div>
+                      <div>{formatCurrency(accounts.reduce((sum, account) => sum + (account.balance || 0), 0))}</div>
                     </DropdownMenuItem>
                     
                     <DropdownMenuSeparator />

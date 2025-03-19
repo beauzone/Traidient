@@ -1862,9 +1862,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(201).json(formattedOrder);
       } catch (alpacaError) {
         console.error('Error placing Alpaca order:', alpacaError);
+        const errorMessage = alpacaError instanceof Error 
+          ? alpacaError.message 
+          : String(alpacaError);
+          
         res.status(400).json({ 
           message: 'Error placing order with Alpaca', 
-          error: alpacaError.message 
+          error: errorMessage
         });
       }
     } catch (error) {
