@@ -7,17 +7,26 @@ export class AlpacaAPI {
   private dataBaseUrl: string;
 
   constructor(integration?: ApiIntegration) {
-    this.apiKey = integration?.credentials.apiKey || process.env.ALPACA_API_KEY || "";
-    this.apiSecret = integration?.credentials.apiSecret || process.env.ALPACA_API_SECRET || "";
+    // Get API keys from integration or environment
+    this.apiKey = integration?.credentials?.apiKey || process.env.ALPACA_API_KEY || "";
+    this.apiSecret = integration?.credentials?.apiSecret || process.env.ALPACA_API_SECRET || "";
     
     // Use v2 API endpoints - can switch between paper and live
-    const endpoint = integration?.credentials.additionalFields?.endpoint || "paper";
+    const endpoint = integration?.credentials?.additionalFields?.endpoint || "paper";
     const isPaperTrading = endpoint === "paper";
     
     this.tradingBaseUrl = isPaperTrading 
       ? "https://paper-api.alpaca.markets/v2" 
       : "https://api.alpaca.markets/v2";
     this.dataBaseUrl = "https://data.alpaca.markets/v2";
+    
+    // Log detailed information about the connection
+    console.log("Alpaca API initialized:", {
+      isPaperTrading,
+      hasApiKey: !!this.apiKey,
+      hasApiSecret: !!this.apiSecret,
+      integrationId: integration?.id
+    });
     
     // Log if we're missing API credentials
     if (!this.apiKey || !this.apiSecret) {
