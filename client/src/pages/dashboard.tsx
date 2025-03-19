@@ -5,6 +5,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import StatsCards from "@/components/dashboard/StatsCards";
 import PortfolioChart from "@/components/dashboard/PortfolioChart";
 import AssetAllocation from "@/components/dashboard/AssetAllocation";
+import PositionsTable from "@/components/dashboard/PositionsTable";
 import StrategyTable from "@/components/dashboard/StrategyTable";
 import WatchlistTable from "@/components/dashboard/WatchlistTable";
 import { useToast } from "@/hooks/use-toast";
@@ -414,10 +415,12 @@ const Dashboard = () => {
               data={assetAllocationData} 
             />
           </div>
+
+          {/* Portfolio Positions */}
+          <PositionsTable />
         </>
       )}
       
-
       {/* Strategy Performance */}
       <StrategyTable
         strategies={strategies}
