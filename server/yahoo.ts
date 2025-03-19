@@ -286,8 +286,6 @@ export class YahooFinanceAPI {
   isMarketOpen(): boolean {
     const now = new Date();
     const day = now.getDay();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
     const month = now.getMonth();
     const date = now.getDate();
     const year = now.getFullYear();
@@ -296,6 +294,18 @@ export class YahooFinanceAPI {
     if (day === 0 || day === 6) {
       return false;
     }
+    
+    // Get NY time by adding offset (UTC-4 or UTC-5 depending on daylight saving)
+    const nyDate = new Date(now);
+    // Approximate DST check (proper impl would use a timezone library)
+    const isDST = this.isDateInDST(now);
+    // EST is UTC-5, EDT is UTC-4
+    const offset = isDST ? -4 : -5;
+    // Add the difference between local time and UTC, then apply the NY offset
+    nyDate.setHours(now.getHours() + offset + now.getTimezoneOffset() / 60);
+    
+    const nyHour = nyDate.getHours();
+    const nyMinute = nyDate.getMinutes();
     
     // Check for major US holidays (simplified implementation)
     // These are approximations and should be updated annually for exact dates
@@ -351,37 +361,37 @@ export class YahooFinanceAPI {
       return false;
     }
     
-    // Convert current time to Eastern Time (ET) - this is a simplification
-    // Assuming the server is in UTC, Eastern Time is UTC-4 or UTC-5 depending on daylight saving
-    // For simplicity, we'll just subtract 4 hours (approximating ET during DST)
-    const etHour = (hour - 4 + 24) % 24;
-    
-    // Regular market hours: 9:30 AM - 4:00 PM ET, Monday to Friday
-    if (etHour < 9 || etHour > 16) {
-      return false;
+    // Regular market hours are 9:30 AM - 4:00 PM Eastern Time
+    // We'll return true if we're in those hours
+    if ((nyHour > 9 || (nyHour === 9 && nyMinute >= 30)) && nyHour < 16) {
+      return true;
     }
     
-    if (etHour === 9 && minute < 30) {
-      return false;
-    }
+    return false;
+  }
+  
+  /**
+   * Checks if a date is in Daylight Saving Time
+   * This is a simplified check - a production system would use a more robust timezone library
+   */
+  private isDateInDST(date: Date): boolean {
+    // DST in the US starts on the second Sunday in March
+    // and ends on the first Sunday in November
+    const year = date.getFullYear();
+    const march = new Date(year, 2, 1); // March 1
+    const november = new Date(year, 10, 1); // November 1
     
-    // Early closings (1:00 PM ET) on days before certain holidays
-    // Day before Independence Day
-    if (month === 6 && date === 3 && (etHour >= 13)) {
-      return false;
-    }
+    // Find second Sunday in March
+    const daysUntilSecondSundayInMarch = (14 - march.getDay()) % 7;
+    const secondSundayInMarch = new Date(year, 2, 1 + daysUntilSecondSundayInMarch + 7);
+    secondSundayInMarch.setHours(2); // DST starts at 2 AM local time
     
-    // Day after Thanksgiving
-    if (month === 10 && day === 5 && date >= 23 && date <= 29 && (etHour >= 13)) {
-      return false;
-    }
+    // Find first Sunday in November
+    const daysUntilFirstSundayInNov = (7 - november.getDay()) % 7;
+    const firstSundayInNov = new Date(year, 10, 1 + daysUntilFirstSundayInNov);
+    firstSundayInNov.setHours(2); // DST ends at 2 AM local time
     
-    // Christmas Eve
-    if (month === 11 && date === 24 && (etHour >= 13)) {
-      return false;
-    }
-    
-    return true;
+    return date >= secondSundayInMarch && date < firstSundayInNov;
   }
   
   /**
