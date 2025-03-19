@@ -444,7 +444,8 @@ export class AlpacaAPI {
     
     // Generate realistic performance metrics
     const totalReturn = Math.random() * 20 - 5; // Between -5% and +15%
-    const annualizedReturn = (totalReturn / (durationDays / 365)) * 100;
+    // Calculate annualized return using the correct compound annual growth rate formula
+    const annualizedReturn = (Math.pow(1 + totalReturn/100, 365/durationDays) - 1) * 100;
     
     // Calculate final portfolio value
     const finalValue = initialCapital * (1 + totalReturn / 100);
