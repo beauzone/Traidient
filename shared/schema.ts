@@ -53,7 +53,6 @@ export const apiIntegrations = pgTable("api_integrations", {
   userId: integer("user_id").notNull().references(() => users.id),
   provider: text("provider").notNull(), // 'alpaca', 'polygon', 'openai', etc.
   type: text("type").notNull(), // 'exchange', 'data', 'ai'
-  description: text("description"), // Friendly name for the integration
   credentials: jsonb("credentials").$type<{
     apiKey: string;
     apiSecret?: string;
@@ -70,7 +69,6 @@ export const insertApiIntegrationSchema = createInsertSchema(apiIntegrations).pi
   userId: true,
   provider: true,
   type: true,
-  description: true,
   credentials: true,
   isActive: true,
   isPrimary: true,
