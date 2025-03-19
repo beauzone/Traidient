@@ -168,15 +168,20 @@ export default function BrokerConfiguration() {
         apiData.credentials = {
           apiKey: data.apiKey,
           apiSecret: data.apiSecret,
-          endpoint: data.endpoint,
-          accountType: data.accountType,
+          additionalFields: {
+            endpoint: data.endpoint,
+            accountType: data.accountType,
+          }
         };
       } else if (data.provider === "ibkr") {
         apiData.credentials = {
-          endpoint: data.endpoint,
-          port: data.port,
-          accountId: data.accountId,
-          readOnly: data.readOnly,
+          apiKey: "ibkr",
+          additionalFields: {
+            endpoint: data.endpoint,
+            port: data.port,
+            accountId: data.accountId,
+            readOnly: data.readOnly,
+          }
         };
       } else if (data.provider === "generic") {
         // For generic, use the stored original provider if available
@@ -186,8 +191,10 @@ export default function BrokerConfiguration() {
         apiData.credentials = {
           apiKey: data.apiKey || "",
           apiSecret: data.apiSecret || "",
-          endpoint: data.endpoint || "",
-          additionalConfig: data.additionalConfig || {},
+          additionalFields: {
+            endpoint: data.endpoint || "",
+            ...data.additionalConfig || {},
+          }
         };
       }
 
@@ -228,15 +235,20 @@ export default function BrokerConfiguration() {
         apiData.credentials = {
           apiKey: data.apiKey,
           apiSecret: data.apiSecret,
-          endpoint: data.endpoint,
-          accountType: data.accountType,
+          additionalFields: {
+            endpoint: data.endpoint,
+            accountType: data.accountType,
+          }
         };
       } else if (data.provider === "ibkr") {
         apiData.credentials = {
-          endpoint: data.endpoint,
-          port: data.port,
-          accountId: data.accountId,
-          readOnly: data.readOnly,
+          apiKey: "ibkr",
+          additionalFields: {
+            endpoint: data.endpoint,
+            port: data.port,
+            accountId: data.accountId,
+            readOnly: data.readOnly,
+          }
         };
       } else if (data.provider === "generic") {
         // For generic, use the stored original provider if available
@@ -246,8 +258,10 @@ export default function BrokerConfiguration() {
         apiData.credentials = {
           apiKey: data.apiKey || "",
           apiSecret: data.apiSecret || "",
-          endpoint: data.endpoint || "",
-          additionalConfig: data.additionalConfig || {},
+          additionalFields: {
+            endpoint: data.endpoint || "",
+            ...data.additionalConfig || {},
+          }
         };
       }
 
@@ -349,17 +363,17 @@ export default function BrokerConfiguration() {
         description: integration.description || "",
         apiKey: integration.credentials?.apiKey || "",
         apiSecret: integration.credentials?.apiSecret || "",
-        endpoint: integration.credentials?.endpoint || "paper",
-        accountType: integration.credentials?.accountType || "paper",
+        endpoint: integration.credentials?.additionalFields?.endpoint || "paper",
+        accountType: integration.credentials?.additionalFields?.accountType || "paper",
       });
     } else if (integration.provider === "ibkr") {
       ibkrForm.reset({
         provider: "ibkr",
         description: integration.description || "",
-        endpoint: integration.credentials?.endpoint || "localhost",
-        port: integration.credentials?.port || "4001",
-        accountId: integration.credentials?.accountId || "",
-        readOnly: integration.credentials?.readOnly || false,
+        endpoint: integration.credentials?.additionalFields?.endpoint || "localhost",
+        port: integration.credentials?.additionalFields?.port || "4001",
+        accountId: integration.credentials?.additionalFields?.accountId || "",
+        readOnly: integration.credentials?.additionalFields?.readOnly || false,
       });
     } else {
       // Generic provider
@@ -368,11 +382,11 @@ export default function BrokerConfiguration() {
         description: integration.description || "",
         apiKey: integration.credentials?.apiKey || "",
         apiSecret: integration.credentials?.apiSecret || "",
-        endpoint: integration.credentials?.endpoint || "",
+        endpoint: integration.credentials?.additionalFields?.endpoint || "",
         // We store the original provider in credentials for reference
         additionalConfig: {
           originalProvider: integration.provider,
-          ...integration.credentials?.additionalConfig
+          ...integration.credentials?.additionalFields
         }
       });
     }
@@ -490,7 +504,7 @@ export default function BrokerConfiguration() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={alpacaForm.control}
                           name="apiSecret"
@@ -498,30 +512,23 @@ export default function BrokerConfiguration() {
                             <FormItem>
                               <FormLabel>API Secret</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="password" 
-                                  placeholder="Your API Secret" 
-                                  {...field} 
-                                />
+                                <Input type="password" placeholder="Your API Secret" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={alpacaForm.control}
                           name="endpoint"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Endpoint</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select endpoint" />
+                                    <SelectValue placeholder="Select an endpoint" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -530,59 +537,52 @@ export default function BrokerConfiguration() {
                                 </SelectContent>
                               </Select>
                               <FormDescription>
-                                Choose paper trading for testing or live for real trading
+                                Paper trading is for testing, live trading uses real money
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={alpacaForm.control}
                           name="accountType"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Account Type</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select account type" />
+                                    <SelectValue placeholder="Select an account type" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="paper">Paper</SelectItem>
-                                  <SelectItem value="live">Live</SelectItem>
+                                  <SelectItem value="paper">Paper Account</SelectItem>
+                                  <SelectItem value="live">Live Account</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <FormDescription>
+                                This should match the endpoint type
+                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
-                        <div className="flex justify-end space-x-2 pt-4">
+
+                        <div className="flex items-center justify-end space-x-2 pt-4">
                           {isEditing && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              onClick={handleCancelEdit}
-                            >
+                            <Button variant="outline" onClick={handleCancelEdit}>
                               Cancel
                             </Button>
                           )}
-                          <Button 
-                            type="submit" 
-                            disabled={addIntegrationMutation.isPending || updateIntegrationMutation.isPending}
-                          >
-                            {isEditing ? "Update" : "Add"} Alpaca Integration
+                          <Button type="submit">
+                            {isEditing ? "Update" : "Add"} Integration
                           </Button>
                         </div>
                       </form>
                     </Form>
                   </TabsContent>
-                  
+
                   {/* Interactive Brokers Form */}
                   <TabsContent value="ibkr">
                     <Form {...ibkrForm}>
@@ -603,24 +603,24 @@ export default function BrokerConfiguration() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={ibkrForm.control}
                           name="endpoint"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Endpoint</FormLabel>
+                              <FormLabel>TWS/Gateway Endpoint</FormLabel>
                               <FormControl>
                                 <Input placeholder="localhost" {...field} />
                               </FormControl>
                               <FormDescription>
-                                TWS/IB Gateway address (usually localhost)
+                                Usually localhost or a remote server address
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={ibkrForm.control}
                           name="port"
@@ -631,13 +631,13 @@ export default function BrokerConfiguration() {
                                 <Input placeholder="4001" {...field} />
                               </FormControl>
                               <FormDescription>
-                                TWS/IB Gateway port (7496/4001 for TWS/Gateway)
+                                Default is 4001 for live and 4002 for paper account
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={ibkrForm.control}
                           name="accountId"
@@ -645,25 +645,22 @@ export default function BrokerConfiguration() {
                             <FormItem>
                               <FormLabel>Account ID</FormLabel>
                               <FormControl>
-                                <Input placeholder="U1234567" {...field} />
+                                <Input placeholder="U12345678" {...field} />
                               </FormControl>
-                              <FormDescription>
-                                Your IBKR account ID
-                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={ibkrForm.control}
                           name="readOnly"
                           render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                               <div className="space-y-0.5">
-                                <FormLabel>Read-Only Mode</FormLabel>
+                                <FormLabel className="text-base">Read-Only Mode</FormLabel>
                                 <FormDescription>
-                                  Enable to prevent placing actual trades
+                                  Disable trading capabilities and only read data
                                 </FormDescription>
                               </div>
                               <FormControl>
@@ -675,49 +672,25 @@ export default function BrokerConfiguration() {
                             </FormItem>
                           )}
                         />
-                        
-                        <div className="flex justify-end space-x-2 pt-4">
+
+                        <div className="flex items-center justify-end space-x-2 pt-4">
                           {isEditing && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              onClick={handleCancelEdit}
-                            >
+                            <Button variant="outline" onClick={handleCancelEdit}>
                               Cancel
                             </Button>
                           )}
-                          <Button 
-                            type="submit" 
-                            disabled={addIntegrationMutation.isPending || updateIntegrationMutation.isPending}
-                          >
-                            {isEditing ? "Update" : "Add"} IBKR Integration
+                          <Button type="submit">
+                            {isEditing ? "Update" : "Add"} Integration
                           </Button>
                         </div>
                       </form>
                     </Form>
                   </TabsContent>
-                  
+
                   {/* Generic Broker Form */}
                   <TabsContent value="generic">
                     <Form {...genericForm}>
                       <form onSubmit={genericForm.handleSubmit(onSubmitGeneric)} className="space-y-4">
-                        <FormField
-                          control={genericForm.control}
-                          name="provider"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Provider</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Provider name" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                Name of the broker (e.g., TDAmeritrade, eToro)
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
                         <FormField
                           control={genericForm.control}
                           name="description"
@@ -725,7 +698,7 @@ export default function BrokerConfiguration() {
                             <FormItem>
                               <FormLabel>Description (Optional)</FormLabel>
                               <FormControl>
-                                <Input placeholder="My Broker Account" {...field} />
+                                <Input placeholder="Other Broker Account" {...field} />
                               </FormControl>
                               <FormDescription>
                                 A friendly name to identify this account
@@ -734,7 +707,7 @@ export default function BrokerConfiguration() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={genericForm.control}
                           name="apiKey"
@@ -748,7 +721,7 @@ export default function BrokerConfiguration() {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={genericForm.control}
                           name="apiSecret"
@@ -756,17 +729,13 @@ export default function BrokerConfiguration() {
                             <FormItem>
                               <FormLabel>API Secret (Optional)</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="password" 
-                                  placeholder="Your API Secret" 
-                                  {...field} 
-                                />
+                                <Input type="password" placeholder="Your API Secret" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={genericForm.control}
                           name="endpoint"
@@ -780,22 +749,15 @@ export default function BrokerConfiguration() {
                             </FormItem>
                           )}
                         />
-                        
-                        <div className="flex justify-end space-x-2 pt-4">
+
+                        <div className="flex items-center justify-end space-x-2 pt-4">
                           {isEditing && (
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              onClick={handleCancelEdit}
-                            >
+                            <Button variant="outline" onClick={handleCancelEdit}>
                               Cancel
                             </Button>
                           )}
-                          <Button 
-                            type="submit" 
-                            disabled={addIntegrationMutation.isPending || updateIntegrationMutation.isPending}
-                          >
-                            {isEditing ? "Update" : "Add"} Broker Integration
+                          <Button type="submit">
+                            {isEditing ? "Update" : "Add"} Integration
                           </Button>
                         </div>
                       </form>
@@ -805,191 +767,80 @@ export default function BrokerConfiguration() {
               </CardContent>
             </Card>
           </div>
-          
-          {/* Right panel: List of broker integrations */}
+
+          {/* Right panel: Existing broker integrations */}
           <div>
-            <Card className="h-full">
+            <Card>
               <CardHeader>
                 <CardTitle>Your Broker Integrations</CardTitle>
                 <CardDescription>
-                  Manage your connected brokerage accounts
+                  Manage your existing broker connections
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-2">Loading integrations...</p>
-                  </div>
+                  <div className="py-8 text-center">Loading integrations...</div>
                 ) : integrations && integrations.length > 0 ? (
                   <div className="space-y-4">
                     {integrations.map((integration) => (
-                      <Card key={integration.id} className="bg-muted/20">
-                        <CardHeader className="p-4">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <CardTitle className="text-lg">
-                                {integration.description || 
-                                  `${integration.provider.charAt(0).toUpperCase() + integration.provider.slice(1)} Account`}
-                              </CardTitle>
-                              <CardDescription>
-                                Provider: {integration.provider.toUpperCase()}
-                                {integration.credentials?.accountType && (
-                                  <span className="ml-2">
-                                    ({integration.credentials.accountType === "live" ? 
-                                      "Live Trading" : 
-                                      "Paper Trading"})
-                                  </span>
-                                )}
-                              </CardDescription>
-                            </div>
-                            <div className="space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleEditIntegration(integration)}
-                              >
-                                Edit
-                              </Button>
-                              <Button 
-                                variant="destructive" 
-                                size="sm"
-                                onClick={() => {
-                                  if (window.confirm("Are you sure you want to delete this integration?")) {
-                                    deleteIntegrationMutation.mutate(integration.id);
-                                  }
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
+                      <div key={integration.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-medium">
+                              {integration.description || integration.provider}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {integration.provider.toUpperCase()}
+                              {integration.credentials?.additionalFields?.endpoint === "paper" && " (Paper)"}
+                              {integration.credentials?.additionalFields?.endpoint === "live" && " (Live)"}
+                            </p>
                           </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0">
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            {integration.provider === "alpaca" && (
-                              <>
-                                <div className="text-muted-foreground">API Key:</div>
-                                <div>••••••••{integration.credentials?.apiKey?.slice(-4) || "N/A"}</div>
-                                
-                                <div className="text-muted-foreground">Endpoint:</div>
-                                <div>{integration.credentials?.endpoint === "paper" ? 
-                                  "Paper Trading API" : 
-                                  "Live Trading API"}</div>
-                              </>
-                            )}
-                            
-                            {integration.provider === "ibkr" && (
-                              <>
-                                <div className="text-muted-foreground">Endpoint:</div>
-                                <div>{integration.credentials?.endpoint || "localhost"}</div>
-                                
-                                <div className="text-muted-foreground">Port:</div>
-                                <div>{integration.credentials?.port || "4001"}</div>
-                                
-                                <div className="text-muted-foreground">Account ID:</div>
-                                <div>{integration.credentials?.accountId || "N/A"}</div>
-                                
-                                <div className="text-muted-foreground">Read-Only Mode:</div>
-                                <div>{integration.credentials?.readOnly ? "Enabled" : "Disabled"}</div>
-                              </>
-                            )}
-                            
-                            {integration.provider !== "alpaca" && integration.provider !== "ibkr" && (
-                              <>
-                                <div className="text-muted-foreground">API Key:</div>
-                                <div>
-                                  {integration.credentials?.apiKey ? 
-                                    `••••••••${integration.credentials.apiKey.slice(-4)}` : 
-                                    "N/A"}
-                                </div>
-                                
-                                <div className="text-muted-foreground">Endpoint:</div>
-                                <div>{integration.credentials?.endpoint || "N/A"}</div>
-                              </>
-                            )}
-                            
-                            <div className="text-muted-foreground">Added:</div>
-                            <div>{new Date(integration.createdAt).toLocaleDateString()}</div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditIntegration(integration)}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => {
+                                if (confirm("Are you sure you want to delete this integration?")) {
+                                  deleteIntegrationMutation.mutate(integration.id)
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                        <div className="text-sm">
+                          <p>API Key: {integration.credentials?.apiKey.substring(0, 4)}...{integration.credentials?.apiKey.substring(integration.credentials?.apiKey.length - 4)}</p>
+                          {integration.credentials?.additionalFields && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              {Object.entries(integration.credentials.additionalFields)
+                                .filter(([key]) => key !== "accountType" && key !== "endpoint")
+                                .map(([key, value]) => (
+                                  <p key={key}>{key}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</p>
+                                ))
+                              }
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <Info className="h-12 w-12 mx-auto text-muted-foreground" />
-                    <h3 className="mt-2 text-lg font-medium">No broker integrations yet</h3>
-                    <p className="mt-1 text-muted-foreground">
-                      Add a broker integration to start trading
-                    </p>
+                  <div className="py-8 text-center">
+                    <p className="text-gray-500">No broker integrations found</p>
+                    <p className="mt-2 text-sm">Add your first broker integration using the form on the left.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
-        </div>
-        
-        {/* Help and Documentation Section */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Broker Configuration Guide</CardTitle>
-              <CardDescription>
-                Learn how to properly configure your brokerage accounts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium">Alpaca Configuration</h3>
-                  <p className="text-muted-foreground mt-1">
-                    To set up an Alpaca account, you'll need to:
-                  </p>
-                  <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
-                    <li>Register at <a href="https://alpaca.markets" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">alpaca.markets</a></li>
-                    <li>Navigate to Paper/Live API credentials in your dashboard</li>
-                    <li>Copy your API Key and Secret</li>
-                    <li>Set the endpoint to "paper" for testing or "live" for real trading</li>
-                  </ol>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium">Interactive Brokers Configuration</h3>
-                  <p className="text-muted-foreground mt-1">
-                    To set up an Interactive Brokers account, you'll need to:
-                  </p>
-                  <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
-                    <li>Install TWS or IB Gateway on your computer</li>
-                    <li>Enable the API connection in TWS/Gateway settings</li>
-                    <li>Configure the port (typically 7496 for TWS, 4001 for Gateway)</li>
-                    <li>Find your account ID in the TWS/Gateway interface</li>
-                  </ol>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium">Additional Resources</h3>
-                  <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                    <li>
-                      <a href="https://alpaca.markets/docs/api-documentation/" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                        Alpaca API Documentation
-                      </a>
-                    </li>
-                    <li>
-                      <a href="https://interactivebrokers.github.io/tws-api/" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                        Interactive Brokers API Documentation
-                      </a>
-                    </li>
-                    <li>
-                      <a href="https://lumibot.lumiwealth.com/deployment.html#broker-configuration" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                        Lumibot Broker Configuration Guide
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </MainLayout>
