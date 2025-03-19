@@ -183,6 +183,7 @@ export function useMarketData() {
   return {
     connected,
     marketData,
+    quotes: marketData, // Alias for marketData for easier access in components
     subscribedSymbols,
     marketStatus,
     subscribeToSymbols,

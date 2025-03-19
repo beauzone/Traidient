@@ -16,6 +16,7 @@ import BotBuilder from "@/pages/bot-builder";
 import Backtest from "@/pages/backtest";
 import LiveTrading from "@/pages/live-trading";
 import MarketData from "@/pages/market-data";
+import MarketTest from "@/pages/market-test";
 import Settings from "@/pages/settings";
 import Integrations from "@/pages/integrations";
 import BrokerConfiguration from "@/pages/broker-configuration";
@@ -84,6 +85,9 @@ function AppRoutes() {
       </Route>
       <Route path="/market-data">
         <ProtectedRoute component={MarketData} />
+      </Route>
+      <Route path="/market-test">
+        <ProtectedRoute component={MarketTest} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />

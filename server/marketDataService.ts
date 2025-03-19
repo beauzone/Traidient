@@ -231,7 +231,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
         } else {
           // Fall back to simulation for this symbol
           const data = priceData.get(upperSymbol);
-          if (!data) return;
+          if (!data) continue;
           
           // Simulate price movement
           const momentum = data.lastChange > 0 ? 0.6 : 0.4;
@@ -251,7 +251,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
             changePercent: Number(changePercent.toFixed(2)),
             timestamp: new Date().toISOString(),
             isSimulated: true,
-            dataSource: isMarketOpen ? "market-simulation" : "market-closed-simulation"
+            dataSource: yahooFinance.isMarketOpen() ? "market-simulation" : "market-closed-simulation"
           });
         }
       }
@@ -261,15 +261,18 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
     
     // Only send update if there are changes
     if (updates.length > 0) {
+      // Check current market status for consistent response
+      const marketOpen = yahooFinance.isMarketOpen();
+      
       // Get the primary data source being used
       const primarySource = updates.find(u => !u.isSimulated)?.dataSource || 
-                         (isMarketOpen ? "market-simulation" : "yahoo");
+                         (marketOpen ? "market-simulation" : "yahoo");
       
       ws.send(JSON.stringify({
         type: 'market_data',
         data: updates,
         marketStatus: {
-          isMarketOpen: isMarketOpen,
+          isMarketOpen: marketOpen,
           dataSource: primarySource
         }
       }));

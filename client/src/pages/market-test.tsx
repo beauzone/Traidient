@@ -31,7 +31,7 @@ export default function MarketTest() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Market Status</span>
-                <Badge variant={marketStatus.isMarketOpen ? "success" : "destructive"}>
+                <Badge className={marketStatus.isMarketOpen ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}>
                   {marketStatus.isMarketOpen ? "OPEN" : "CLOSED"}
                 </Badge>
               </CardTitle>
@@ -60,7 +60,7 @@ export default function MarketTest() {
                   <CardTitle className="flex items-center justify-between">
                     <span>{symbol}</span>
                     {quote && (
-                      <Badge variant={quote.change >= 0 ? "success" : "destructive"}>
+                      <Badge className={quote.change >= 0 ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}>
                         {quote.change >= 0 ? "+" : ""}{quote.change.toFixed(2)} ({quote.changePercent.toFixed(2)}%)
                       </Badge>
                     )}
