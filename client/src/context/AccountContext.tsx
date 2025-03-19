@@ -66,8 +66,9 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
             // Determine account type from additional fields
             const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
             
-            // Use description as account name, or create a descriptive name if missing
+            // Use description as account name, or additionalFields.accountName, or create a descriptive name if missing
             const name = integration.description || 
+                         integration.credentials?.additionalFields?.accountName ||
                          `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account`;
             
             return {
@@ -91,8 +92,9 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
             // Determine account type from additional fields
             const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
             
-            // Use description as account name, or create a descriptive name if missing
+            // Use description as account name, or additionalFields.accountName, or create a descriptive name if missing
             const name = integration.description || 
+                         integration.credentials?.additionalFields?.accountName ||
                          `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account ${index + 1}`;
             
             return {
