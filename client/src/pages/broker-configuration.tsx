@@ -302,11 +302,22 @@ export default function BrokerConfiguration() {
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete broker integration",
-        variant: "destructive",
-      });
+      // If the error message contains "404", the integration was already deleted or not found
+      // We've updated deleteData to handle 404s, but as a backup we also handle it here
+      if (error.message && error.message.includes('404')) {
+        // Still invalidate the query to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ["integrations"] });
+        toast({
+          title: "Success",
+          description: "Broker integration deleted successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete broker integration",
+          variant: "destructive",
+        });
+      }
     },
   });
 

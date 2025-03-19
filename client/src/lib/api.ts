@@ -41,7 +41,18 @@ export async function updateData<T = any>(url: string, data: unknown): Promise<T
 
 /**
  * Delete data at an API endpoint
+ * Special handling for 404 (Not Found) errors in DELETE requests - treat as success
  */
 export async function deleteData<T = any>(url: string): Promise<T> {
-  return apiRequest<T>("DELETE", url);
+  try {
+    return await apiRequest<T>("DELETE", url);
+  } catch (error: any) {
+    // If it's a 404 error for a DELETE request, consider it a success
+    // (the resource was already deleted or doesn't exist)
+    if (error.message && error.message.includes('404')) {
+      console.log(`Resource at ${url} not found, but that's OK for DELETE`);
+      return {} as T;
+    }
+    throw error;
+  }
 }
