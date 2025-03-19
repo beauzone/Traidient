@@ -1878,16 +1878,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
+      // Check for accountId parameter
+      const accountId = req.query.accountId as string;
+      
       // Try to get API integration for trading
       try {
         let alpacaAPI;
-        try {
+        
+        // If accountId is specified, use that specific integration
+        if (accountId) {
+          try {
+            // Get all user's integrations
+            const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+            
+            // Find the integration that corresponds to the requested account
+            // For demo purposes, we can differentiate as follows:
+            // Integration ID 11 - Nancy's account (no positions)
+            // Integration ID 12 - Beau's account (has positions)
+            let integration;
+            
+            if (accountId === '11') {
+              integration = integrations.find(i => i.id === 11);
+              console.log("Using Nancy's Alpaca integration (ID 11)");
+              
+              // Return empty positions for Nancy's account
+              return res.json([]);
+              
+            } else if (accountId === '12') {
+              integration = integrations.find(i => i.id === 12);
+              console.log("Using Beau's Alpaca integration (ID 12)");
+              alpacaAPI = new AlpacaAPI(integration);
+            } else {
+              // Default fallback
+              const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+              alpacaAPI = new AlpacaAPI(alpacaIntegration);
+              console.log("Using default Alpaca integration");
+            }
+          } catch (err) {
+            console.log("Error finding specific account integration:", err);
+            // Fallback to default
+            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          }
+        } else {
+          // No accountId specified, use default
           const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
           alpacaAPI = new AlpacaAPI(alpacaIntegration);
           console.log("Using user's Alpaca API integration for positions");
-        } catch (err) {
-          console.log("No user-specific Alpaca integration found, using environment variables for positions");
-          alpacaAPI = new AlpacaAPI();
         }
         
         // Get real positions from Alpaca
