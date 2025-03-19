@@ -1926,7 +1926,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               accounts.push(formattedAccount);
             } catch (apiError) {
-              console.error("Error fetching Alpaca account:", apiError);
+              const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+              console.error("Error fetching Alpaca account:", errorMessage);
+              
+              // Check for specific error types to provide clear guidance
+              if (errorMessage.toLowerCase().includes('forbidden')) {
+                console.error("Authentication failed - API keys may be invalid or expired.");
+              } else if (errorMessage.toLowerCase().includes('timed out') || errorMessage.toLowerCase().includes('network')) {
+                console.error("Network or timeout issue with Alpaca API - service may be down.");
+              }
               
               // Still add the account with limited info
               const accountName: string = 
@@ -1934,7 +1942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 integration.credentials?.additionalFields?.accountName || 
                 `Alpaca ${integration.credentials?.additionalFields?.accountType === 'live' ? 'Live' : 'Paper'} Account ${accounts.length + 1}`;
               
-              // Add basic account info without live data
+              // Add basic account info without live data, but include error info
               accounts.push({
                 id: integration.id,
                 name: accountName,
@@ -1942,7 +1950,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 accountType: integration.credentials?.additionalFields?.accountType || 'paper',
                 balance: 0,
                 provider: 'Alpaca',
-                performance: 0
+                performance: 0,
+                status: 'ERROR',
+                error: errorMessage.toLowerCase().includes('forbidden') ? 
+                  "Authentication failed - please check your API keys" : 
+                  "Connection error - Alpaca API unavailable"
               });
             }
           } catch (err) {
@@ -1956,22 +1968,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const alpacaAPI = new AlpacaAPI();
           const account = await alpacaAPI.getAccount();
           
+          if (!account) {
+            throw new Error("No account data received from Alpaca API using environment variables");
+          }
+          
           accounts.push({
             id: 0,
             name: "Default Alpaca Account",
-            accountNumber: account.account_number,
+            accountNumber: account.account_number || 'DEFAULT',
             accountType: 'paper',
-            status: account.status,
-            currency: account.currency,
-            balance: parseFloat(account.cash),
-            portfolioValue: parseFloat(account.portfolio_value),
-            buyingPower: parseFloat(account.buying_power),
-            equity: parseFloat(account.equity),
+            status: account.status || 'UNKNOWN',
+            currency: account.currency || 'USD',
+            balance: parseFloat(account.cash || '0'),
+            portfolioValue: parseFloat(account.portfolio_value || '0'),
+            buyingPower: parseFloat(account.buying_power || '0'),
+            equity: parseFloat(account.equity || '0'),
             provider: 'Alpaca',
-            performance: parseFloat(account.equity) - parseFloat(account.last_equity)
+            performance: parseFloat(account.equity || '0') - parseFloat(account.last_equity || account.equity || '0')
           });
         } catch (envError) {
-          console.error("Error fetching account with environment variables:", envError);
+          const errorMessage = envError instanceof Error ? envError.message : String(envError);
+          console.error("Error fetching account with environment variables:", errorMessage);
+          
+          // Check for specific error types
+          if (errorMessage.toLowerCase().includes('forbidden')) {
+            console.error("Authentication failed with environment variables - API keys may be invalid or missing");
+            console.error("Please ensure ALPACA_API_KEY and ALPACA_API_SECRET environment variables are correctly set");
+          }
         }
       }
       
@@ -1983,16 +2006,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(accounts);
       } else {
         // If no accounts could be processed, return an empty array with a message
-        console.error("Failed to fetch account data, using integration data only:");
-        console.log("Processed accounts with integration data only:", accounts);
-        res.json(accounts);
+        console.error("Failed to fetch account data - no valid accounts found");
+        
+        // Send an empty array but include helpful error information
+        res.status(200).json([{
+          id: 0,
+          name: "Default Account (Unavailable)",
+          accountNumber: "NONE",
+          accountType: "unknown",
+          balance: 0,
+          equity: 0,
+          provider: "unavailable",
+          status: "ERROR",
+          error: "No valid account credentials found. Please add a broker integration.",
+          performance: 0
+        }]);
       }
     } catch (error) {
-      console.error('Get account error:', error);
-      res.status(500).json({ 
-        message: 'Error fetching account information',
-        accounts: []
-      });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Get account error:', errorMessage);
+      
+      // Return a helpful message but with status 200 so the UI can display the error
+      res.status(200).json([{
+        id: 0,
+        name: "Error: Account Unavailable",
+        accountNumber: "ERROR",
+        accountType: "unknown",
+        balance: 0,
+        equity: 0,
+        provider: "error",
+        status: "ERROR",
+        error: "Error connecting to trading accounts. Please try again later.",
+        performance: 0
+      }]);
     }
   });
 

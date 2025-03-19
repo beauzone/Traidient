@@ -57,40 +57,48 @@ const Dashboard = () => {
   // Use the account data to determine portfolio value
   const [portfolioData, setPortfolioData] = useState<{date: string, value: number}[]>([]);
 
-  // Update portfolio data when account data changes
+  // Update portfolio data when account data changes - using useEffect with memoization to prevent infinite loops
   useEffect(() => {
-    if (!accountData) return;
+    if (!accountData || !Array.isArray(accountData) || accountData.length === 0) return;
 
     // Get the selected account data
-    const selectedAccountData = selectedAccount === "all" 
-      ? accountData 
-      : accountData.find((acc: any) => acc.id.toString() === selectedAccount);
+    let currentAccountData: any = null;
+    let currentValue = 0;
     
-    if (!selectedAccountData) return;
-    
-    // Starting portfolio value - use equity if available, otherwise use balance
-    const currentValue = selectedAccountData.equity || selectedAccountData.balance || 0;
-    
-    // Generate historical data (starting with stable value until we implement history API)
-    const today = new Date();
-    const data = [];
-    
-    // Use real account data for current value, simulate for history until we have history API
-    for (let i = 90; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(today.getDate() - i);
-      
-      const value = i === 0 
-        ? currentValue // Current value is accurate
-        : currentValue; // Use same value for historical (will be replaced with real data)
+    try {
+      if (selectedAccount === "all") {
+        // Calculate total equity across all accounts
+        currentValue = accountData.reduce((sum, acc) => sum + (acc.equity || acc.balance || 0), 0);
+      } else {
+        // Find specific account
+        currentAccountData = accountData.find((acc) => acc.id.toString() === selectedAccount);
         
-      data.push({
-        date: date.toISOString().split('T')[0],
-        value: Math.round(value * 100) / 100,
-      });
+        // If not found, use first account
+        if (!currentAccountData && accountData.length > 0) {
+          currentAccountData = accountData[0];
+        }
+        
+        currentValue = currentAccountData ? (currentAccountData.equity || currentAccountData.balance || 0) : 0;
+      }
+      
+      // Generate historical data (using stable value for history)
+      const today = new Date();
+      const data = [];
+      
+      for (let i = 90; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(today.getDate() - i);
+        
+        data.push({
+          date: date.toISOString().split('T')[0],
+          value: Math.round(currentValue * 100) / 100,
+        });
+      }
+      
+      setPortfolioData(data);
+    } catch (err) {
+      console.error("Error generating portfolio data:", err);
     }
-    
-    setPortfolioData(data);
   }, [accountData, selectedAccount]);
 
   // Define position type
@@ -208,8 +216,8 @@ const Dashboard = () => {
     
     if (selectedAccount === "all") {
       // Calculate aggregated P&L across all accounts
-      const totalEquity = accountData.reduce((sum, acc) => sum + (acc.equity || 0), 0);
-      const totalLastEquity = accountData.reduce((sum, acc) => sum + (acc.lastEquity || acc.equity || 0), 0);
+      const totalEquity = accountData.reduce((sum: number, acc: any) => sum + (acc.equity || 0), 0);
+      const totalLastEquity = accountData.reduce((sum: number, acc: any) => sum + (acc.lastEquity || acc.equity || 0), 0);
       
       selectedAccountData = {
         equity: totalEquity,
@@ -269,7 +277,9 @@ const Dashboard = () => {
           <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <PortfolioChart
               data={portfolioData}
-              currentValue={formatCurrency(accountData?.equity || 0)}
+              currentValue={Array.isArray(accountData) 
+                ? formatCurrency(accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0))
+                : formatCurrency(0)}
               change={{
                 value: pnlData.value,
                 percentage: pnlData.percentage,
