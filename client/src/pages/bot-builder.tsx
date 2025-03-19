@@ -2,6 +2,7 @@ import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import NaturalLanguageInput from "@/components/bot-builder/NaturalLanguageInput";
 import StrategyForm from "@/components/bot-builder/StrategyForm";
+import CodeEditor from "@/components/bot-builder/CodeEditor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wand2, Blocks, Code } from "lucide-react";
@@ -112,28 +113,11 @@ const BotBuilder = () => {
           </TabsContent>
           
           <TabsContent value="code">
-            <Card>
-              <CardHeader>
-                <CardTitle>Code Editor</CardTitle>
-                <CardDescription>
-                  Write your strategy code directly
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[600px] flex items-center justify-center border-2 border-dashed rounded-lg">
-                <div className="text-center">
-                  <Code className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-medium">Code Editor Coming Soon</h3>
-                  <p className="mt-2 text-sm text-muted-foreground max-w-md">
-                    We're working on a full-featured code editor for advanced users.
-                    In the meantime, try our AI Assistant to generate strategies from descriptions.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <CodeEditor />
           </TabsContent>
           
           <TabsContent value="form" className="space-y-4">
-            <StrategyForm initialStrategy={generatedStrategy} />
+            <StrategyForm initialStrategy={generatedStrategy || undefined} />
           </TabsContent>
         </Tabs>
       </div>
