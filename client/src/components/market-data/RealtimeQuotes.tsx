@@ -60,7 +60,10 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
           <span>Realtime Market Data</span>
-          <Badge variant={connected ? 'default' : 'destructive'}>
+          <Badge 
+            className={connected ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'} 
+            variant="outline"
+          >
             {connected ? 'Connected' : 'Disconnected'}
           </Badge>
         </CardTitle>
@@ -145,15 +148,7 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
                             {data.change >= 0 ? '+' : ''}
                             {data.change.toFixed(2)} ({data.changePercent.toFixed(2)}%)
                           </div>
-                          {data.isSimulated !== undefined && (
-                            <div className="text-xs text-muted-foreground">
-                              Source: {data.dataSource === 'yahoo' ? 'Yahoo Finance' : 
-                                data.dataSource === 'alpaca' ? 'Alpaca API' : 
-                                data.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
-                                data.dataSource === 'reference-data-fallback' ? 'Reference Data' :
-                                data.dataSource || 'Unknown'}
-                            </div>
-                          )}
+                          {/* Removed individual source labels as they're redundant with the header */}
                         </div>
                       </>
                     )}
