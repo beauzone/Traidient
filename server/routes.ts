@@ -637,6 +637,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.user.id
       };
       
+      // Check for duplicate integrations (same provider and API key)
+      if (integrationData.credentials?.apiKey) {
+        const existingIntegrations = await storage.getApiIntegrationsByUser(req.user.id);
+        const existingIntegration = existingIntegrations.find(integration => 
+          integration.provider === integrationData.provider && 
+          integration.credentials?.apiKey === integrationData.credentials?.apiKey &&
+          // For Alpaca, also check account type (paper vs live)
+          (integrationData.provider !== 'alpaca' || 
+            integration.credentials?.additionalFields?.accountType === integrationData.credentials?.additionalFields?.accountType)
+        );
+        
+        if (existingIntegration) {
+          return res.status(400).json({
+            message: 'Duplicate integration',
+            error: `An integration for ${integrationData.provider} with the same API key already exists. Each broker account can only be added once.`
+          });
+        }
+      }
+      
       // Validate API credentials before saving if this is an Alpaca integration
       if (integrationData.provider === 'alpaca') {
         try {
@@ -717,6 +736,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Prepare update data
       const updateData = { ...req.body };
+      
+      // Check for duplicate integrations (same provider and API key) if the API key is being changed
+      if (updateData.credentials?.apiKey && 
+          updateData.credentials.apiKey !== integration.credentials?.apiKey) {
+        
+        const existingIntegrations = await storage.getApiIntegrationsByUser(req.user.id);
+        const provider = updateData.provider || integration.provider;
+        
+        const existingIntegration = existingIntegrations.find(otherIntegration => 
+          otherIntegration.id !== id && 
+          otherIntegration.provider === provider && 
+          otherIntegration.credentials?.apiKey === updateData.credentials?.apiKey &&
+          // For Alpaca, also check account type (paper vs live)
+          (provider !== 'alpaca' || 
+            otherIntegration.credentials?.additionalFields?.accountType === 
+            (updateData.credentials?.additionalFields?.accountType || 
+             integration.credentials?.additionalFields?.accountType))
+        );
+        
+        if (existingIntegration) {
+          return res.status(400).json({
+            message: 'Duplicate integration',
+            error: `An integration for ${provider} with the same API key already exists. Each broker account can only be added once.`
+          });
+        }
+      }
       
       // If API credentials are being updated and this is an Alpaca integration, validate them
       if (integration.provider === 'alpaca' && req.body.credentials) {
