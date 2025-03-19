@@ -662,7 +662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add validation status to the record
           integrationData.lastStatus = 'ok';
-          integrationData.lastUsed = new Date().toISOString();
+          integrationData.lastUsed = new Date(); // Use Date object, not string
         } catch (validationError) {
           console.error('API validation error:', validationError);
           return res.status(400).json({ 
@@ -742,7 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add validation status to the update
           updateData.lastStatus = 'ok';
-          updateData.lastUsed = new Date().toISOString();
+          updateData.lastUsed = new Date(); // Use Date object, not string
         } catch (validationError) {
           console.error('API validation error:', validationError);
           return res.status(400).json({ 
