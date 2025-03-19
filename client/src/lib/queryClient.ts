@@ -11,7 +11,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+): Promise<any> { // Change return type to any to handle JSON responses
   const token = localStorage.getItem('token');
   console.log(`API Request to ${url} - Token exists: ${!!token}`);
   
@@ -22,16 +22,41 @@ export async function apiRequest(
 
   console.log('Request headers:', headers);
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-  });
+  try {
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      // Adding credentials to ensure cookies are sent if applicable
+      credentials: 'same-origin'
+    });
 
-  console.log(`Response from ${url}:`, res.status, res.statusText);
-  
-  await throwIfResNotOk(res);
-  return res;
+    console.log(`Response from ${url}:`, res.status, res.statusText);
+    
+    // Check for auth errors specifically
+    if (res.status === 401) {
+      console.warn('Authentication error detected, token may be invalid or expired');
+      
+      // Clone the response to read it multiple times
+      const clonedRes = res.clone();
+      try {
+        const errorData = await clonedRes.json();
+        console.error('Auth error details:', errorData);
+      } catch (e) {
+        console.error('Could not parse auth error response as JSON');
+      }
+    }
+    
+    await throwIfResNotOk(res);
+    
+    // For successful responses, parse and return the JSON data
+    const responseData = await res.json();
+    console.log(`Response data from ${url}:`, responseData);
+    return responseData;
+  } catch (error) {
+    console.error(`API error (${method} ${url}):`, error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -50,19 +75,43 @@ export const getQueryFn: <T>(options: {
       
     console.log('Query headers:', headers);
 
-    const res = await fetch(url, {
-      headers
-    });
-    
-    console.log(`Query response from ${url}:`, res.status, res.statusText);
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      console.log(`Returning null for 401 response from ${url}`);
-      return null;
+    try {
+      const res = await fetch(url, {
+        headers,
+        // Adding credentials to ensure cookies are sent if applicable
+        credentials: 'same-origin'
+      });
+      
+      console.log(`Query response from ${url}:`, res.status, res.statusText);
+      
+      // Check for auth errors specifically
+      if (res.status === 401) {
+        console.warn('Authentication error detected in query, token may be invalid or expired');
+        
+        // Clone the response to read it multiple times
+        const clonedRes = res.clone();
+        try {
+          const errorData = await clonedRes.json();
+          console.error('Auth error details for query:', errorData);
+        } catch (e) {
+          console.error('Could not parse auth error response as JSON');
+        }
+        
+        if (unauthorizedBehavior === "returnNull") {
+          console.log(`Returning null for 401 response from ${url}`);
+          return null;
+        }
+      }
+      
+      await throwIfResNotOk(res);
+      
+      const data = await res.json();
+      console.log(`Query data from ${url}:`, data);
+      return data;
+    } catch (error) {
+      console.error(`Query error (${url}):`, error);
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({
