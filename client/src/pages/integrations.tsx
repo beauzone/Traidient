@@ -61,6 +61,7 @@ interface ApiIntegration {
   id: number;
   userId: number;
   provider: string;
+  type: string; // 'exchange', 'data', 'ai', etc.
   description: string | null;
   createdAt: string;
   updatedAt: string;
@@ -72,10 +73,15 @@ const IntegrationsPage = () => {
   const { toast } = useToast();
 
   // Fetch integrations
-  const { data: integrations, isLoading } = useQuery({
+  const { data: allIntegrations, isLoading } = useQuery({
     queryKey: ['/api/integrations'],
     queryFn: () => fetchData<ApiIntegration[]>('/api/integrations'),
   });
+  
+  // Filter out exchange-type integrations (they are shown in the Broker Accounts page)
+  const integrations = allIntegrations?.filter(integration => 
+    integration.type !== 'exchange'
+  );
 
   // Form setup
   const form = useForm<IntegrationFormValues>({
