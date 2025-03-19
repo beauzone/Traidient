@@ -294,10 +294,31 @@ const CodeEditorImproved = () => {
   const addAsset = () => {
     if (!assetInput) return;
     
+    // Split input by commas or spaces to handle multiple tickers at once
+    const inputTickers = assetInput
+      .split(/[,\s]+/) // Split by commas or any whitespace
+      .map(ticker => ticker.trim().toUpperCase())
+      .filter(ticker => ticker.length > 0); // Filter out empty entries
+    
+    // Get current assets
     const assets = form.getValues('configuration.assets');
-    if (!assets.includes(assetInput.toUpperCase())) {
-      form.setValue('configuration.assets', [...assets, assetInput.toUpperCase()]);
+    
+    // Add new tickers that aren't already in the list
+    const newAssets = [...assets];
+    let addedCount = 0;
+    
+    inputTickers.forEach(ticker => {
+      if (!newAssets.includes(ticker)) {
+        newAssets.push(ticker);
+        addedCount++;
+      }
+    });
+    
+    // Update form assets
+    if (addedCount > 0) {
+      form.setValue('configuration.assets', newAssets);
     }
+    
     setAssetInput('');
   };
 
@@ -493,7 +514,7 @@ const CodeEditorImproved = () => {
                     <FormLabel>Trading Assets</FormLabel>
                     <div className="flex space-x-2">
                       <Input
-                        placeholder="Add asset (e.g. AAPL, BTC)"
+                        placeholder="Add assets (e.g. AAPL MSFT GOOG or AAPL,MSFT,GOOG)"
                         value={assetInput}
                         onChange={(e) => setAssetInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -508,7 +529,7 @@ const CodeEditorImproved = () => {
                       </Button>
                     </div>
                     <FormDescription>
-                      Add the assets you want this strategy to trade
+                      Add the assets you want this strategy to trade. You can paste multiple symbols at once separated by spaces or commas.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
