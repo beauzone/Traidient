@@ -13,7 +13,8 @@ import {
   insertStrategySchema,
   insertBacktestSchema,
   insertDeploymentSchema,
-  insertWatchlistSchema
+  insertWatchlistSchema,
+  type ApiIntegration
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -630,21 +631,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
-      const validatedData = insertApiIntegrationSchema.parse({
+      // Create a base integration object with the request data
+      const integrationData = {
         ...req.body,
         userId: req.user.id
-      });
+      };
       
       // Validate API credentials before saving if this is an Alpaca integration
-      if (validatedData.provider === 'alpaca') {
+      if (integrationData.provider === 'alpaca') {
         try {
           // Create a temporary API client to validate credentials
           const alpacaAPI = new AlpacaAPI({
             id: 0, // Temporary ID since we haven't created the record yet
             userId: req.user.id,
             provider: 'alpaca',
-            credentials: validatedData.credentials,
-            isPrimary: validatedData.isPrimary || false,
+            credentials: integrationData.credentials,
+            isPrimary: integrationData.isPrimary || false,
             isActive: true,
           } as ApiIntegration);
           
@@ -659,8 +661,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Add validation status to the record
-          validatedData.lastStatus = 'ok';
-          validatedData.lastUsed = new Date().toISOString();
+          integrationData.lastStatus = 'ok';
+          integrationData.lastUsed = new Date().toISOString();
         } catch (validationError) {
           console.error('API validation error:', validationError);
           return res.status(400).json({ 
@@ -669,6 +671,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
+      
+      // Parse the data using the Zod schema
+      const validatedData = insertApiIntegrationSchema.parse(integrationData);
       
       // Check if already have a primary integration for this provider
       if (validatedData.isPrimary) {
@@ -710,8 +715,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Forbidden: Not your integration' });
       }
       
+      // Prepare update data
+      const updateData = { ...req.body };
+      
+      // If API credentials are being updated and this is an Alpaca integration, validate them
+      if (integration.provider === 'alpaca' && req.body.credentials) {
+        try {
+          // Create a temporary API client with the new credentials to validate
+          const alpacaAPI = new AlpacaAPI({
+            ...integration,
+            credentials: {
+              ...integration.credentials,
+              ...req.body.credentials
+            }
+          });
+          
+          // Perform connection validation
+          const validationResult = await alpacaAPI.verifyConnection();
+          
+          if (!validationResult.isValid) {
+            return res.status(400).json({ 
+              message: 'API validation failed',
+              error: validationResult.message
+            });
+          }
+          
+          // Add validation status to the update
+          updateData.lastStatus = 'ok';
+          updateData.lastUsed = new Date().toISOString();
+        } catch (validationError) {
+          console.error('API validation error:', validationError);
+          return res.status(400).json({ 
+            message: 'API validation error',
+            error: validationError instanceof Error ? validationError.message : String(validationError)
+          });
+        }
+      }
+      
       // If setting as primary, unset other primaries for this provider
-      if (req.body.isPrimary) {
+      if (updateData.isPrimary) {
         const existingPrimary = await storage.getApiIntegrationByProviderAndUser(
           req.user.id,
           integration.provider
@@ -722,7 +764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updatedIntegration = await storage.updateApiIntegration(id, req.body);
+      const updatedIntegration = await storage.updateApiIntegration(id, updateData);
       res.json(updatedIntegration);
     } catch (error) {
       console.error('Update integration error:', error);

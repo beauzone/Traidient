@@ -74,6 +74,9 @@ export const insertApiIntegrationSchema = createInsertSchema(apiIntegrations).pi
   credentials: true,
   isActive: true,
   isPrimary: true,
+  lastStatus: true,
+  lastUsed: true,
+  lastError: true,
 });
 
 // Strategies
