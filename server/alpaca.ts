@@ -5,11 +5,17 @@ export class AlpacaAPI {
   private apiSecret: string;
   private tradingBaseUrl: string;
   private dataBaseUrl: string;
+  private integrationId?: number;
+  private isValid: boolean;
 
   constructor(integration?: ApiIntegration) {
     // Get API keys from integration or environment
     this.apiKey = integration?.credentials?.apiKey || process.env.ALPACA_API_KEY || "";
     this.apiSecret = integration?.credentials?.apiSecret || process.env.ALPACA_API_SECRET || "";
+    this.integrationId = integration?.id;
+    
+    // Store if the configuration is valid
+    this.isValid = !!(this.apiKey && this.apiSecret);
     
     // Use v2 API endpoints - can switch between paper and live
     const endpoint = integration?.credentials?.additionalFields?.endpoint || "paper";
@@ -25,16 +31,78 @@ export class AlpacaAPI {
       isPaperTrading,
       hasApiKey: !!this.apiKey,
       hasApiSecret: !!this.apiSecret,
-      integrationId: integration?.id
+      integrationId: integration?.id,
+      isValid: this.isValid
     });
     
     // Log if we're missing API credentials
-    if (!this.apiKey || !this.apiSecret) {
-      console.warn("Warning: Alpaca API credentials not provided. Some features may not work correctly.");
+    if (!this.isValid) {
+      console.warn("Warning: Alpaca API credentials not provided or invalid. Some features may not work correctly.");
+    }
+  }
+  
+  /**
+   * Verifies the API connection by attempting to fetch account data
+   * This can be used to validate the API credentials
+   * @returns {Promise<{isValid: boolean, message: string}>} Result with validation status and message
+   */
+  async verifyConnection(): Promise<{isValid: boolean, message: string}> {
+    if (!this.isValid) {
+      return {
+        isValid: false, 
+        message: "API configuration is invalid. Both API key and secret are required."
+      };
+    }
+    
+    try {
+      // Make a simple account request to test the connection
+      const response = await fetch(`${this.tradingBaseUrl}/account`, {
+        headers: {
+          "APCA-API-KEY-ID": this.apiKey,
+          "APCA-API-SECRET-KEY": this.apiSecret
+        }
+      });
+      
+      if (response.ok) {
+        const accountData = await response.json();
+        return {
+          isValid: true,
+          message: `Successfully connected to Alpaca ${accountData.account_number} (${accountData.status})`
+        };
+      } else {
+        // Handle different error codes
+        if (response.status === 403) {
+          return {
+            isValid: false,
+            message: "Authentication failed. Please check your API key and secret."
+          };
+        } else if (response.status === 429) {
+          return {
+            isValid: false,
+            message: "Too many requests. Rate limit exceeded."
+          };
+        } else {
+          return {
+            isValid: false,
+            message: `Connection error: ${response.status} ${response.statusText}`
+          };
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        isValid: false,
+        message: `Connection error: ${errorMessage}`
+      };
     }
   }
 
   async getAccount(): Promise<any> {
+    // First check if API is properly configured
+    if (!this.isValid) {
+      throw new Error("API configuration is invalid. Both API key and secret are required.");
+    }
+    
     try {
       const response = await fetch(`${this.tradingBaseUrl}/account`, {
         headers: {
@@ -44,17 +112,33 @@ export class AlpacaAPI {
       });
       
       if (!response.ok) {
-        throw new Error(`Error fetching account: ${response.statusText}`);
+        // Provide more specific error messages based on status code
+        if (response.status === 403) {
+          throw new Error("Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.");
+        } else if (response.status === 429) {
+          throw new Error("Rate limit exceeded: Too many requests to Alpaca API. Please try again later.");
+        } else {
+          throw new Error(`Error fetching account: ${response.status} ${response.statusText}`);
+        }
       }
       
       return await response.json();
     } catch (error) {
-      console.error("Error fetching Alpaca account:", error);
-      throw new Error("Failed to fetch Alpaca account");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Error fetching Alpaca account for integration #${this.integrationId}:`, errorMessage);
+      
+      // Pass through the descriptive error message
+      throw new Error(errorMessage.includes("Error fetching account") ? 
+        errorMessage : `Failed to fetch Alpaca account: ${errorMessage}`);
     }
   }
 
   async getPositions(): Promise<any[]> {
+    // First check if API is properly configured
+    if (!this.isValid) {
+      throw new Error("API configuration is invalid. Both API key and secret are required.");
+    }
+    
     try {
       const response = await fetch(`${this.tradingBaseUrl}/positions`, {
         headers: {
@@ -64,17 +148,36 @@ export class AlpacaAPI {
       });
       
       if (!response.ok) {
-        throw new Error(`Error fetching positions: ${response.statusText}`);
+        // Provide more specific error messages based on status code
+        if (response.status === 403) {
+          throw new Error("Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.");
+        } else if (response.status === 429) {
+          throw new Error("Rate limit exceeded: Too many requests to Alpaca API. Please try again later.");
+        } else if (response.status === 404) {
+          // Return empty array if no positions found (more user-friendly)
+          return [];
+        } else {
+          throw new Error(`Error fetching positions: ${response.status} ${response.statusText}`);
+        }
       }
       
       return await response.json();
     } catch (error) {
-      console.error("Error fetching Alpaca positions:", error);
-      throw new Error("Failed to fetch Alpaca positions");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Error fetching Alpaca positions for integration #${this.integrationId}:`, errorMessage);
+      
+      // Pass through the descriptive error message
+      throw new Error(errorMessage.includes("Error fetching positions") ? 
+        errorMessage : `Error fetching positions: ${errorMessage}`);
     }
   }
 
   async getOrders(): Promise<any[]> {
+    // First check if API is properly configured
+    if (!this.isValid) {
+      throw new Error("API configuration is invalid. Both API key and secret are required.");
+    }
+    
     try {
       const response = await fetch(`${this.tradingBaseUrl}/orders`, {
         headers: {
@@ -84,13 +187,27 @@ export class AlpacaAPI {
       });
       
       if (!response.ok) {
-        throw new Error(`Error fetching orders: ${response.statusText}`);
+        // Provide more specific error messages based on status code
+        if (response.status === 403) {
+          throw new Error("Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.");
+        } else if (response.status === 429) {
+          throw new Error("Rate limit exceeded: Too many requests to Alpaca API. Please try again later.");
+        } else if (response.status === 404) {
+          // Return empty array if no orders found (more user-friendly)
+          return [];
+        } else {
+          throw new Error(`Error fetching orders: ${response.status} ${response.statusText}`);
+        }
       }
       
       return await response.json();
     } catch (error) {
-      console.error("Error fetching Alpaca orders:", error);
-      throw new Error("Failed to fetch Alpaca orders");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Error fetching Alpaca orders for integration #${this.integrationId}:`, errorMessage);
+      
+      // Pass through the descriptive error message
+      throw new Error(errorMessage.includes("Error fetching orders") ? 
+        errorMessage : `Error fetching orders: ${errorMessage}`);
     }
   }
 

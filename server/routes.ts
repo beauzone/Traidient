@@ -635,6 +635,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.user.id
       });
       
+      // Validate API credentials before saving if this is an Alpaca integration
+      if (validatedData.provider === 'alpaca') {
+        try {
+          // Create a temporary API client to validate credentials
+          const alpacaAPI = new AlpacaAPI({
+            id: 0, // Temporary ID since we haven't created the record yet
+            userId: req.user.id,
+            provider: 'alpaca',
+            credentials: validatedData.credentials,
+            isPrimary: validatedData.isPrimary || false,
+            isActive: true,
+          } as ApiIntegration);
+          
+          // Perform connection validation
+          const validationResult = await alpacaAPI.verifyConnection();
+          
+          if (!validationResult.isValid) {
+            return res.status(400).json({ 
+              message: 'API validation failed',
+              error: validationResult.message
+            });
+          }
+          
+          // Add validation status to the record
+          validatedData.lastStatus = 'ok';
+          validatedData.lastUsed = new Date().toISOString();
+        } catch (validationError) {
+          console.error('API validation error:', validationError);
+          return res.status(400).json({ 
+            message: 'API validation error',
+            error: validationError instanceof Error ? validationError.message : String(validationError)
+          });
+        }
+      }
+      
       // Check if already have a primary integration for this provider
       if (validatedData.isPrimary) {
         const existingPrimary = await storage.getApiIntegrationByProviderAndUser(
