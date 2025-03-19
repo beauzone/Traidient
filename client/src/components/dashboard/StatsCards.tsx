@@ -55,15 +55,17 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-muted-foreground truncate">Total P&L</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-lg font-semibold">{totalPnL.value}</div>
-                    <span className={`ml-2 text-sm font-medium ${totalPnL.isPositive ? 'text-green-500' : 'text-destructive'}`}>
-                      {totalPnL.isPositive ? 
-                        <LucideIcons.ArrowUp className="inline mr-1 h-3 w-3" /> : 
-                        <LucideIcons.ArrowDown className="inline mr-1 h-3 w-3" />
-                      }
-                      {totalPnL.percentage}
-                    </span>
+                  <dd>
+                    <div className="flex flex-col">
+                      <div className="text-lg font-semibold">{totalPnL.value}</div>
+                      <div className={`text-sm font-medium flex items-center ${totalPnL.isPositive ? 'text-green-500' : 'text-destructive'}`}>
+                        {totalPnL.isPositive ? 
+                          <LucideIcons.ArrowUp className="mr-1 h-3 w-3" /> : 
+                          <LucideIcons.ArrowDown className="mr-1 h-3 w-3" />
+                        }
+                        {totalPnL.percentage}
+                      </div>
+                    </div>
                   </dd>
                 </dl>
               </div>
