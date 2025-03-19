@@ -45,13 +45,7 @@ const BotBuilder = () => {
           <TabsContent value="natural-language" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <Card className="col-span-full xl:col-span-3">
-                <CardHeader>
-                  <CardTitle>Create Strategy with AI</CardTitle>
-                  <CardDescription>
-                    Describe your trading strategy in plain English, and our AI will convert it to code
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <NaturalLanguageInput onStrategyGenerated={handleStrategyGenerated} />
                 </CardContent>
               </Card>
