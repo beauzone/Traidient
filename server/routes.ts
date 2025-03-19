@@ -1901,12 +1901,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const account = await alpacaAPI.getAccount();
               
               // Format for frontend with account name
-              const accountName = 
+              const accountName: string = 
                 integration.description || 
                 integration.credentials?.additionalFields?.accountName || 
                 `Alpaca ${integration.credentials?.additionalFields?.accountType === 'live' ? 'Live' : 'Paper'} Account ${accounts.length + 1}`;
                 
-              const formattedAccount = {
+              const formattedAccount: any = {
                 id: integration.id,
                 name: accountName,
                 accountNumber: account.account_number,
@@ -1929,7 +1929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error("Error fetching Alpaca account:", apiError);
               
               // Still add the account with limited info
-              const accountName = 
+              const accountName: string = 
                 integration.description || 
                 integration.credentials?.additionalFields?.accountName || 
                 `Alpaca ${integration.credentials?.additionalFields?.accountType === 'live' ? 'Live' : 'Paper'} Account ${accounts.length + 1}`;

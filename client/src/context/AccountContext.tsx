@@ -58,32 +58,17 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
         }
 
         try {
-          // Try to fetch actual account data from Alpaca API
-          const accountData = await fetchData('/api/trading/account');
+          // Try to fetch actual account data from Alpaca API - now returns an array
+          const accountsData = await fetchData<BrokerageAccount[]>('/api/trading/account');
           
-          // Transform integrations into accounts with real account data
-          const accountsData: BrokerageAccount[] = alpacaIntegrations.map((integration: any) => {
-            // Determine account type from additional fields
-            const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
-            
-            // Use description as account name, or additionalFields.accountName, or create a descriptive name if missing
-            const name = integration.description || 
-                         integration.credentials?.additionalFields?.accountName ||
-                         `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account`;
-            
-            return {
-              id: integration.id,
-              name: name,
-              accountNumber: accountData.accountNumber || `ALP-${integration.id}`,
-              accountType: accountType,
-              balance: accountData.cash || 0,
-              provider: 'Alpaca',
-              performance: calculatePerformance(accountData),
-            };
-          });
-
-          console.log('Processed accounts with real data:', accountsData);
-          setAccounts(accountsData);
+          // Check if we got account data
+          if (accountsData && accountsData.length > 0) {
+            console.log('Processed accounts with real data:', accountsData);
+            setAccounts(accountsData);
+            return; // We already have the accounts formatted correctly
+          } else {
+            throw new Error('No account data returned from API');
+          }
         } catch (accountError) {
           console.error('Failed to fetch account data, using integration data only:', accountError);
           
@@ -119,17 +104,7 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
       }
     };
     
-    // Helper function to calculate performance
-    const calculatePerformance = (accountData: any): number => {
-      if (!accountData || !accountData.equity || !accountData.lastEquity) return 0;
-      
-      const equity = parseFloat(accountData.equity);
-      const lastEquity = parseFloat(accountData.lastEquity);
-      
-      if (lastEquity === 0) return 0;
-      
-      return ((equity - lastEquity) / lastEquity) * 100;
-    };
+    // Account data now comes directly from the backend
 
     fetchAccounts();
   }, []);
