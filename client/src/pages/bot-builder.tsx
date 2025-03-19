@@ -2,7 +2,7 @@ import { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import NaturalLanguageInput from "@/components/bot-builder/NaturalLanguageInput";
 import StrategyForm from "@/components/bot-builder/StrategyForm";
-import CodeEditor from "@/components/bot-builder/CodeEditor";
+import CodeEditorImproved from "@/components/bot-builder/CodeEditorImproved";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wand2, Blocks, Code } from "lucide-react";
@@ -113,7 +113,7 @@ const BotBuilder = () => {
           </TabsContent>
           
           <TabsContent value="code">
-            <CodeEditor />
+            <CodeEditorImproved />
           </TabsContent>
           
           <TabsContent value="form" className="space-y-4">
