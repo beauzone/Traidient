@@ -45,22 +45,57 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
         // For now, we'll use the integration endpoint as a placeholder
         const integrations = await fetchData('/api/integrations');
         
+        console.log('Fetched integrations:', integrations);
+        
         // Transform integrations into accounts (in a real app, this would be its own endpoint)
         const accountsData: BrokerageAccount[] = integrations
           .filter((integration: any) => integration.provider === 'alpaca')
-          .map((integration: any, index: number) => ({
-            id: integration.id,
-            name: integration.description || `Account ${index + 1}`,
-            accountNumber: integration.id.toString(),
-            accountType: integration.config?.paper ? 'paper' : 'live',
-            balance: Math.random() * 10000, // This would come from real data
-            provider: 'Alpaca',
-            performance: (Math.random() * 2 - 1) * 5, // Random performance between -5% and +5%
-          }));
+          .map((integration: any, index: number) => {
+            // Determine account type from additional fields
+            const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
+            
+            // Use description or make a descriptive name
+            const name = integration.description || 
+                        `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account ${index + 1}`;
+            
+            return {
+              id: integration.id,
+              name: name,
+              accountNumber: `ALP-${integration.id}`,
+              accountType: accountType,
+              balance: 10000.00, // Placeholder until we can fetch real balance
+              provider: 'Alpaca',
+              performance: 4.34, // Placeholder until we can fetch real performance
+            };
+          });
           
+        // If we don't have any accounts, add a demo account just for UI demonstration
+        if (accountsData.length === 0) {
+          accountsData.push({
+            id: 1,
+            name: 'Account 1',
+            accountNumber: 'DEMO-001',
+            accountType: 'paper',
+            balance: 1809.68,
+            provider: 'Alpaca',
+            performance: 4.34,
+          });
+        }
+        
+        console.log('Processed accounts:', accountsData);
         setAccounts(accountsData);
       } catch (error) {
         console.error('Failed to fetch accounts:', error);
+        // Fallback to a demo account if API fails
+        setAccounts([{
+          id: 1,
+          name: 'Account 1',
+          accountNumber: 'DEMO-001',
+          accountType: 'paper',
+          balance: 1809.68,
+          provider: 'Alpaca',
+          performance: 4.34,
+        }]);
       } finally {
         setIsLoadingAccounts(false);
       }

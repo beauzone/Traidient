@@ -165,7 +165,7 @@ const TopNavbar = () => {
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>ACCOUNT MANAGEMENT</DropdownMenuLabel>
                     <DropdownMenuItem>
-                      <Link href="/integrations" className="w-full">
+                      <Link href="/broker-configuration" className="w-full">
                         Open New Paper Account
                       </Link>
                     </DropdownMenuItem>
