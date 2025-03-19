@@ -134,39 +134,54 @@ const Dashboard = () => {
     { name: "Cash", value: 100, color: "#EF4444" },
   ]);
   
-  // Memoize positions based on the selected account
+  // Get filtered positions and update on account change
   const filteredPositions = useMemo(() => {
+    console.log("Positions received:", positions);
+    console.log("Selected account:", selectedAccount);
+    
     if (!positions || positions.length === 0) {
+      console.log("No positions found, returning empty array");
       return [];
     }
     
     // If using all accounts, return all positions
     if (selectedAccount === "all") {
+      console.log("All accounts selected, returning all positions:", positions);
       return positions;
     }
     
-    // Otherwise filter positions by account
-    return positions.filter((pos: any) => {
-      // Note: If the API doesn't currently include accountId in positions, we'll need to modify it
-      return !pos.accountId || pos.accountId.toString() === selectedAccount;
-    });
+    // Note: For now we're getting same positions for all accounts since the API doesn't filter
+    // In a real implementation, each position would have an accountId property
+    console.log("Account", selectedAccount, "selected, would filter positions if accountId was present");
+    return positions;
   }, [positions, selectedAccount]);
   
-  // Update asset allocation when positions change
+  // Calculate and update asset allocation data
   useEffect(() => {
-    if ((!filteredPositions || filteredPositions.length === 0) && !accountData) {
+    console.log("Calculating asset allocation with:", { 
+      filteredPositions, 
+      selectedAccount, 
+      accountData: accountData ? `${accountData.length} accounts` : "none" 
+    });
+    
+    // Default to all cash if no data
+    if ((!filteredPositions || filteredPositions.length === 0) && (!accountData || !Array.isArray(accountData))) {
+      console.log("No positions or account data, defaulting to 100% cash");
       setAssetAllocationData([{ name: "Cash", value: 100, color: "#EF4444" }]);
       return;
     }
     
+    // Create a new key for each re-render to ensure React updates the chart
+    const renderKey = new Date().getTime();
+    
     // Group positions by asset type/symbol
     const assetGroups = new Map<string, number>();
-    let totalEquity = 0;
+    let totalInvested = 0;
     
-    // Add positions
+    // Add positions to the asset allocation
     filteredPositions.forEach((position: Position) => {
       const value = position.marketValue;
-      totalEquity += value;
+      totalInvested += value;
       
       if (assetGroups.has(position.symbol)) {
         assetGroups.set(position.symbol, assetGroups.get(position.symbol)! + value);
@@ -175,54 +190,75 @@ const Dashboard = () => {
       }
     });
     
-    // Add cash based on selected account
+    // Get total portfolio value and cash balance for the selected account(s)
     let cashValue = 0;
     let portfolioValue = 0;
     
-    if (selectedAccount === "all" && Array.isArray(accountData)) {
-      // Sum cash across all accounts
-      cashValue = accountData.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-      portfolioValue = accountData.reduce((sum, acc) => sum + (acc.portfolioValue || 0), 0);
-    } else if (Array.isArray(accountData)) {
-      // Find the specific account
-      const currentAccount = accountData.find((acc) => acc.id.toString() === selectedAccount);
-      if (currentAccount) {
-        cashValue = currentAccount.balance || 0;
-        portfolioValue = currentAccount.portfolioValue || 0;
-      } else if (accountData.length > 0) {
-        // Fallback to first account
-        cashValue = accountData[0].balance || 0;
-        portfolioValue = accountData[0].portfolioValue || 0;
+    if (Array.isArray(accountData) && accountData.length > 0) {
+      if (selectedAccount === "all") {
+        // Sum values across all accounts
+        portfolioValue = accountData.reduce((sum, acc) => sum + (acc.portfolioValue || 0), 0);
+        cashValue = accountData.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+      } else {
+        // Find the specific account
+        const account = accountData.find((acc) => acc.id.toString() === selectedAccount);
+        
+        if (account) {
+          portfolioValue = account.portfolioValue || 0;
+          cashValue = account.balance || 0;
+        } else if (accountData.length > 0) {
+          // Fallback to first account
+          portfolioValue = accountData[0].portfolioValue || 0;
+          cashValue = accountData[0].balance || 0;
+        }
       }
     }
     
-    // Calculate cash as the difference between total portfolio value and position values
-    const positionsValue = Array.from(assetGroups.values()).reduce((sum, val) => sum + val, 0);
-    if (portfolioValue > positionsValue) {
-      cashValue = portfolioValue - positionsValue;
+    console.log("Account values:", { portfolioValue, cashValue, totalInvested });
+    
+    // Calculate cash as the remaining amount in the portfolio 
+    // (this assumes portfolio value = invested value + cash)
+    if (portfolioValue > 0) {
+      cashValue = portfolioValue - totalInvested;
+      if (cashValue < 0) cashValue = 0; // Ensure no negative cash
     }
     
-    totalEquity += cashValue;
-    assetGroups.set("Cash", cashValue);
+    // Add cash to the asset groups
+    if (cashValue > 0) {
+      assetGroups.set("Cash", cashValue);
+    }
     
-    // Format for chart
+    // Calculate total portfolio value (invested + cash)
+    const totalEquity = totalInvested + cashValue;
+    
+    console.log("Asset allocation values:", { 
+      totalEquity, 
+      cashValue, 
+      assetGroups: Object.fromEntries(assetGroups) 
+    });
+    
+    // Format for chart with fixed colors per asset
     const colors = ["#3B82F6", "#6366F1", "#10B981", "#F59E0B", "#EF4444", 
                     "#EC4899", "#8B5CF6", "#14B8A6", "#F97316", "#06B6D4"];
-                    
+    
+    // Convert to percentage values for the pie chart
     const result = Array.from(assetGroups.entries())
       .map(([name, value], index) => ({
-        name,
+        name: name,
         value: totalEquity > 0 ? Math.round((value / totalEquity) * 100) : 0,
-        color: colors[index % colors.length]
+        color: name === "Cash" ? "#EF4444" : colors[index % colors.length]
       }))
       .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value);
+    
+    console.log("Final asset allocation data:", result);
     
     // If there's no data, show 100% cash
     if (result.length === 0) {
       result.push({ name: "Cash", value: 100, color: "#EF4444" });
     }
-      
+    
+    // Update the asset allocation data
     setAssetAllocationData(result);
   }, [filteredPositions, accountData, selectedAccount]);
 
