@@ -120,7 +120,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       }
       
       // Process each symbol
-      for (const symbol of symbols) {
+      for (const symbol of Array.from(symbols)) {
         const upperSymbol = symbol.toUpperCase();
         let quoteData = null;
         let dataSource = "";
@@ -231,7 +231,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
         } else {
           // Fall back to simulation for this symbol
           const data = priceData.get(upperSymbol);
-          if (!data) continue;
+          if (!data) return;
           
           // Simulate price movement
           const momentum = data.lastChange > 0 ? 0.6 : 0.4;
