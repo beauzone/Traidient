@@ -36,8 +36,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           </div>
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
-              <Link href="/strategies" className="font-medium text-primary hover:text-primary/80">
-                View all <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
+              <Link href="/strategies" className="font-medium text-primary hover:text-primary/80 flex items-center">
+                <span>View all</span> <LucideIcons.ArrowUpRight className="ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -73,8 +73,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           </div>
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
-              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80">
-                View details <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
+              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80 flex items-center">
+                <span>View details</span> <LucideIcons.ArrowUpRight className="ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -101,8 +101,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           </div>
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
-              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80">
-                View history <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
+              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80 flex items-center">
+                <span>View history</span> <LucideIcons.ArrowUpRight className="ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -129,8 +129,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
           </div>
           <div className="bg-muted px-5 py-3">
             <div className="text-sm">
-              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80">
-                Configure alerts <LucideIcons.ArrowUpRight className="inline ml-1 h-4 w-4" />
+              <Link href="/live-trading" className="font-medium text-primary hover:text-primary/80 flex items-center">
+                <span>Configure alerts</span> <LucideIcons.ArrowUpRight className="ml-1 h-4 w-4" />
               </Link>
             </div>
           </div>
