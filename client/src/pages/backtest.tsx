@@ -728,40 +728,83 @@ const BacktestPage = () => {
                             <div className="grid grid-cols-4 mb-6 text-sm">
                               <div>
                                 <span className="text-muted-foreground">Start Date: </span>
-                                <span className="font-medium">Jan 19, 2019</span>
+                                <span className="font-medium">
+                                  {new Date(currentBacktest.configuration.startDate).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </span>
                               </div>
                               <div>
                                 <span className="text-muted-foreground">End Date: </span>
-                                <span className="font-medium">Mar 19, 2025</span>
+                                <span className="font-medium">
+                                  {new Date(currentBacktest.configuration.endDate).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </span>
                               </div>
                               <div>
                                 <span className="text-muted-foreground">Starting Capital: </span>
-                                <span className="font-medium">$100,000.00</span>
+                                <span className="font-medium">
+                                  ${currentBacktest.configuration.initialCapital.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  })}
+                                </span>
                               </div>
                               <div>
                                 <span className="text-muted-foreground">Ending Capital: </span>
-                                <span className="font-medium">$101,542.91</span>
+                                <span className="font-medium">
+                                  ${currentBacktest.results.portfolio?.finalValue 
+                                    ? currentBacktest.results.portfolio.finalValue.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                      })
+                                    : currentBacktest.configuration.initialCapital.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                      })
+                                  }
+                                </span>
                               </div>
                             </div>
                             
-                            {/* Return metrics cards - exact styling from mockup */}
+                            {/* Return metrics cards - with dynamic data */}
                             <div className="grid grid-cols-3 gap-4 mb-6">
                               <div className="bg-black rounded-lg p-4">
                                 <div className="text-sm text-muted-foreground">Total Return</div>
-                                <div className="text-2xl font-bold text-green-500">
-                                  +2.88%
+                                <div className={`text-2xl font-bold ${
+                                  (currentBacktest.results.summary?.totalReturn || 0) >= 0 
+                                    ? 'text-green-500' 
+                                    : 'text-red-500'
+                                }`}>
+                                  {(currentBacktest.results.summary?.totalReturn || 0) >= 0 ? '+' : ''}
+                                  {currentBacktest.results.summary?.totalReturn?.toFixed(2) || '0.00'}%
                                 </div>
                               </div>
                               <div className="bg-black rounded-lg p-4">
                                 <div className="text-sm text-muted-foreground">Annualized Return</div>
-                                <div className="text-2xl font-bold text-green-500">
-                                  +12.04%
+                                <div className={`text-2xl font-bold ${
+                                  (currentBacktest.results.summary?.annualizedReturn || 0) >= 0 
+                                    ? 'text-green-500' 
+                                    : 'text-red-500'
+                                }`}>
+                                  {(currentBacktest.results.summary?.annualizedReturn || 0) >= 0 ? '+' : ''}
+                                  {currentBacktest.results.summary?.annualizedReturn?.toFixed(2) || '0.00'}%
                                 </div>
                               </div>
                               <div className="bg-black rounded-lg p-4">
                                 <div className="text-sm text-muted-foreground">S&P 500 Return</div>
-                                <div className="text-2xl font-bold text-green-500">
-                                  +1.64%
+                                <div className={`text-2xl font-bold ${
+                                  (currentBacktest.results.benchmark?.return || 0) >= 0 
+                                    ? 'text-green-500' 
+                                    : 'text-red-500'
+                                }`}>
+                                  {(currentBacktest.results.benchmark?.return || 0) >= 0 ? '+' : ''}
+                                  {currentBacktest.results.benchmark?.return?.toFixed(2) || '0.00'}%
                                 </div>
                               </div>
                             </div>
