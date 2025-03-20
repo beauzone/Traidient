@@ -2,14 +2,12 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BadgeDelta, BarChart2, TrendingUp, Minimize2 } from "lucide-react";
+import { Loader2, Award, BarChart2, TrendingUp, Minimize2 } from "lucide-react";
 import { postData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -45,7 +43,7 @@ const optimizationGoals = [
     id: "max-win-rate",
     label: "Maximize Win Rate",
     description: "Increase the percentage of winning trades over losing trades",
-    icon: BadgeDelta,
+    icon: Award,
   },
 ];
 
