@@ -166,8 +166,8 @@ const BacktestPage = () => {
     queryKey: ['/api/backtests', currentBacktest?.id],
     queryFn: () => fetchData<Backtest>(`/api/backtests/${currentBacktest?.id}`),
     enabled: !!currentBacktest?.id,
-    refetchInterval: (data) => 
-      data?.status === 'queued' || data?.status === 'running' ? 2000 : false,
+    refetchInterval: (data: Backtest | undefined) => 
+      data && (data.status === 'queued' || data.status === 'running') ? 2000 : false,
   });
 
   // Update current backtest when data changes
