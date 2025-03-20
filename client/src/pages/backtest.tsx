@@ -5,6 +5,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { fetchData, postData, updateData, deleteData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import OptimizeStrategy from "@/components/backtesting/OptimizeStrategy";
 
 import {
   Card,
