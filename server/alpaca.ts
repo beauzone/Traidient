@@ -31,214 +31,143 @@ export class AlpacaAPI {
       isPaperTrading,
       hasApiKey: !!this.apiKey,
       hasApiSecret: !!this.apiSecret,
-      integrationId: integration?.id,
+      integrationId: this.integrationId,
       isValid: this.isValid
     });
-    
-    // Log if we're missing API credentials
-    if (!this.isValid) {
-      console.warn("Warning: Alpaca API credentials not provided or invalid. Some features may not work correctly.");
-    }
   }
-  
+
   /**
    * Verifies the API connection by attempting to fetch account data
    * This can be used to validate the API credentials
    * @returns {Promise<{isValid: boolean, message: string}>} Result with validation status and message
    */
   async verifyConnection(): Promise<{isValid: boolean, message: string}> {
-    if (!this.isValid) {
-      return {
-        isValid: false, 
-        message: "API configuration is invalid. Both API key and secret are required."
-      };
-    }
-    
     try {
-      // Make a simple account request to test the connection
+      if (!this.isValid) {
+        return { isValid: false, message: "API keys not provided" };
+      }
+      
       const response = await fetch(`${this.tradingBaseUrl}/account`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (response.ok) {
-        const accountData = await response.json();
-        return {
-          isValid: true,
-          message: `Successfully connected to Alpaca ${accountData.account_number} (${accountData.status})`
+        const data = await response.json();
+        return { 
+          isValid: true, 
+          message: `Successfully connected to Alpaca API for account ${data.account_number}`
         };
       } else {
-        // Handle different error codes
-        if (response.status === 403) {
-          return {
-            isValid: false,
-            message: "Authentication failed. Please check your API key and secret."
-          };
-        } else if (response.status === 429) {
-          return {
-            isValid: false,
-            message: "Too many requests. Rate limit exceeded."
-          };
-        } else {
-          return {
-            isValid: false,
-            message: `Connection error: ${response.status} ${response.statusText}`
-          };
-        }
+        const errorText = await response.text();
+        return { 
+          isValid: false, 
+          message: `Failed to connect to Alpaca API: ${response.status} ${errorText}`
+        };
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        isValid: false,
-        message: `Connection error: ${errorMessage}`
+      return { 
+        isValid: false, 
+        message: `Error connecting to Alpaca API: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
 
   async getAccount(): Promise<any> {
-    // First check if API is properly configured
-    if (!this.isValid) {
-      throw new Error("API configuration is invalid. Both API key and secret are required.");
-    }
-    
     try {
       const response = await fetch(`${this.tradingBaseUrl}/account`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (!response.ok) {
-        // Provide more specific error messages based on status code
-        if (response.status === 403) {
-          throw new Error("Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.");
-        } else if (response.status === 429) {
-          throw new Error("Rate limit exceeded: Too many requests to Alpaca API. Please try again later.");
-        } else {
-          throw new Error(`Error fetching account: ${response.status} ${response.statusText}`);
-        }
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
       return await response.json();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching Alpaca account for integration #${this.integrationId}:`, errorMessage);
-      
-      // Pass through the descriptive error message
-      throw new Error(errorMessage.includes("Error fetching account") ? 
-        errorMessage : `Failed to fetch Alpaca account: ${errorMessage}`);
+      console.error('Error fetching Alpaca account:', error);
+      throw error;
     }
   }
 
   async getPositions(): Promise<any[]> {
-    // First check if API is properly configured
-    if (!this.isValid) {
-      throw new Error("API configuration is invalid. Both API key and secret are required.");
-    }
-    
     try {
       const response = await fetch(`${this.tradingBaseUrl}/positions`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (!response.ok) {
-        // Provide more specific error messages based on status code
-        if (response.status === 403) {
-          throw new Error("Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.");
-        } else if (response.status === 429) {
-          throw new Error("Rate limit exceeded: Too many requests to Alpaca API. Please try again later.");
-        } else if (response.status === 404) {
-          // Return empty array if no positions found (more user-friendly)
-          return [];
-        } else {
-          throw new Error(`Error fetching positions: ${response.status} ${response.statusText}`);
-        }
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
       return await response.json();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching Alpaca positions for integration #${this.integrationId}:`, errorMessage);
-      
-      // Pass through the descriptive error message
-      throw new Error(errorMessage.includes("Error fetching positions") ? 
-        errorMessage : `Error fetching positions: ${errorMessage}`);
+      console.error('Error fetching Alpaca positions:', error);
+      throw error;
     }
   }
 
   async getOrders(): Promise<any[]> {
-    // First check if API is properly configured
-    if (!this.isValid) {
-      throw new Error("API configuration is invalid. Both API key and secret are required.");
-    }
-    
     try {
-      const response = await fetch(`${this.tradingBaseUrl}/orders`, {
+      const response = await fetch(`${this.tradingBaseUrl}/orders?status=open`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (!response.ok) {
-        // Provide more specific error messages based on status code
-        if (response.status === 403) {
-          throw new Error("Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.");
-        } else if (response.status === 429) {
-          throw new Error("Rate limit exceeded: Too many requests to Alpaca API. Please try again later.");
-        } else if (response.status === 404) {
-          // Return empty array if no orders found (more user-friendly)
-          return [];
-        } else {
-          throw new Error(`Error fetching orders: ${response.status} ${response.statusText}`);
-        }
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
       return await response.json();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching Alpaca orders for integration #${this.integrationId}:`, errorMessage);
-      
-      // Pass through the descriptive error message
-      throw new Error(errorMessage.includes("Error fetching orders") ? 
-        errorMessage : `Error fetching orders: ${errorMessage}`);
+      console.error('Error fetching Alpaca orders:', error);
+      throw error;
     }
   }
 
   async placeOrder(params: {
     symbol: string;
-    qty: number;
+    qty: string;
     side: 'buy' | 'sell';
     type: 'market' | 'limit' | 'stop' | 'stop_limit';
     time_in_force: 'day' | 'gtc' | 'opg' | 'cls' | 'ioc' | 'fok';
-    limit_price?: number;
-    stop_price?: number;
+    limit_price?: string;
+    stop_price?: string;
   }): Promise<any> {
     try {
       const response = await fetch(`${this.tradingBaseUrl}/orders`, {
         method: 'POST',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret,
-          "Content-Type": "application/json"
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(params)
       });
       
       if (!response.ok) {
-        throw new Error(`Error placing order: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
       }
       
       return await response.json();
     } catch (error) {
-      console.error("Error placing Alpaca order:", error);
-      throw new Error("Failed to place Alpaca order");
+      console.error('Error placing Alpaca order:', error);
+      throw error;
     }
   }
 
@@ -253,84 +182,45 @@ export class AlpacaAPI {
    * @returns Market data from Alpaca
    */
   async getMarketData(
-    symbol: string, 
-    timeframe: string = '1D', 
+    symbol: string,
+    timeframe: string = "1Day",
     limit: number = 100,
     startDate?: string,
     endDate?: string
   ): Promise<any> {
     try {
-      // Validate and sanitize the symbol
-      const sanitizedSymbol = symbol.trim().toUpperCase();
+      // Convert timeframe to Alpaca format
+      const timeframeMap: Record<string, string> = {
+        "1m": "1Min",
+        "5m": "5Min",
+        "15m": "15Min",
+        "30m": "30Min",
+        "1h": "1Hour",
+        "1d": "1Day",
+        "1w": "1Week",
+        "1M": "1Month"
+      };
       
-      // Convert timeframe to Alpaca Data API format
-      let adjustedTimeframe: string;
+      // Map our standard timeframe to Alpaca's format
+      const alpacaTimeframe = timeframeMap[timeframe.toLowerCase()] || timeframe;
       
-      // Handle standard timeframe formats like "1D"
-      // Alpaca uses timeframes in format like "1Day", "1Min", "5Min", "1Hour", "1Week", "1Month"
-      const timeframeParts = timeframe.match(/^(\d+)([DMWY])$/);
-      if (timeframeParts) {
-        const [_, amount, unit] = timeframeParts;
-        // Properly convert to Alpaca format
-        let unitString = '';
-        switch (unit.toUpperCase()) {
-          case 'D':
-            unitString = 'Day';
-            break;
-          case 'W':
-            unitString = 'Week';
-            break;
-          case 'M':
-            unitString = 'Month';
-            break;
-          case 'Y':
-            unitString = 'Year';
-            break;
-          default:
-            unitString = 'Day';
-        }
-        adjustedTimeframe = `${amount}${unitString}`;
-      } else {
-        // Default to daily if format is invalid
-        console.warn(`Invalid timeframe format: ${timeframe}, defaulting to 1Day`);
-        adjustedTimeframe = '1Day';
-      }
-      
-      // Set date range (use parameters if provided, otherwise use last 30 days)
-      const today = new Date();
-      let start: string;
-      let end: string;
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("symbols", symbol);
+      queryParams.append("timeframe", alpacaTimeframe);
+      queryParams.append("limit", limit.toString());
       
       if (startDate) {
-        // Ensure we have a valid date format
-        start = new Date(startDate).toISOString().split('T')[0];
-      } else {
-        // Default to 30 days ago
-        const pastDate = new Date();
-        pastDate.setDate(today.getDate() - 30);
-        start = pastDate.toISOString().split('T')[0];
+        queryParams.append("start", startDate);
       }
       
       if (endDate) {
-        // Ensure we have a valid date format
-        end = new Date(endDate).toISOString().split('T')[0];
-      } else {
-        // Default to today
-        end = today.toISOString().split('T')[0];
+        queryParams.append("end", endDate);
       }
       
-      // Alpaca has limits on the date range and number of bars
-      // For longer periods, we might need to make multiple requests and combine them
-      
-      // Ensure limit is within Alpaca's constraints
-      const cappedLimit = Math.min(limit, 10000); // Alpaca's max is 10,000 bars
-      
-      // Construct the URL with proper parameters
-      const url = `${this.dataBaseUrl}/stocks/${sanitizedSymbol}/bars?timeframe=${adjustedTimeframe}&start=${start}&end=${end}&limit=${cappedLimit}&adjustment=all`;
-      
-      console.log(`Fetching market data for ${sanitizedSymbol} from ${start} to ${end}`);
-      
-      const response = await fetch(url, {
+      // Make the API request
+      const response = await fetch(`${this.dataBaseUrl}/stocks/bars?${queryParams.toString()}`, {
+        method: "GET",
         headers: {
           "APCA-API-KEY-ID": this.apiKey,
           "APCA-API-SECRET-KEY": this.apiSecret
@@ -339,104 +229,91 @@ export class AlpacaAPI {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Error fetching market data for ${sanitizedSymbol} [${response.status}]:`, errorText);
-        
-        if (response.status === 403) {
-          throw new Error(`Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.`);
-        } else if (response.status === 422 || response.status === 400) {
-          throw new Error(`Invalid request parameters for ${sanitizedSymbol}: ${errorText}`);
-        } else if (response.status === 429) {
-          throw new Error(`Rate limit exceeded: Too many requests to Alpaca API. Please try again later.`);
-        } else if (response.status === 404) {
-          // Return empty bars if symbol not found
-          return { bars: [] };
-        } else {
-          throw new Error(`Error fetching market data: ${response.status} ${response.statusText}`);
-        }
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const data = await response.json();
-      console.log(`Successfully fetched ${data.bars?.length || 0} bars for ${sanitizedSymbol}`);
-      return data;
+      
+      // Format the response
+      return {
+        symbol,
+        bars: data.bars?.[symbol] || []
+      };
     } catch (error) {
-      console.error("Error fetching Alpaca market data:", error);
-      // Return empty data structure instead of throwing an error
-      return { bars: [] };
+      console.error(`Error fetching market data for ${symbol}:`, error);
+      throw new Error(`Failed to fetch market data: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   async getAssetInformation(symbol: string): Promise<any> {
     try {
       const response = await fetch(`${this.tradingBaseUrl}/assets/${symbol}`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (!response.ok) {
-        throw new Error(`Error fetching asset information: ${response.statusText}`);
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
       return await response.json();
     } catch (error) {
-      console.error("Error fetching Alpaca asset information:", error);
-      throw new Error("Failed to fetch Alpaca asset information");
+      console.error(`Error fetching asset information for ${symbol}:`, error);
+      throw error;
     }
   }
-  
-  // Method to get latest quote for a symbol
+
   async getQuote(symbol: string): Promise<any> {
     try {
       const response = await fetch(`${this.dataBaseUrl}/stocks/${symbol}/quotes/latest`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (!response.ok) {
-        throw new Error(`Error fetching quote: ${response.statusText}`);
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
       return await response.json();
     } catch (error) {
-      console.error("Error fetching Alpaca quote:", error);
-      throw new Error("Failed to fetch Alpaca quote");
+      console.error(`Error fetching quote for ${symbol}:`, error);
+      throw error;
     }
   }
-  
+
   /**
    * Checks if the US stock market is currently open
    * @returns Promise with boolean indicating if the market is open
    */
   async isMarketOpen(): Promise<boolean> {
-    if (!this.isValid) {
-      console.warn("Alpaca API credentials not provided, using time-based market status check");
-      return this.isMarketOpenByTime();
-    }
-    
     try {
       const response = await fetch(`${this.tradingBaseUrl}/clock`, {
+        method: 'GET',
         headers: {
-          "APCA-API-KEY-ID": this.apiKey,
-          "APCA-API-SECRET-KEY": this.apiSecret
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
       });
       
       if (!response.ok) {
-        console.warn(`Error fetching Alpaca clock: ${response.statusText}, using time-based check`);
+        console.warn('Error checking market status, falling back to time-based check');
         return this.isMarketOpenByTime();
       }
       
       const data = await response.json();
-      return data.is_open;
+      return data.is_open === true;
     } catch (error) {
-      console.warn("Error checking market status via Alpaca:", error);
+      console.warn('Error checking market status via API, falling back to time-based check:', error);
       return this.isMarketOpenByTime();
     }
   }
-  
+
   /**
    * Fallback function to check if the market is open based on time
    * @returns Boolean indicating if the market is likely open
@@ -448,70 +325,35 @@ export class AlpacaAPI {
     const minute = now.getMinutes();
     
     // Convert to Eastern Time (ET)
-    // This is a simple approximation, a real app would use a timezone library
+    // This is a simplified approach - a real implementation would handle time zones properly
     const isDST = this.isDateInDST(now);
-    let etHour = hour - (isDST ? 4 : 5);
-    if (etHour < 0) etHour += 24;
+    const etOffset = isDST ? -4 : -5; // EST: UTC-5, EDT: UTC-4
     
-    // Market is closed on weekends
+    // Current hour in ET
+    const etHour = (hour + 24 + etOffset) % 24;
+    
+    // Markets are closed on weekends
     if (day === 0 || day === 6) {
       return false;
     }
     
     // Regular market hours: 9:30 AM - 4:00 PM ET
-    if ((etHour === 9 && minute >= 30) || (etHour > 9 && etHour < 16)) {
-      return true;
-    }
-    
-    return false;
+    return (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
   }
-  
+
   /**
    * Checks if a date is in Daylight Saving Time
    * This is a simplified check - a production system would use a timezone library
    */
   private isDateInDST(date: Date): boolean {
-    // A very simple DST check for US Eastern Time
-    // DST starts on the second Sunday in March
-    // DST ends on the first Sunday in November
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1; // 1-12
+    // Roughly approximate DST for US
+    const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+    const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
     
-    // January, February, December are never in DST
-    if (month < 3 || month > 11) {
-      return false;
-    }
-    
-    // April through October are always in DST
-    if (month > 3 && month < 11) {
-      return true;
-    }
-    
-    // March: DST starts on the second Sunday
-    if (month === 3) {
-      // Get the first day of March
-      const firstDay = new Date(year, 2, 1);
-      // Find the first Sunday
-      const firstSunday = 1 + (7 - firstDay.getDay()) % 7;
-      // Second Sunday is firstSunday + 7
-      const secondSunday = firstSunday + 7;
-      // DST starts at 2:00 AM on the second Sunday
-      return date.getDate() > secondSunday || 
-        (date.getDate() === secondSunday && date.getHours() >= 2);
-    }
-    
-    // November: DST ends on the first Sunday
-    if (month === 11) {
-      // Get the first day of November
-      const firstDay = new Date(year, 10, 1);
-      // Find the first Sunday
-      const firstSunday = 1 + (7 - firstDay.getDay()) % 7;
-      // DST ends at 2:00 AM on the first Sunday
-      return date.getDate() < firstSunday || 
-        (date.getDate() === firstSunday && date.getHours() < 2);
-    }
-    
-    return false;
+    // If timezone offset in January and July are different, DST is observed
+    // If the current offset equals the smaller of the two offsets, it's DST
+    return Math.max(jan, jul) !== Math.min(jan, jul) && 
+           date.getTimezoneOffset() === Math.min(jan, jul);
   }
 
   /**
@@ -524,541 +366,29 @@ export class AlpacaAPI {
   async runBacktest(strategyCode: string, params: any, updateProgress?: (progress: any) => Promise<void>): Promise<any> {
     console.log(`Running backtest with strategy using real market data. Params:`, params);
     
-    // Extract parameters for the backtest
-    const { startDate, endDate, initialCapital, assets } = params;
+    // Import the runBacktest function and data provider
+    const { runBacktest } = await import('./backtestService');
+    const { AlpacaDataProvider } = await import('./marketDataProviders');
     
-    // Parse dates
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const durationDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Setup progress tracking
-    const totalSteps = Math.min(durationDays, 100) + 8; // Add steps for initialization and calculations
-    const startTime = Date.now();
-    let stepsCompleted = 0;
-    
-    // Initial progress update
-    if (updateProgress) {
-      await updateProgress({
-        percentComplete: 0,
-        currentStep: 'Initializing backtest with real market data',
-        stepsCompleted: 0,
-        totalSteps,
-        estimatedTimeRemaining: durationDays * 0.5, // Initial estimate
-        startedAt: new Date().toISOString(),
-        processingSpeed: 0
-      });
-    }
-    
-    // Progress tracking function
-    const trackProgress = async (step: string, forceUpdate = false) => {
-      stepsCompleted++;
-      const elapsedSeconds = (Date.now() - startTime) / 1000;
-      const percentComplete = Math.min(99, Math.round((stepsCompleted / totalSteps) * 100));
-      const processingSpeed = stepsCompleted / elapsedSeconds; // Steps per second
-      const remainingSteps = totalSteps - stepsCompleted;
-      const estimatedTimeRemaining = remainingSteps / processingSpeed;
-      
-      // Only update every few steps or on force update to avoid excessive DB writes
-      if (updateProgress && (forceUpdate || stepsCompleted % 3 === 0 || percentComplete >= 99)) {
-        await updateProgress({
-          percentComplete,
-          currentStep: step,
-          stepsCompleted,
-          totalSteps,
-          estimatedTimeRemaining: Math.ceil(estimatedTimeRemaining),
-          startedAt: new Date(startTime).toISOString(),
-          processingSpeed: Math.round(processingSpeed * 100) / 100
-        });
-      }
-    };
-    
-    // Step 1: Strategy analysis
-    await trackProgress('Analyzing strategy code', true);
-    
-    // Step 2: Start fetching historical data for each asset
-    await trackProgress('Fetching historical market data from Alpaca', true);
-    
-    // Create a portfolio to track positions and performance
-    let portfolio = {
-      cash: initialCapital,
-      positions: {},
-      value: initialCapital,
-      history: []
-    };
-    
-    // Fetch historical data for all requested assets
-    const historicalDataByAsset: { [symbol: string]: any[] } = {};
-    try {
-      for (const symbol of assets) {
-        await trackProgress(`Fetching data for ${symbol}`, true);
-        
-        // Format dates for API request - ensure proper format YYYY-MM-DD
-        const formattedStartDate = start.toISOString().split('T')[0];
-        const formattedEndDate = end.toISOString().split('T')[0];
-        
-        // Use the getMarketData function to fetch real historical data
-        const data = await this.getMarketData(
-          symbol, 
-          '1D', // Daily timeframe
-          Math.min(1000, durationDays), // Limit data points but ensure we have enough
-          formattedStartDate, // Pass the start date
-          formattedEndDate // Pass the end date
-        );
-        
-        // Extract and format the bars
-        if (data && data.bars && data.bars.length > 0) {
-          historicalDataByAsset[symbol] = data.bars.map(bar => ({
-            date: new Date(bar.t),
-            open: bar.o,
-            high: bar.h,
-            low: bar.l,
-            close: bar.c,
-            volume: bar.v
-          }));
-          console.log(`Fetched ${historicalDataByAsset[symbol].length} days of data for ${symbol}`);
-        } else {
-          console.warn(`No historical data available for ${symbol}`);
-          historicalDataByAsset[symbol] = [];
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching historical data:", error);
-      throw new Error(`Failed to fetch historical data for backtest: ${error.message}`);
-    }
-    
-    // Step 3: Compile the strategy
-    await trackProgress('Compiling trading strategy', true);
-    
-    // For a more realistic backtest, we would execute the strategy code against the historical data
-    // Here we'll simulate the execution based on real price data
-    
-    // Step 4: Initialize the backtesting engine
-    await trackProgress('Initializing backtesting engine', true);
-    
-    // Extract all unique dates from the historical data
-    const allDates = new Set<string>();
-    for (const symbol in historicalDataByAsset) {
-      for (const bar of historicalDataByAsset[symbol]) {
-        allDates.add(bar.date.toISOString().split('T')[0]);
-      }
-    }
-    
-    // Sort dates chronologically
-    const simulationDates = Array.from(allDates).sort();
-    
-    // Prepare data structures for the backtest
-    const trades = [];
-    const equity = [];
-    
-    // Add initial equity point
-    equity.push({
-      timestamp: start.toISOString(),
-      value: initialCapital
+    // Create Alpaca data provider
+    const dataProvider = new AlpacaDataProvider({
+      credentials: {
+        apiKey: this.apiKey,
+        apiSecret: this.apiSecret
+      },
+      provider: 'alpaca',
+      type: 'data',
+      description: 'Alpaca Data Provider',
+      isActive: true,
+      isPrimary: true,
+      userId: 0,
+      id: this.integrationId || 0,
+      lastUsed: new Date(),
+      lastStatus: 'ok',
+      lastError: null
     });
     
-    // Step 5: Execute the backtest simulation
-    await trackProgress('Starting backtest execution with real market data', true);
-    
-    // Simple position sizing for this demo (risking 2% of portfolio per trade)
-    const riskPerTrade = 0.02;
-    
-    // Storage for the S&P 500 benchmark data - we'll fetch real data if available
-    let benchmarkData = [];
-    try {
-      // Format dates for API request - ensure proper format YYYY-MM-DD
-      const formattedStartDate = start.toISOString().split('T')[0];
-      const formattedEndDate = end.toISOString().split('T')[0];
-      
-      const spyData = await this.getMarketData(
-        'SPY', 
-        '1D', 
-        Math.min(1000, durationDays),
-        formattedStartDate,
-        formattedEndDate
-      );
-      
-      if (spyData && spyData.bars) {
-        benchmarkData = spyData.bars.map(bar => ({
-          date: new Date(bar.t),
-          close: bar.c
-        }));
-      }
-    } catch (error) {
-      console.warn("Could not fetch benchmark data:", error);
-      // We'll calculate benchmark returns without it if needed
-    }
-    
-    // Execute the strategy for each day in the simulation
-    let currentDay = 0;
-    for (const date of simulationDates) {
-      currentDay++;
-      
-      // Update progress periodically
-      if (currentDay % Math.max(1, Math.floor(simulationDates.length / 10)) === 0) {
-        const progress = Math.floor((currentDay / simulationDates.length) * 100);
-        await trackProgress(`Running simulation (${progress}%)`, true);
-      }
-      
-      // Get the current price data for all assets
-      const currentPrices = {};
-      for (const symbol in historicalDataByAsset) {
-        const dayData = historicalDataByAsset[symbol].find(
-          bar => bar.date.toISOString().split('T')[0] === date
-        );
-        
-        if (dayData) {
-          currentPrices[symbol] = dayData.close;
-        }
-      }
-      
-      // Update portfolio value based on current prices
-      let portfolioValue = portfolio.cash;
-      for (const symbol in portfolio.positions) {
-        if (currentPrices[symbol]) {
-          const position = portfolio.positions[symbol];
-          portfolioValue += position.quantity * currentPrices[symbol];
-        }
-      }
-      
-      // Record equity point
-      equity.push({
-        timestamp: new Date(date).toISOString(),
-        value: portfolioValue
-      });
-      
-      // Execute trading logic based on the strategy and current data
-      // This is a simplified example - in a real implementation, we would execute the actual strategy code
-      
-      // Generate some trades based on price movements and strategy logic
-      for (const symbol in historicalDataByAsset) {
-        // Get historical data for decision making
-        const symbolData = historicalDataByAsset[symbol];
-        const currentDayIndex = symbolData.findIndex(bar => 
-          bar.date.toISOString().split('T')[0] === date
-        );
-        
-        if (currentDayIndex > 0 && currentDayIndex < symbolData.length) {
-          const currentPrice = symbolData[currentDayIndex].close;
-          const previousPrice = symbolData[currentDayIndex - 1].close;
-          
-          // Simple momentum strategy for demonstration purposes
-          const priceChange = (currentPrice - previousPrice) / previousPrice;
-          
-          // Check if we have enough history for a meaningful signal
-          if (currentDayIndex >= 5) {
-            // Buy signal: Current price > 5-day moving average
-            const fiveDayAvg = symbolData
-              .slice(currentDayIndex - 5, currentDayIndex)
-              .reduce((sum, bar) => sum + bar.close, 0) / 5;
-            
-            // Position logic
-            const hasPosition = portfolio.positions[symbol] && portfolio.positions[symbol].quantity > 0;
-            
-            // Buy logic
-            if (currentPrice > fiveDayAvg && !hasPosition && portfolio.cash >= currentPrice * 10) {
-              // Calculate position size based on risk
-              const positionSize = Math.min(
-                Math.floor(portfolio.cash * 0.2 / currentPrice), // Use at most 20% of cash
-                Math.floor(portfolioValue * riskPerTrade / currentPrice) // Risk-based sizing
-              );
-              
-              if (positionSize > 0) {
-                // Execute buy
-                const quantity = positionSize;
-                const value = quantity * currentPrice;
-                const fees = value * 0.001; // 0.1% fee
-                
-                // Update portfolio
-                portfolio.cash -= (value + fees);
-                portfolio.positions[symbol] = {
-                  quantity,
-                  avgPrice: currentPrice
-                };
-                
-                // Record trade
-                trades.push({
-                  timestamp: new Date(date).toISOString(),
-                  type: 'buy',
-                  asset: symbol,
-                  quantity,
-                  price: currentPrice,
-                  value,
-                  fees
-                });
-              }
-            }
-            // Sell logic
-            else if (hasPosition && (
-              // Sell if price drops below 5-day average (stop loss) or rises more than 5% (take profit)
-              currentPrice < fiveDayAvg * 0.97 || 
-              currentPrice > portfolio.positions[symbol].avgPrice * 1.05
-            )) {
-              const quantity = portfolio.positions[symbol].quantity;
-              const value = quantity * currentPrice;
-              const fees = value * 0.001; // 0.1% fee
-              
-              // Update portfolio
-              portfolio.cash += (value - fees);
-              delete portfolio.positions[symbol];
-              
-              // Record trade
-              trades.push({
-                timestamp: new Date(date).toISOString(),
-                type: 'sell',
-                asset: symbol,
-                quantity,
-                price: currentPrice,
-                value,
-                fees
-              });
-            }
-          }
-        }
-      }
-      
-      // Update portfolio value at end of day
-      portfolio.value = portfolioValue;
-      portfolio.history.push({
-        date,
-        value: portfolioValue
-      });
-    }
-    
-    // Step 6: Calculate performance metrics
-    await trackProgress('Calculating performance metrics', true);
-    
-    // Sort trades by timestamp
-    trades.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
-    // Calculate daily returns from equity curve for risk metrics
-    const dailyReturns: number[] = [];
-    for (let i = 1; i < equity.length; i++) {
-      const prevValue = equity[i-1].value;
-      const currentValue = equity[i].value;
-      const dailyReturn = (currentValue - prevValue) / prevValue;
-      dailyReturns.push(dailyReturn);
-    }
-    
-    // Calculate drawdowns
-    let maxValue = initialCapital;
-    let maxDrawdown = 0;
-    let currentDrawdown = 0;
-    let drawdownDuration = 0;
-    let maxDrawdownDuration = 0;
-    const drawdowns: { value: number, timestamp: string }[] = [];
-    
-    for (let i = 0; i < equity.length; i++) {
-      const currentValue = equity[i].value;
-      
-      // Update max value
-      if (currentValue > maxValue) {
-        maxValue = currentValue;
-        // Reset drawdown duration if we're at a new high
-        drawdownDuration = 0;
-      } else {
-        // Increment drawdown duration
-        drawdownDuration++;
-        maxDrawdownDuration = Math.max(maxDrawdownDuration, drawdownDuration);
-      }
-      
-      // Calculate current drawdown
-      currentDrawdown = (maxValue - currentValue) / maxValue * 100;
-      maxDrawdown = Math.max(maxDrawdown, currentDrawdown);
-      
-      // Record drawdown point
-      drawdowns.push({
-        value: currentDrawdown,
-        timestamp: equity[i].timestamp
-      });
-    }
-    
-    // Calculate total return and annualized return
-    const finalValue = equity[equity.length - 1]?.value || initialCapital;
-    const totalReturn = ((finalValue - initialCapital) / initialCapital) * 100;
-    const annualizedReturn = (Math.pow(1 + totalReturn/100, 365/durationDays) - 1) * 100;
-    
-    // Calculate trade metrics
-    const buyTrades = trades.filter(t => t.type === 'buy');
-    const sellTrades = trades.filter(t => t.type === 'sell');
-    
-    // Calculate profit/loss for trades
-    let totalProfit = 0;
-    let totalLoss = 0;
-    let winningTradesCount = 0;
-    let losingTradesCount = 0;
-    
-    // For a simplified P&L calculation in this demo
-    for (const trade of trades) {
-      if (trade.type === 'sell') {
-        // Find the corresponding buy trade
-        const buyTrade = trades.find(t => 
-          t.type === 'buy' && 
-          t.asset === trade.asset && 
-          t.quantity === trade.quantity && 
-          new Date(t.timestamp) < new Date(trade.timestamp)
-        );
-        
-        if (buyTrade) {
-          const pnl = (trade.price - buyTrade.price) * trade.quantity;
-          if (pnl > 0) {
-            totalProfit += pnl;
-            winningTradesCount++;
-          } else {
-            totalLoss += Math.abs(pnl);
-            losingTradesCount++;
-          }
-        }
-      }
-    }
-    
-    // Avoid division by zero
-    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? Infinity : 0;
-    const winRate = trades.length > 0 ? winningTradesCount / (winningTradesCount + losingTradesCount) : 0;
-    
-    // Calculate average trade values
-    const totalTradeValue = trades.reduce((sum, trade) => sum + trade.value, 0);
-    const avgTradeValue = trades.length > 0 ? totalTradeValue / trades.length : 0;
-    
-    // Volatility - Standard deviation of returns (annualized)
-    const avgDailyReturn = dailyReturns.reduce((sum, ret) => sum + ret, 0) / dailyReturns.length || 0;
-    const variance = dailyReturns.reduce((sum, ret) => sum + Math.pow(ret - avgDailyReturn, 2), 0) / dailyReturns.length || 0;
-    const dailyVolatility = Math.sqrt(variance);
-    const annualizedVolatility = dailyVolatility * Math.sqrt(252); // Assuming 252 trading days per year
-    
-    // Risk metrics
-    const riskFreeRate = 0.02; // Assuming 2% risk-free rate
-    
-    // Calculate Sharpe Ratio
-    const excessReturn = annualizedReturn - riskFreeRate * 100;
-    const sharpeRatio = annualizedVolatility > 0 ? excessReturn / annualizedVolatility : 0;
-    
-    // Calculate Sortino Ratio (using only negative returns)
-    const negativeReturns = dailyReturns.filter(ret => ret < 0);
-    const negativeReturnsMean = negativeReturns.length > 0 ? 
-      negativeReturns.reduce((sum, ret) => sum + ret, 0) / negativeReturns.length : 0;
-    const downsideDeviation = Math.sqrt(
-      negativeReturns.reduce((sum, ret) => sum + Math.pow(ret - negativeReturnsMean, 2), 0) / negativeReturns.length
-    ) * Math.sqrt(252);
-    const sortinoRatio = downsideDeviation > 0 ? excessReturn / downsideDeviation : 0;
-    
-    // Calculate monthly returns for the heatmap
-    const monthlyReturns: {[key: string]: number} = {};
-    let prevMonthValue = initialCapital;
-    let currentMonth = '';
-    
-    for (const point of equity) {
-      const date = new Date(point.timestamp);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (monthKey !== currentMonth) {
-        // New month, record return from previous month
-        if (currentMonth !== '') {
-          const monthReturn = (point.value - prevMonthValue) / prevMonthValue * 100;
-          monthlyReturns[currentMonth] = monthReturn;
-        }
-        currentMonth = monthKey;
-        prevMonthValue = point.value;
-      }
-    }
-    
-    // Calculate Value at Risk (VaR)
-    const sortedReturns = [...dailyReturns].sort((a, b) => a - b);
-    const var95Index = Math.floor(sortedReturns.length * 0.05);
-    const valueAtRisk95 = sortedReturns[var95Index] * 100; // 95% VaR as percentage
-    
-    // Create benchmark comparison with real S&P 500 data if available
-    let benchmarkReturns = {
-      name: "S&P 500",
-      totalReturn: 0,
-      annualizedReturn: 0
-    };
-    
-    if (benchmarkData.length > 1) {
-      const benchmarkStartValue = benchmarkData[0].close;
-      const benchmarkEndValue = benchmarkData[benchmarkData.length - 1].close;
-      const benchmarkTotalReturn = ((benchmarkEndValue - benchmarkStartValue) / benchmarkStartValue) * 100;
-      const benchmarkAnnualReturn = (Math.pow(1 + benchmarkTotalReturn/100, 365/durationDays) - 1) * 100;
-      
-      benchmarkReturns = {
-        name: "S&P 500",
-        totalReturn: benchmarkTotalReturn,
-        annualizedReturn: benchmarkAnnualReturn
-      };
-    } else {
-      // Fallback benchmark values - approximate S&P 500 performance
-      benchmarkReturns = {
-        name: "S&P 500",
-        totalReturn: 1.64, // Fixed benchmark return
-        annualizedReturn: (Math.pow(1 + 1.64/100, 365/durationDays) - 1) * 100
-      };
-    }
-    
-    // Calculate alpha and beta (simplified approach for this demo)
-    const beta = 0.9; // Simplified beta calculation for demo
-    const alpha = annualizedReturn - (riskFreeRate * 100 + beta * (benchmarkReturns.annualizedReturn - riskFreeRate * 100));
-    
-    // Consolidate backtest results with real performance metrics
-    const backtestResults = {
-      summary: {
-        totalReturn,
-        annualizedReturn,
-        sharpeRatio,
-        sortinoRatio,
-        maxDrawdown: -maxDrawdown, // Negative to match UI expectations
-        maxDrawdownDuration,
-        volatility: annualizedVolatility * 100, // Convert to percentage
-        valueAtRisk95,
-        alpha,
-        beta,
-        winRate: winRate * 100, // Convert to percentage
-        totalTrades: trades.length,
-        buyTrades: buyTrades.length,
-        sellTrades: sellTrades.length,
-        avgTradeValue,
-        profitFactor,
-        avgWinningTrade: winningTradesCount > 0 ? totalProfit / winningTradesCount : 0,
-        avgLosingTrade: losingTradesCount > 0 ? -totalLoss / losingTradesCount : 0,
-        largestWinningTrade: Math.max(...trades.map(t => t.type === 'sell' ? t.price * t.quantity : 0)),
-        largestLosingTrade: -Math.max(...trades.map(t => t.type === 'sell' ? t.price * t.quantity : 0)) * 0.1, // Simplified for demo
-        tradingFrequency: trades.length / durationDays
-      },
-      trades,
-      equity,
-      drawdowns,
-      monthlyReturns,
-      benchmark: benchmarkReturns,
-      // Current positions at the end of the backtest
-      positions: Object.entries(portfolio.positions).map(([symbol, position]) => ({
-        timestamp: new Date().toISOString(),
-        asset: symbol,
-        quantity: position.quantity,
-        value: position.quantity * (
-          historicalDataByAsset[symbol][historicalDataByAsset[symbol].length - 1]?.close || 0
-        )
-      }))
-    };
-    
-    // Update progress - Finalizing
-    await trackProgress('Finalizing backtest results from real market data', true);
-    
-    // Complete the progress to 100%
-    if (updateProgress) {
-      await updateProgress({
-        percentComplete: 100,
-        currentStep: 'Backtest completed with real market data',
-        stepsCompleted: totalSteps,
-        totalSteps,
-        estimatedTimeRemaining: 0,
-        startedAt: new Date(startTime).toISOString(),
-        processingSpeed: Math.round((totalSteps / ((Date.now() - startTime) / 1000)) * 100) / 100
-      });
-    }
-    
-    console.log(`Backtest completed with ${trades.length} trades and ${equity.length} equity points using real market data.`);
-    
-    return backtestResults;
+    // Run the backtest using the Alpaca data provider
+    return runBacktest(dataProvider, strategyCode, params, updateProgress);
   }
 }
-
-export default AlpacaAPI;

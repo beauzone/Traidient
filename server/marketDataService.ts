@@ -6,7 +6,7 @@
 import { WebSocket } from 'ws';
 import { ApiIntegration } from '@shared/schema';
 import { storage } from './storage';
-import AlpacaAPI from './alpaca';
+import { AlpacaAPI } from './alpaca';
 import { YahooFinanceAPI } from './yahoo';
 import PolygonAPI from './polygon';
 import AlphaVantageAPI from './alphavantage';

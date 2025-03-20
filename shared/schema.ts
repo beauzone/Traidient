@@ -28,6 +28,7 @@ export const users = pgTable("users", {
     };
     defaultExchange: string;
     defaultAssets: string[];
+    backtestDataProvider: 'alpaca' | 'yahoo' | 'polygon';
   }>().notNull().default({
     theme: 'dark',
     notifications: {
@@ -36,7 +37,8 @@ export const users = pgTable("users", {
       sms: false
     },
     defaultExchange: 'alpaca',
-    defaultAssets: ['AAPL', 'MSFT', 'GOOGL', 'AMZN']
+    defaultAssets: ['AAPL', 'MSFT', 'GOOGL', 'AMZN'],
+    backtestDataProvider: 'yahoo'
   }),
 });
 
