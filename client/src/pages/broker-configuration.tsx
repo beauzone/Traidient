@@ -144,10 +144,15 @@ export default function BrokerConfiguration() {
   });
 
   // Query to fetch existing broker integrations
-  const { data: integrations, isLoading } = useQuery({
+  const { data: allIntegrations, isLoading } = useQuery({
     queryKey: ["integrations"],
     queryFn: () => fetchData<ApiIntegration[]>("/api/integrations"),
   });
+  
+  // Filter integrations to only show broker/exchange types
+  const integrations = allIntegrations?.filter(integration => 
+    integration.type === "exchange"
+  );
 
   // Mutation to add a new broker integration
   const addIntegrationMutation = useMutation({
