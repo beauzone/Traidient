@@ -602,17 +602,157 @@ export class AlpacaAPI {
     // Sort trades by timestamp
     trades.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
+    // Calculate advanced metrics for Lumibot-style reporting
+    await trackProgress('Calculating advanced metrics', true);
+    
+    // Calculate daily returns from equity curve for risk metrics
+    const dailyReturns: number[] = [];
+    for (let i = 1; i < equity.length; i++) {
+      const prevValue = equity[i-1].value;
+      const currentValue = equity[i].value;
+      const dailyReturn = (currentValue - prevValue) / prevValue;
+      dailyReturns.push(dailyReturn);
+    }
+    
+    // Calculate drawdowns
+    let maxValue = initialCapital;
+    let maxDrawdown = 0;
+    let currentDrawdown = 0;
+    let drawdownDuration = 0;
+    let maxDrawdownDuration = 0;
+    const drawdowns: { value: number, timestamp: string }[] = [];
+    
+    for (let i = 0; i < equity.length; i++) {
+      const currentValue = equity[i].value;
+      
+      // Update max value
+      if (currentValue > maxValue) {
+        maxValue = currentValue;
+        // Reset drawdown duration if we're at a new high
+        drawdownDuration = 0;
+      } else {
+        // Increment drawdown duration
+        drawdownDuration++;
+        maxDrawdownDuration = Math.max(maxDrawdownDuration, drawdownDuration);
+      }
+      
+      // Calculate current drawdown
+      currentDrawdown = (maxValue - currentValue) / maxValue * 100;
+      maxDrawdown = Math.max(maxDrawdown, currentDrawdown);
+      
+      // Record drawdown point
+      drawdowns.push({
+        value: currentDrawdown,
+        timestamp: equity[i].timestamp
+      });
+    }
+    
+    // Calculate trade metrics
+    const buyTrades = trades.filter(t => t.type === 'buy');
+    const sellTrades = trades.filter(t => t.type === 'sell');
+    
+    // Calculate average trade values
+    const totalTradeValue = trades.reduce((sum, trade) => sum + trade.value, 0);
+    const avgTradeValue = trades.length > 0 ? totalTradeValue / trades.length : 0;
+    
+    // Calculate win/loss metrics assuming buy low, sell high strategy
+    // In a real implementation, this would pair buy/sell trades together
+    const winningTrades = trades.length * (0.4 + Math.random() * 0.3); // Between 40% and 70% win rate for simulation
+    const losingTrades = trades.length - winningTrades;
+    const winRate = trades.length > 0 ? winningTrades / trades.length : 0;
+    
+    // Volatility - Standard deviation of returns (annualized)
+    const avgDailyReturn = dailyReturns.reduce((sum, ret) => sum + ret, 0) / dailyReturns.length;
+    const variance = dailyReturns.reduce((sum, ret) => sum + Math.pow(ret - avgDailyReturn, 2), 0) / dailyReturns.length;
+    const dailyVolatility = Math.sqrt(variance);
+    const annualizedVolatility = dailyVolatility * Math.sqrt(252); // Assuming 252 trading days per year
+    
+    // Risk-adjusted return metrics
+    // Sharpe ratio = (Return - Risk-Free Rate) / Volatility
+    const riskFreeRate = 0.02; // Assuming 2% risk-free rate
+    const sharpeRatio = annualizedVolatility > 0 ? 
+      (annualizedReturn - riskFreeRate) / annualizedVolatility : 0;
+    
+    // Sortino ratio (uses only negative returns in denominator)
+    const negativeReturns = dailyReturns.filter(ret => ret < 0);
+    const avgNegativeReturn = negativeReturns.length > 0 ?
+      negativeReturns.reduce((sum, ret) => sum + ret, 0) / negativeReturns.length : 0;
+    const downside = Math.sqrt(negativeReturns.reduce((sum, ret) => sum + Math.pow(ret - avgNegativeReturn, 2), 0) / negativeReturns.length);
+    const downsideAnnualized = downside * Math.sqrt(252);
+    const sortinoRatio = downsideAnnualized > 0 ?
+      (annualizedReturn - riskFreeRate) / downsideAnnualized : 0;
+    
+    // Calculate monthly returns for the heatmap
+    const monthlyReturns: {[key: string]: number} = {};
+    let prevMonthValue = initialCapital;
+    let currentMonth = '';
+    
+    for (const point of equity) {
+      const date = new Date(point.timestamp);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (monthKey !== currentMonth) {
+        // New month, record return from previous month
+        if (currentMonth !== '') {
+          const monthReturn = (point.value - prevMonthValue) / prevMonthValue * 100;
+          monthlyReturns[currentMonth] = monthReturn;
+        }
+        currentMonth = monthKey;
+        prevMonthValue = point.value;
+      }
+    }
+    
+    // Calculate Value at Risk (VaR)
+    const sortedReturns = [...dailyReturns].sort((a, b) => a - b);
+    const var95Index = Math.floor(sortedReturns.length * 0.05);
+    const valueAtRisk95 = sortedReturns[var95Index] * 100; // 95% VaR as percentage
+    
+    // Create benchmark comparison (S&P 500 approximation)
+    // In a real implementation, we would fetch actual S&P 500 data
+    const benchmarkReturns = {
+      totalReturn: totalReturn * 0.8 + Math.random() * 8 - 4, // Slightly different than strategy
+      annualizedReturn: annualizedReturn * 0.8 + Math.random() * 4 - 2
+    };
+    
+    // Calculate alpha and beta
+    // Alpha = Strategy Return - [Risk Free Rate + Beta * (Benchmark Return - Risk Free Rate)]
+    const beta = 0.8 + Math.random() * 0.4; // Between 0.8 and 1.2 for simulation
+    const alpha = annualizedReturn - (riskFreeRate + beta * (benchmarkReturns.annualizedReturn - riskFreeRate));
+    
+    // Create comprehensive backtest results with Lumibot-style metrics
     const mockBacktestResults = {
       summary: {
         totalReturn: totalReturn,
         annualizedReturn: annualizedReturn,
-        sharpeRatio: Math.random() * 3, // Between 0 and 3
-        maxDrawdown: Math.random() * -15, // Between 0% and -15%
-        winRate: Math.random() * 0.4 + 0.4, // Between 40% and 80%
-        totalTrades: trades.length
+        sharpeRatio: sharpeRatio,
+        sortinoRatio: sortinoRatio,
+        maxDrawdown: -maxDrawdown, // Negative percentage
+        maxDrawdownDuration: maxDrawdownDuration,
+        volatility: annualizedVolatility * 100, // As percentage
+        valueAtRisk95: valueAtRisk95,
+        alpha: alpha,
+        beta: beta,
+        winRate: winRate,
+        totalTrades: trades.length,
+        buyTrades: buyTrades.length,
+        sellTrades: sellTrades.length,
+        avgTradeValue: avgTradeValue,
+        profitFactor: 1 + Math.random(), // Simulation for profit factor
+        avgWinningTrade: avgTradeValue * (1 + Math.random() * 0.3),
+        avgLosingTrade: avgTradeValue * (1 - Math.random() * 0.3),
+        largestWinningTrade: avgTradeValue * (1 + Math.random() * 1),
+        largestLosingTrade: avgTradeValue * (1 - Math.random() * 1),
+        tradingFrequency: trades.length / durationDays // Trades per day
       },
       trades: trades,
       equity: equity,
+      drawdowns: drawdowns,
+      monthlyReturns: monthlyReturns,
+      benchmark: {
+        name: "S&P 500",
+        totalReturn: benchmarkReturns.totalReturn,
+        annualizedReturn: benchmarkReturns.annualizedReturn
+      },
       positions: Array.from({ length: Math.min(assets.length, 5) }, (_, i) => ({
         timestamp: end.toISOString(),
         asset: assets[i % assets.length],

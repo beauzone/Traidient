@@ -44,7 +44,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  Legend
+  Legend,
+  ReferenceLine
 } from "recharts";
 import { 
   ChartLine, 
@@ -93,9 +94,24 @@ interface Backtest {
       totalReturn: number;
       annualizedReturn: number;
       sharpeRatio: number;
+      sortinoRatio?: number;
       maxDrawdown: number;
+      maxDrawdownDuration?: number;
+      volatility?: number;
+      valueAtRisk95?: number;
+      alpha?: number;
+      beta?: number;
       winRate: number;
       totalTrades: number;
+      buyTrades?: number;
+      sellTrades?: number;
+      avgTradeValue?: number;
+      profitFactor?: number;
+      avgWinningTrade?: number;
+      avgLosingTrade?: number;
+      largestWinningTrade?: number;
+      largestLosingTrade?: number;
+      tradingFrequency?: number;
     };
     trades?: {
       timestamp: string;
@@ -110,6 +126,18 @@ interface Backtest {
       timestamp: string;
       value: number;
     }[];
+    drawdowns?: {
+      timestamp: string;
+      value: number;
+    }[];
+    monthlyReturns?: {
+      [key: string]: number;
+    };
+    benchmark?: {
+      name: string;
+      totalReturn: number;
+      annualizedReturn: number;
+    };
   };
   progress?: {
     percentComplete: number;
@@ -564,9 +592,10 @@ const BacktestPage = () => {
                   </div>
                 ) : (
                   <Tabs value={resultsTab} onValueChange={setResultsTab}>
-                    <TabsList className="grid grid-cols-4 mb-4">
+                    <TabsList className="grid grid-cols-5 mb-4">
                       <TabsTrigger value="summary">Summary</TabsTrigger>
-                      <TabsTrigger value="equity">Equity Curve</TabsTrigger>
+                      <TabsTrigger value="equity">Equity</TabsTrigger>
+                      <TabsTrigger value="drawdown">Drawdown</TabsTrigger>
                       <TabsTrigger value="trades">Trades</TabsTrigger>
                       <TabsTrigger value="export">Export</TabsTrigger>
                     </TabsList>
@@ -574,41 +603,137 @@ const BacktestPage = () => {
                     <TabsContent value="summary">
                       {currentBacktest.results.summary && (
                         <div className="space-y-6">
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <div className="bg-card rounded-lg p-4 border">
-                              <div className="text-sm text-muted-foreground">Total Return</div>
-                              <div className={`text-2xl font-semibold ${currentBacktest.results.summary.totalReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {formatPercentage(currentBacktest.results.summary.totalReturn)}
+                          {/* Performance Summary */}
+                          <div className="bg-card rounded-lg p-4 border mb-6">
+                            <h3 className="text-lg font-medium mb-4">Performance Summary</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              <div className="bg-card rounded-lg p-3 border">
+                                <div className="text-sm text-muted-foreground">Total Return</div>
+                                <div className={`text-2xl font-semibold ${currentBacktest.results.summary.totalReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {formatPercentage(currentBacktest.results.summary.totalReturn)}
+                                </div>
+                              </div>
+                              <div className="bg-card rounded-lg p-3 border">
+                                <div className="text-sm text-muted-foreground">Annualized Return</div>
+                                <div className={`text-2xl font-semibold ${currentBacktest.results.summary.annualizedReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {formatPercentage(currentBacktest.results.summary.annualizedReturn)}
+                                </div>
+                              </div>
+                              {currentBacktest.results.benchmark && (
+                                <div className="bg-card rounded-lg p-3 border">
+                                  <div className="text-sm text-muted-foreground">{currentBacktest.results.benchmark.name} Return</div>
+                                  <div className={`text-2xl font-semibold ${currentBacktest.results.benchmark.totalReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {formatPercentage(currentBacktest.results.benchmark.totalReturn)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Main metrics grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Risk Metrics */}
+                            <div className="bg-card rounded-lg p-4 border md:col-span-2">
+                              <h3 className="text-md font-medium mb-3">Risk Metrics</h3>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Sharpe Ratio</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.sharpeRatio.toFixed(2)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Sortino Ratio</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.sortinoRatio 
+                                      ? currentBacktest.results.summary.sortinoRatio.toFixed(2) 
+                                      : 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Max Drawdown</div>
+                                  <div className="text-xl font-semibold text-red-500">
+                                    {formatPercentage(currentBacktest.results.summary.maxDrawdown)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Volatility</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.volatility 
+                                      ? formatPercentage(currentBacktest.results.summary.volatility) 
+                                      : 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">VaR (95%)</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.valueAtRisk95 
+                                      ? formatPercentage(currentBacktest.results.summary.valueAtRisk95) 
+                                      : 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Max DD Duration</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.maxDrawdownDuration 
+                                      ? `${currentBacktest.results.summary.maxDrawdownDuration} days` 
+                                      : 'N/A'}
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                            <div className="bg-card rounded-lg p-4 border">
-                              <div className="text-sm text-muted-foreground">Annualized Return</div>
-                              <div className={`text-2xl font-semibold ${currentBacktest.results.summary.annualizedReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {formatPercentage(currentBacktest.results.summary.annualizedReturn)}
+                            
+                            {/* Alpha/Beta */}
+                            {currentBacktest.results.benchmark && (
+                              <div className="bg-card rounded-lg p-4 border">
+                                <h3 className="text-md font-medium mb-3">Alpha & Beta</h3>
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="text-sm text-muted-foreground">Alpha</div>
+                                    <div className={`text-xl font-semibold ${
+                                      currentBacktest.results.summary.alpha && currentBacktest.results.summary.alpha >= 0 
+                                      ? 'text-green-500' : 'text-red-500'}`}>
+                                      {currentBacktest.results.summary.alpha 
+                                        ? formatPercentage(currentBacktest.results.summary.alpha) 
+                                        : 'N/A'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-sm text-muted-foreground">Beta</div>
+                                    <div className="text-xl font-semibold">
+                                      {currentBacktest.results.summary.beta 
+                                        ? currentBacktest.results.summary.beta.toFixed(2) 
+                                        : 'N/A'}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
+                            )}
+                            
+                            {/* Trade Statistics */}
                             <div className="bg-card rounded-lg p-4 border">
-                              <div className="text-sm text-muted-foreground">Sharpe Ratio</div>
-                              <div className="text-2xl font-semibold">
-                                {currentBacktest.results.summary.sharpeRatio.toFixed(2)}
-                              </div>
-                            </div>
-                            <div className="bg-card rounded-lg p-4 border">
-                              <div className="text-sm text-muted-foreground">Max Drawdown</div>
-                              <div className="text-2xl font-semibold text-red-500">
-                                {formatPercentage(currentBacktest.results.summary.maxDrawdown)}
-                              </div>
-                            </div>
-                            <div className="bg-card rounded-lg p-4 border">
-                              <div className="text-sm text-muted-foreground">Win Rate</div>
-                              <div className="text-2xl font-semibold">
-                                {currentBacktest.results.summary.winRate.toFixed(2)}%
-                              </div>
-                            </div>
-                            <div className="bg-card rounded-lg p-4 border">
-                              <div className="text-sm text-muted-foreground">Total Trades</div>
-                              <div className="text-2xl font-semibold">
-                                {currentBacktest.results.summary.totalTrades}
+                              <h3 className="text-md font-medium mb-3">Trade Statistics</h3>
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Win Rate</div>
+                                  <div className="text-xl font-semibold">
+                                    {(currentBacktest.results.summary.winRate * 100).toFixed(1)}%
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Total Trades</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.totalTrades}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Profit Factor</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary.profitFactor 
+                                      ? currentBacktest.results.summary.profitFactor.toFixed(2) 
+                                      : 'N/A'}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -713,6 +838,102 @@ const BacktestPage = () => {
                               />
                             </AreaChart>
                           </ResponsiveContainer>
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="drawdown">
+                      {currentBacktest.results.drawdowns ? (
+                        <div className="space-y-6">
+                          <div className="h-96">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart
+                                data={currentBacktest.results.drawdowns}
+                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                              >
+                                <defs>
+                                  <linearGradient id="colorDrawdown" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.2}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                                <XAxis 
+                                  dataKey="timestamp" 
+                                  tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                  axisLine={{ stroke: '#334155' }}
+                                  tickLine={{ stroke: '#334155' }}
+                                />
+                                <YAxis 
+                                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                  axisLine={{ stroke: '#334155' }}
+                                  tickLine={{ stroke: '#334155' }}
+                                  tickFormatter={(value) => `${value.toFixed(2)}%`}
+                                  domain={[0, (dataMax: number) => Math.max(Math.ceil(dataMax * 1.1), 5)]}
+                                />
+                                <Tooltip 
+                                  formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Drawdown']}
+                                  labelFormatter={(label) => new Date(label).toLocaleDateString([], {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                  contentStyle={{ 
+                                    backgroundColor: '#1E293B', 
+                                    borderColor: '#334155',
+                                    color: '#E2E8F0'
+                                  }}
+                                />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="value" 
+                                  stroke="#EF4444" 
+                                  fillOpacity={1} 
+                                  fill="url(#colorDrawdown)" 
+                                />
+                                <ReferenceLine 
+                                  y={currentBacktest.results.summary?.maxDrawdown ? Math.abs(currentBacktest.results.summary.maxDrawdown) : 0} 
+                                  stroke="#FFA200" 
+                                  strokeDasharray="3 3" 
+                                  label={{ 
+                                    value: "Max Drawdown", 
+                                    position: "bottom", 
+                                    fill: "#FFA200",
+                                  }} 
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-card rounded-lg p-4 border">
+                              <div className="text-sm text-muted-foreground">Maximum Drawdown</div>
+                              <div className="text-2xl font-semibold text-red-500">
+                                {formatPercentage(currentBacktest.results.summary?.maxDrawdown || 0)}
+                              </div>
+                            </div>
+                            <div className="bg-card rounded-lg p-4 border">
+                              <div className="text-sm text-muted-foreground">Drawdown Duration</div>
+                              <div className="text-2xl font-semibold">
+                                {currentBacktest.results.summary?.maxDrawdownDuration 
+                                  ? `${currentBacktest.results.summary.maxDrawdownDuration} days` 
+                                  : 'N/A'}
+                              </div>
+                            </div>
+                            <div className="bg-card rounded-lg p-4 border">
+                              <div className="text-sm text-muted-foreground">Recovery Factor</div>
+                              <div className="text-2xl font-semibold">
+                                {currentBacktest.results.summary?.maxDrawdown && currentBacktest.results.summary.maxDrawdown !== 0
+                                  ? (Math.abs(currentBacktest.results.summary.totalReturn / currentBacktest.results.summary.maxDrawdown)).toFixed(2)
+                                  : 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-96 flex flex-col items-center justify-center">
+                          <p className="text-muted-foreground">No drawdown data available for this backtest.</p>
                         </div>
                       )}
                     </TabsContent>
