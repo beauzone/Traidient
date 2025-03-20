@@ -242,24 +242,74 @@ export class AlpacaAPI {
     }
   }
 
-  async getMarketData(symbol: string, timeframe: string = '1D', limit: number = 100): Promise<any> {
+  /**
+   * Get historical market data for a symbol from Alpaca
+   * 
+   * @param symbol The stock symbol to fetch data for
+   * @param timeframe The timeframe for the data (e.g., "1D" for daily)
+   * @param limit The maximum number of bars to return
+   * @param startDate Optional start date in YYYY-MM-DD format
+   * @param endDate Optional end date in YYYY-MM-DD format
+   * @returns Market data from Alpaca
+   */
+  async getMarketData(
+    symbol: string, 
+    timeframe: string = '1D', 
+    limit: number = 100,
+    startDate?: string,
+    endDate?: string
+  ): Promise<any> {
     try {
+      // Validate and sanitize the symbol
+      const sanitizedSymbol = symbol.trim().toUpperCase();
+      
       // Convert timeframe to Alpaca Data API format
+      let adjustedTimeframe: string;
+      
+      // Handle standard timeframe formats like "1D"
       const timeframeParts = timeframe.match(/^(\d+)([DMWY])$/);
-      if (!timeframeParts) {
-        throw new Error(`Invalid timeframe format: ${timeframe}`);
+      if (timeframeParts) {
+        const [_, amount, unit] = timeframeParts;
+        adjustedTimeframe = `${amount}${unit.toLowerCase()}`;
+      } else {
+        // Default to daily if format is invalid
+        console.warn(`Invalid timeframe format: ${timeframe}, defaulting to 1D`);
+        adjustedTimeframe = '1d';
       }
-      const [_, amount, unit] = timeframeParts;
-      const adjustedTimeframe = `${amount}${unit.toLowerCase()}`;
-
+      
+      // Set date range (use parameters if provided, otherwise use last 30 days)
       const today = new Date();
-      const pastDate = new Date();
-      pastDate.setDate(today.getDate() - 30); // Get data for last 30 days
+      let start: string;
+      let end: string;
       
-      const startDate = pastDate.toISOString().split('T')[0];
-      const endDate = today.toISOString().split('T')[0];
+      if (startDate) {
+        // Ensure we have a valid date format
+        start = new Date(startDate).toISOString().split('T')[0];
+      } else {
+        // Default to 30 days ago
+        const pastDate = new Date();
+        pastDate.setDate(today.getDate() - 30);
+        start = pastDate.toISOString().split('T')[0];
+      }
       
-      const url = `${this.dataBaseUrl}/stocks/${symbol}/bars?timeframe=${adjustedTimeframe}&start=${startDate}&end=${endDate}&limit=${limit}`;
+      if (endDate) {
+        // Ensure we have a valid date format
+        end = new Date(endDate).toISOString().split('T')[0];
+      } else {
+        // Default to today
+        end = today.toISOString().split('T')[0];
+      }
+      
+      // Alpaca has limits on the date range and number of bars
+      // For longer periods, we might need to make multiple requests and combine them
+      
+      // Ensure limit is within Alpaca's constraints
+      const cappedLimit = Math.min(limit, 10000); // Alpaca's max is 10,000 bars
+      
+      // Construct the URL with proper parameters
+      const url = `${this.dataBaseUrl}/stocks/${sanitizedSymbol}/bars?timeframe=${adjustedTimeframe}&start=${start}&end=${end}&limit=${cappedLimit}&adjustment=all`;
+      
+      console.log(`Fetching market data for ${sanitizedSymbol} from ${start} to ${end}`);
       
       const response = await fetch(url, {
         headers: {
@@ -269,13 +319,30 @@ export class AlpacaAPI {
       });
       
       if (!response.ok) {
-        throw new Error(`Error fetching market data: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`Error fetching market data for ${sanitizedSymbol} [${response.status}]:`, errorText);
+        
+        if (response.status === 403) {
+          throw new Error(`Authentication failed: Invalid API credentials. Please check your Alpaca API key and secret.`);
+        } else if (response.status === 422 || response.status === 400) {
+          throw new Error(`Invalid request parameters for ${sanitizedSymbol}: ${errorText}`);
+        } else if (response.status === 429) {
+          throw new Error(`Rate limit exceeded: Too many requests to Alpaca API. Please try again later.`);
+        } else if (response.status === 404) {
+          // Return empty bars if symbol not found
+          return { bars: [] };
+        } else {
+          throw new Error(`Error fetching market data: ${response.status} ${response.statusText}`);
+        }
       }
       
-      return await response.json();
+      const data = await response.json();
+      console.log(`Successfully fetched ${data.bars?.length || 0} bars for ${sanitizedSymbol}`);
+      return data;
     } catch (error) {
       console.error("Error fetching Alpaca market data:", error);
-      throw new Error("Failed to fetch Alpaca market data");
+      // Return empty data structure instead of throwing an error
+      return { bars: [] };
     }
   }
 
@@ -515,7 +582,9 @@ export class AlpacaAPI {
         const data = await this.getMarketData(
           symbol, 
           '1D', // Daily timeframe
-          Math.min(1000, durationDays) // Limit data points but ensure we have enough
+          Math.min(1000, durationDays), // Limit data points but ensure we have enough
+          formattedStartDate, // Pass the start date
+          formattedEndDate // Pass the end date
         );
         
         // Extract and format the bars
@@ -578,7 +647,18 @@ export class AlpacaAPI {
     // Storage for the S&P 500 benchmark data - we'll fetch real data if available
     let benchmarkData = [];
     try {
-      const spyData = await this.getMarketData('SPY', '1D', Math.min(1000, durationDays));
+      // Format dates for API request - ensure proper format YYYY-MM-DD
+      const formattedStartDate = start.toISOString().split('T')[0];
+      const formattedEndDate = end.toISOString().split('T')[0];
+      
+      const spyData = await this.getMarketData(
+        'SPY', 
+        '1D', 
+        Math.min(1000, durationDays),
+        formattedStartDate,
+        formattedEndDate
+      );
+      
       if (spyData && spyData.bars) {
         benchmarkData = spyData.bars.map(bar => ({
           date: new Date(bar.t),
