@@ -34,6 +34,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   AreaChart, 
   Area, 
@@ -185,6 +196,8 @@ const BacktestPage = () => {
   const [resultsTab, setResultsTab] = useState("summary");
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [backtestToDelete, setBacktestToDelete] = useState<number | null>(null);
 
   // Fetch strategies
   const { data: strategies = [], isLoading: isLoadingStrategies } = useQuery({
@@ -1189,9 +1202,8 @@ const BacktestPage = () => {
                               title="Delete"
                               className="text-destructive hover:text-destructive"
                               onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this backtest? This action cannot be undone.")) {
-                                  deleteBacktest.mutate(backtest.id);
-                                }
+                                setBacktestToDelete(backtest.id);
+                                setDeleteDialogOpen(true);
                               }}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
@@ -1207,6 +1219,32 @@ const BacktestPage = () => {
           </CardContent>
         </Card>
       )}
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the backtest and its data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => {
+                if (backtestToDelete) {
+                  deleteBacktest.mutate(backtestToDelete);
+                  setBacktestToDelete(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };
