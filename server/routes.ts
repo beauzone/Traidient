@@ -1098,9 +1098,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           try {
             // Get user's integration for polygon if selected
-            const integration = dataProvider === 'polygon' 
-              ? await storage.getApiIntegrationByProviderAndUser(req.user.id, 'polygon')
-              : undefined; // Yahoo doesn't need an integration
+            let integration = undefined;
+            if (dataProvider === 'polygon') {
+              // Try with exact provider name first
+              integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'polygon');
+              
+              // If not found, try with variations (case insensitive, with spaces, etc)
+              if (!integration) {
+                const allIntegrations = await storage.getApiIntegrationsByUser(req.user.id);
+                integration = allIntegrations.find(i => 
+                  i.provider.toLowerCase().trim() === 'polygon' || 
+                  i.provider.toLowerCase().includes('polygon.io'));
+                
+                if (integration) {
+                  console.log(`Found Polygon.io integration with provider name: "${integration.provider}"`);
+                }
+              }
+            } 
+            // Yahoo doesn't need an integration
               
             // Create the appropriate market data provider
             const provider = createMarketDataProvider(dataProvider, integration);
