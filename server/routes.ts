@@ -1061,11 +1061,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
         const alpacaAPI = new AlpacaAPI(alpacaIntegration);
         
-        // Run the backtest (simulated for MVP)
+        // Initialize progress
+        await storage.updateBacktest(backtest.id, {
+          progress: {
+            percentComplete: 0,
+            currentStep: 'Initializing',
+            stepsCompleted: 0,
+            totalSteps: 100,
+            estimatedTimeRemaining: backtest.configuration.initialCapital > 100000 ? 30 : 15, // Initial estimate
+            startedAt: new Date().toISOString(),
+            processingSpeed: 0
+          }
+        });
+        
+        // Progress tracking function
+        const updateProgress = async (progress: any) => {
+          await storage.updateBacktest(backtest.id, { progress });
+        };
+        
+        // Run the backtest with progress tracking
         console.log(`Running backtest ${backtest.id} with Alpaca API`);
         const results = await alpacaAPI.runBacktest(
           strategy.source.content,
-          backtest.configuration
+          backtest.configuration,
+          updateProgress
         );
         
         console.log(`Backtest ${backtest.id} completed, updating results`);

@@ -111,6 +111,15 @@ interface Backtest {
       value: number;
     }[];
   };
+  progress?: {
+    percentComplete: number;
+    currentStep: string;
+    stepsCompleted: number;
+    totalSteps: number;
+    estimatedTimeRemaining: number;
+    startedAt: string;
+    processingSpeed: number;
+  };
   createdAt: string;
   completedAt?: string;
   error?: string;
@@ -280,6 +289,19 @@ const BacktestPage = () => {
       month: 'short',
       day: 'numeric',
     });
+  };
+  
+  // Format time remaining for backtest progress
+  const formatTimeRemaining = (seconds: number): string => {
+    if (seconds < 60) {
+      return `${Math.ceil(seconds)} seconds`;
+    } else if (seconds < 3600) {
+      return `${Math.floor(seconds / 60)} min ${Math.ceil(seconds % 60)} sec`;
+    } else {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      return `${hours} hr ${minutes} min`;
+    }
   };
 
   return (
@@ -469,12 +491,44 @@ const BacktestPage = () => {
               <>
                 {currentBacktest.status === 'queued' || currentBacktest.status === 'running' ? (
                   <div className="h-96 flex flex-col items-center justify-center">
-                    <Loader2 className="h-16 w-16 text-primary animate-spin mb-4" />
+                    {/* Progress indicator */}
+                    <div className="w-full max-w-md mb-6">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium">
+                          {currentBacktest.progress?.currentStep || 'Processing...'}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {currentBacktest.progress?.percentComplete || 0}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary" 
+                          style={{ 
+                            width: `${currentBacktest.progress?.percentComplete || 0}%`,
+                            transition: 'width 0.5s ease-in-out' 
+                          }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+                        <span>
+                          Step {currentBacktest.progress?.stepsCompleted || 0} of {currentBacktest.progress?.totalSteps || 100}
+                        </span>
+                        <span>
+                          {currentBacktest.progress?.estimatedTimeRemaining
+                            ? `Estimated time remaining: ${formatTimeRemaining(currentBacktest.progress.estimatedTimeRemaining)}`
+                            : 'Calculating time remaining...'}
+                        </span>
+                      </div>
+                    </div>
+                    
                     <h3 className="text-lg font-medium">
                       {currentBacktest.status === 'queued' ? "Backtest queued..." : "Backtest running..."}
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-md mt-2 text-center">
-                      We're analyzing your strategy's performance over the selected time period. This may take a few moments.
+                      We're analyzing your strategy's performance over the selected time period.
+                      {currentBacktest.progress?.processingSpeed > 0 && 
+                        ` Processing at ${currentBacktest.progress.processingSpeed.toFixed(1)} steps/second.`}
                     </p>
                     <Button 
                       variant="outline"
