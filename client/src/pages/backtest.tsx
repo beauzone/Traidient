@@ -606,6 +606,32 @@ const BacktestPage = () => {
                           {/* Performance Summary */}
                           <div className="bg-card rounded-lg p-4 border mb-6">
                             <h3 className="text-lg font-medium mb-4">Performance Summary</h3>
+                            
+                            {/* Key Info */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mb-4">
+                              <div>
+                                <span className="text-muted-foreground">Start Date:</span>{" "}
+                                <span className="font-medium">{formatDate(currentBacktest.configuration.startDate)}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">End Date:</span>{" "}
+                                <span className="font-medium">{formatDate(currentBacktest.configuration.endDate)}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Starting Capital:</span>{" "}
+                                <span className="font-medium">{formatCurrency(currentBacktest.configuration.initialCapital)}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Ending Capital:</span>{" "}
+                                <span className="font-medium">
+                                  {currentBacktest.results.equity && currentBacktest.results.equity.length > 0
+                                    ? formatCurrency(currentBacktest.results.equity[currentBacktest.results.equity.length - 1].value)
+                                    : 'N/A'}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Return metrics */}
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                               <div className="bg-card rounded-lg p-3 border">
                                 <div className="text-sm text-muted-foreground">Total Return</div>
