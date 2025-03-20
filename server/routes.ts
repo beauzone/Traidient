@@ -1161,13 +1161,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Forbidden: Not your backtest' });
       }
       
-      // Only allow status updates for running or queued backtests
-      if ((backtest.status !== 'running' && backtest.status !== 'queued') && req.body.status === 'cancelled') {
+      // For status updates to 'cancelled', only allow if backtest is running or queued
+      if (req.body.status === 'cancelled' && (backtest.status !== 'running' && backtest.status !== 'queued')) {
         return res.status(400).json({ message: 'Cannot cancel a backtest that is not running or queued' });
       }
       
+      // For renaming, ensure we're not modifying other fields for completed backtests
+      let updateData = { ...req.body };
+      
+      // If backtest is completed/failed and only name is being changed, only update the name
+      if ((backtest.status === 'completed' || backtest.status === 'failed') && req.body.name) {
+        updateData = { name: req.body.name };
+      }
+      
       const updatedBacktest = await storage.updateBacktest(id, {
-        ...req.body,
+        ...updateData,
         // If cancelling, set completedAt
         ...(req.body.status === 'cancelled' ? { completedAt: new Date() } : {})
       });
@@ -1176,6 +1184,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Update backtest error:', error);
       res.status(500).json({ message: 'Error updating backtest' });
+    }
+  });
+  
+  app.delete('/api/backtests/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const backtest = await storage.getBacktest(id);
+      
+      if (!backtest) {
+        return res.status(404).json({ message: 'Backtest not found' });
+      }
+      
+      if (backtest.userId !== req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: Not your backtest' });
+      }
+      
+      // Delete the backtest
+      const deleted = await storage.deleteBacktest(id);
+      
+      if (deleted) {
+        res.status(204).end();
+      } else {
+        res.status(500).json({ message: 'Failed to delete backtest' });
+      }
+    } catch (error) {
+      console.error('Delete backtest error:', error);
+      res.status(500).json({ message: 'Error deleting backtest' });
     }
   });
 
