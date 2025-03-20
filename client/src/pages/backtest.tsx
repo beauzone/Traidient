@@ -248,6 +248,13 @@ const BacktestPage = () => {
       return data && (data.status === 'queued' || data.status === 'running') ? 2000 : false;
     },
   });
+  
+  // Fetch strategy details specific to the current backtest
+  const { data: currentStrategy, isLoading: isLoadingCurrentStrategy } = useQuery({
+    queryKey: ['/api/strategies', currentBacktest?.strategyId],
+    queryFn: () => fetchData<Strategy>(`/api/strategies/${currentBacktest?.strategyId}`),
+    enabled: !!currentBacktest?.strategyId,
+  });
 
   // Update current backtest when data changes
   if (backtestData && backtestData.id === currentBacktest?.id) {
@@ -1218,10 +1225,25 @@ def handle_data(context, data):
                     <TabsContent value="optimize">
                       <div className="space-y-4">
                         <h3 className="text-xl font-medium mb-4">AI Strategy Optimization</h3>
-                        {selectedStrategy ? (
+                        {isLoadingCurrentStrategy ? (
+                          <div className="rounded-md border border-dashed p-8 text-center">
+                            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                            <p className="text-muted-foreground">Loading strategy details...</p>
+                          </div>
+                        ) : currentStrategy ? (
                           <OptimizeStrategy
-                            strategyId={selectedStrategy.id}
-                            strategyCode={selectedStrategy.source?.content || ""}
+                            strategyId={currentStrategy.id}
+                            strategyCode={currentStrategy.source?.content || `# Default placeholder strategy for ${currentStrategy.name}
+# Generated automatically for optimization
+def initialize(context):
+    context.assets = ${JSON.stringify(currentStrategy.configuration.assets)}
+    
+def handle_data(context, data):
+    # Simple buy and hold strategy
+    for asset in context.assets:
+        if asset not in context.portfolio.positions:
+            order_target_percent(asset, 1.0 / len(context.assets))
+`}
                             backtestId={currentBacktest.id}
                             backtestResults={currentBacktest.results}
                             onOptimizationApplied={(optimizedStrategy) => {
@@ -1231,21 +1253,13 @@ def handle_data(context, data):
                                 description: "The optimized strategy has been applied to your strategy editor.",
                               });
                               
-                              // Make sure strategy has a source property
-                              if (!selectedStrategy.source) {
-                                selectedStrategy.source = {
-                                  type: "code",
-                                  content: ""
-                                };
-                              }
-                              
                               // Update the strategy with the optimized code
                               updateStrategyMutation.mutate({
-                                id: selectedStrategy.id,
+                                id: currentStrategy.id,
                                 data: {
-                                  ...selectedStrategy,
+                                  ...currentStrategy,
                                   source: {
-                                    type: selectedStrategy.source?.type || "code",
+                                    type: currentStrategy.source?.type || "code",
                                     content: optimizedStrategy
                                   }
                                 }
