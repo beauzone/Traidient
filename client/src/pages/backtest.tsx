@@ -166,8 +166,10 @@ const BacktestPage = () => {
     queryKey: ['/api/backtests', currentBacktest?.id],
     queryFn: () => fetchData<Backtest>(`/api/backtests/${currentBacktest?.id}`),
     enabled: !!currentBacktest?.id,
-    refetchInterval: (data: Backtest | undefined) => 
-      data && (data.status === 'queued' || data.status === 'running') ? 2000 : false,
+    refetchInterval: (query) => {
+      const data = query.state.data as Backtest | undefined;
+      return data && (data.status === 'queued' || data.status === 'running') ? 2000 : false;
+    },
   });
 
   // Update current backtest when data changes
@@ -491,6 +493,10 @@ const BacktestPage = () => {
               <>
                 {currentBacktest.status === 'queued' || currentBacktest.status === 'running' ? (
                   <div className="h-96 flex flex-col items-center justify-center">
+                    <h3 className="text-lg font-medium mb-4">
+                      {currentBacktest.status === 'queued' ? "Backtest queued..." : "Backtest running..."}
+                    </h3>
+                    
                     {/* Progress indicator */}
                     <div className="w-full max-w-md mb-6">
                       <div className="flex justify-between items-center mb-2">
@@ -521,10 +527,6 @@ const BacktestPage = () => {
                         </span>
                       </div>
                     </div>
-                    
-                    <h3 className="text-lg font-medium">
-                      {currentBacktest.status === 'queued' ? "Backtest queued..." : "Backtest running..."}
-                    </h3>
                     <p className="text-sm text-muted-foreground max-w-md mt-2 text-center">
                       We're analyzing your strategy's performance over the selected time period.
                       {currentBacktest.progress?.processingSpeed && currentBacktest.progress.processingSpeed > 0 && 
