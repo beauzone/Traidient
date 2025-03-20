@@ -267,14 +267,33 @@ export class AlpacaAPI {
       let adjustedTimeframe: string;
       
       // Handle standard timeframe formats like "1D"
+      // Alpaca uses timeframes in format like "1Day", "1Min", "5Min", "1Hour", "1Week", "1Month"
       const timeframeParts = timeframe.match(/^(\d+)([DMWY])$/);
       if (timeframeParts) {
         const [_, amount, unit] = timeframeParts;
-        adjustedTimeframe = `${amount}${unit.toLowerCase()}`;
+        // Properly convert to Alpaca format
+        let unitString = '';
+        switch (unit.toUpperCase()) {
+          case 'D':
+            unitString = 'Day';
+            break;
+          case 'W':
+            unitString = 'Week';
+            break;
+          case 'M':
+            unitString = 'Month';
+            break;
+          case 'Y':
+            unitString = 'Year';
+            break;
+          default:
+            unitString = 'Day';
+        }
+        adjustedTimeframe = `${amount}${unitString}`;
       } else {
         // Default to daily if format is invalid
-        console.warn(`Invalid timeframe format: ${timeframe}, defaulting to 1D`);
-        adjustedTimeframe = '1d';
+        console.warn(`Invalid timeframe format: ${timeframe}, defaulting to 1Day`);
+        adjustedTimeframe = '1Day';
       }
       
       // Set date range (use parameters if provided, otherwise use last 30 days)
