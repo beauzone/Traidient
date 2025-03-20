@@ -439,3 +439,12 @@ function timeframeToYahooInterval(timeframe: string): string {
     default: return '1d';
   }
 }
+
+/**
+ * Log detailed market data information for debugging purposes
+ * @param message Log message
+ * @param data Optional data to include in the log
+ */
+export function logMarketData(message: string, data?: any): void {
+  console.log(`[MarketData] ${message}${data ? ': ' + JSON.stringify(data, null, 2) : ''}`);
+}

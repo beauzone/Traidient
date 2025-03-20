@@ -339,7 +339,16 @@ export async function runBacktest(
     let benchmarkAnnualizedReturn = 0;
 
     try {
+      // Import our logging helper
+      const { logMarketData } = await import('./marketDataService');
+      
       // Fetch S&P 500 data using our provider
+      logMarketData('Fetching benchmark data for SPY', { 
+        startDate: params.startDate, 
+        endDate: params.endDate,
+        provider: provider.provider 
+      });
+      
       const benchmarkData = await provider.getHistoricalData(
         'SPY', // SPY ETF tracks S&P 500
         '1D',
@@ -358,9 +367,17 @@ export async function runBacktest(
         benchmarkReturn = ((benchmarkEndValue - benchmarkStartValue) / benchmarkStartValue) * 100;
         benchmarkAnnualizedReturn = (Math.pow((benchmarkEndValue / benchmarkStartValue), (1 / durationInYears)) - 1) * 100;
         
-        console.log(`Benchmark data: Start=${benchmarkStartValue}, End=${benchmarkEndValue}, Return=${benchmarkReturn.toFixed(2)}%, Annualized=${benchmarkAnnualizedReturn.toFixed(2)}%`);
+        logMarketData('Benchmark calculation complete', { 
+          startValue: benchmarkStartValue, 
+          endValue: benchmarkEndValue, 
+          totalReturn: benchmarkReturn.toFixed(2) + '%', 
+          annualizedReturn: benchmarkAnnualizedReturn.toFixed(2) + '%',
+          durationInYears
+        });
       } else {
-        console.warn('Could not fetch sufficient benchmark data, using historical average of 8% annually');
+        logMarketData('Could not fetch sufficient benchmark data, using historical average of 8% annually', {
+          receivedDataPoints: benchmarkData?.bars?.length || 0
+        });
         benchmarkReturn = 8 * durationInYears;
         benchmarkAnnualizedReturn = 8;
       }
@@ -374,6 +391,157 @@ export async function runBacktest(
     // Calculate true alpha as the difference between strategy and benchmark returns
     const alpha = annualizedReturn - benchmarkAnnualizedReturn;
     
+    // Calculate additional metrics based on real trades
+    const buyTrades = trades.filter(t => t.type === 'buy').length;
+    const sellTrades = trades.filter(t => t.type === 'sell').length;
+    
+    // Calculate trade values and profit metrics
+    let totalWinnings = 0;
+    let totalLosses = 0;
+    let winningTradeValues: number[] = [];
+    let losingTradeValues: number[] = [];
+    
+    // Pair buy and sell trades to calculate profits
+    const tradeMap: Record<string, { buys: any[], sells: any[] }> = {};
+    trades.forEach(trade => {
+      if (!tradeMap[trade.asset]) {
+        tradeMap[trade.asset] = { buys: [], sells: [] };
+      }
+      
+      if (trade.type === 'buy') {
+        tradeMap[trade.asset].buys.push(trade);
+      } else {
+        tradeMap[trade.asset].sells.push(trade);
+      }
+    });
+    
+    // Calculate profit/loss for completed trades
+    for (const asset in tradeMap) {
+      const { buys, sells } = tradeMap[asset];
+      
+      // Match buys and sells using FIFO accounting
+      let remainingBuys = [...buys];
+      let remainingSells = [...sells];
+      
+      remainingSells.forEach(sell => {
+        let sellQuantity = sell.quantity;
+        let totalBuyCost = 0;
+        
+        while (sellQuantity > 0 && remainingBuys.length > 0) {
+          const buy = remainingBuys[0];
+          const quantityToUse = Math.min(buy.quantity, sellQuantity);
+          
+          // Calculate profit/loss for this portion
+          const buyCost = quantityToUse * buy.price;
+          const sellValue = quantityToUse * sell.price;
+          const tradePnL = sellValue - buyCost;
+          
+          if (tradePnL > 0) {
+            totalWinnings += tradePnL;
+            winningTradeValues.push(tradePnL);
+          } else {
+            totalLosses += Math.abs(tradePnL);
+            losingTradeValues.push(Math.abs(tradePnL));
+          }
+          
+          // Update remaining quantities
+          sellQuantity -= quantityToUse;
+          buy.quantity -= quantityToUse;
+          totalBuyCost += buyCost;
+          
+          if (buy.quantity === 0) {
+            remainingBuys.shift();
+          }
+        }
+      });
+    }
+    
+    // Calculate profit factor
+    const profitFactor = totalLosses > 0 ? totalWinnings / totalLosses : totalWinnings > 0 ? 999 : 0;
+    
+    // Calculate average trade values
+    const avgWinningTrade = winningTradeValues.length > 0 ? 
+      winningTradeValues.reduce((sum, val) => sum + val, 0) / winningTradeValues.length : 0;
+    const avgLosingTrade = losingTradeValues.length > 0 ? 
+      losingTradeValues.reduce((sum, val) => sum + val, 0) / losingTradeValues.length : 0;
+    
+    // Calculate largest values
+    const largestWinningTrade = winningTradeValues.length > 0 ? 
+      Math.max(...winningTradeValues) : 0;
+    const largestLosingTrade = losingTradeValues.length > 0 ? 
+      Math.max(...losingTradeValues) : 0;
+    
+    // Calculate beta accurately by comparing daily returns to benchmark
+    let beta = 0;
+    try {
+      // Get SPY data for the same dates as our equity curve
+      const benchmarkData = await provider.getHistoricalData(
+        'SPY',
+        '1D',
+        params.startDate,
+        params.endDate
+      );
+      
+      // If we have valid benchmark data
+      if (benchmarkData && benchmarkData.bars.length > 0) {
+        // Map the dates to make lookup easier
+        const equityByDate: Record<string, number> = {};
+        equity.forEach(e => {
+          equityByDate[e.timestamp] = e.value;
+        });
+        
+        // Create arrays of matching date returns
+        const strategyReturns: number[] = [];
+        const benchmarkReturns: number[] = [];
+        
+        let prevStrategyValue = initialCapital;
+        let prevBenchmarkValue = benchmarkData.bars[0].c;
+        
+        // Start from index 1 since we need previous values
+        for (let i = 1; i < benchmarkData.bars.length; i++) {
+          const bar = benchmarkData.bars[i];
+          const date = bar.t;
+          
+          if (equityByDate[date]) {
+            const strategyValue = equityByDate[date];
+            const benchmarkValue = bar.c;
+            
+            const strategyReturn = (strategyValue / prevStrategyValue) - 1;
+            const benchmarkReturn = (benchmarkValue / prevBenchmarkValue) - 1;
+            
+            strategyReturns.push(strategyReturn);
+            benchmarkReturns.push(benchmarkReturn);
+            
+            prevStrategyValue = strategyValue;
+            prevBenchmarkValue = benchmarkValue;
+          }
+        }
+        
+        if (strategyReturns.length > 0) {
+          // Calculate covariance and variance
+          const strategyMean = strategyReturns.reduce((sum, val) => sum + val, 0) / strategyReturns.length;
+          const benchmarkMean = benchmarkReturns.reduce((sum, val) => sum + val, 0) / benchmarkReturns.length;
+          
+          let covariance = 0;
+          let variance = 0;
+          
+          for (let i = 0; i < strategyReturns.length; i++) {
+            covariance += (strategyReturns[i] - strategyMean) * (benchmarkReturns[i] - benchmarkMean);
+            variance += Math.pow(benchmarkReturns[i] - benchmarkMean, 2);
+          }
+          
+          covariance /= strategyReturns.length;
+          variance /= benchmarkReturns.length;
+          
+          beta = variance !== 0 ? covariance / variance : 0;
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating beta:', error);
+      // Default fallback value if calculation fails
+      beta = 1.0;
+    }
+    
     // Format the final results
     const results = {
       summary: {
@@ -386,12 +554,18 @@ export async function runBacktest(
         volatility: parseFloat((annualizedStdDev * 100).toFixed(2)),
         winRate: parseFloat(winRate.toFixed(2)),
         totalTrades,
+        buyTrades,
+        sellTrades,
         dataProvider: provider.provider,
         benchmarkReturn: parseFloat(benchmarkReturn.toFixed(2)),
         benchmarkAnnualizedReturn: parseFloat(benchmarkAnnualizedReturn.toFixed(2)),
         alpha: parseFloat(alpha.toFixed(2)),
-        beta: parseFloat((0.8 + Math.random() * 0.4).toFixed(2)), // Would need covariance calculation for true beta
-        profitFactor: parseFloat((1.0 + Math.random() * 1.0).toFixed(2)) // Would need profit/loss tracking for true value
+        beta: parseFloat(beta.toFixed(2)),
+        profitFactor: parseFloat(profitFactor.toFixed(2)),
+        avgWinningTrade: parseFloat(avgWinningTrade.toFixed(2)),
+        avgLosingTrade: parseFloat(avgLosingTrade.toFixed(2)),
+        largestWinningTrade: parseFloat(largestWinningTrade.toFixed(2)),
+        largestLosingTrade: parseFloat(largestLosingTrade.toFixed(2))
       },
       trades,
       equity,
