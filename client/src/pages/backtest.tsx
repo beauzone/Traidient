@@ -758,8 +758,14 @@ const BacktestPage = () => {
                               <div>
                                 <span className="text-muted-foreground">Ending Capital: </span>
                                 <span className="font-medium">
-                                  ${currentBacktest.results.portfolio?.finalValue 
-                                    ? currentBacktest.results.portfolio.finalValue.toLocaleString(undefined, {
+                                  ${
+                                    // Use summary data if available, otherwise use starting capital
+                                    currentBacktest.results.summary && 
+                                    currentBacktest.configuration.initialCapital + 
+                                    (currentBacktest.configuration.initialCapital * currentBacktest.results.summary.totalReturn / 100)
+                                    ? (currentBacktest.configuration.initialCapital + 
+                                      (currentBacktest.configuration.initialCapital * currentBacktest.results.summary.totalReturn / 100))
+                                      .toLocaleString(undefined, {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2
                                       })
@@ -799,12 +805,12 @@ const BacktestPage = () => {
                               <div className="bg-black rounded-lg p-4">
                                 <div className="text-sm text-muted-foreground">S&P 500 Return</div>
                                 <div className={`text-2xl font-bold ${
-                                  (currentBacktest.results.benchmark?.return || 0) >= 0 
+                                  (currentBacktest.results.benchmark?.totalReturn || 0) >= 0 
                                     ? 'text-green-500' 
                                     : 'text-red-500'
                                 }`}>
-                                  {(currentBacktest.results.benchmark?.return || 0) >= 0 ? '+' : ''}
-                                  {currentBacktest.results.benchmark?.return?.toFixed(2) || '0.00'}%
+                                  {(currentBacktest.results.benchmark?.totalReturn || 0) >= 0 ? '+' : ''}
+                                  {currentBacktest.results.benchmark?.totalReturn?.toFixed(2) || '0.00'}%
                                 </div>
                               </div>
                             </div>
@@ -816,58 +822,86 @@ const BacktestPage = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <div className="text-sm text-muted-foreground">Sharpe Ratio</div>
-                                    <div className="text-xl font-semibold">1.22</div>
+                                    <div className="text-xl font-semibold">
+                                      {currentBacktest.results.summary?.sharpeRatio?.toFixed(2) || '0.00'}
+                                    </div>
                                   </div>
                                   <div>
                                     <div className="text-sm text-muted-foreground">Sortino Ratio</div>
-                                    <div className="text-xl font-semibold">1.62</div>
+                                    <div className="text-xl font-semibold">
+                                      {currentBacktest.results.summary?.sortinoRatio?.toFixed(2) || '0.00'}
+                                    </div>
                                   </div>
                                   <div>
                                     <div className="text-sm text-muted-foreground">Max Drawdown</div>
-                                    <div className="text-xl font-semibold text-red-500">-12.53%</div>
+                                    <div className="text-xl font-semibold text-red-500">
+                                      -{Math.abs(currentBacktest.results.summary?.maxDrawdown || 0).toFixed(2)}%
+                                    </div>
                                   </div>
                                   <div>
                                     <div className="text-sm text-muted-foreground">Volatility</div>
-                                    <div className="text-xl font-semibold">+8.72%</div>
+                                    <div className="text-xl font-semibold">
+                                      +{currentBacktest.results.summary?.volatility?.toFixed(2) || '0.00'}%
+                                    </div>
                                   </div>
                                   <div>
                                     <div className="text-sm text-muted-foreground">VaR (95%)</div>
-                                    <div className="text-xl font-semibold">-1.96%</div>
+                                    <div className="text-xl font-semibold">
+                                      {(currentBacktest.results.summary?.valueAtRisk95 || 0) >= 0 ? '+' : '-'}
+                                      {Math.abs(currentBacktest.results.summary?.valueAtRisk95 || 0).toFixed(2)}%
+                                    </div>
                                   </div>
                                   <div>
                                     <div className="text-sm text-muted-foreground">Max DD Duration</div>
-                                    <div className="text-xl font-semibold">21 days</div>
+                                    <div className="text-xl font-semibold">
+                                      {currentBacktest.results.summary?.maxDrawdownDuration || 0} days
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                               
-                              {/* Alpha & Beta Panel - identical to mockup */}
+                              {/* Alpha & Beta Panel - with dynamic data */}
                               <div className="bg-black rounded-lg p-4">
                                 <h3 className="text-lg font-medium mb-4">Alpha & Beta</h3>
                                 <div>
                                   <div className="text-sm text-muted-foreground">Alpha</div>
-                                  <div className="text-xl font-semibold text-green-500">+8.64%</div>
+                                  <div className={`text-xl font-semibold ${
+                                    (currentBacktest.results.summary?.alpha || 0) >= 0 
+                                      ? 'text-green-500' 
+                                      : 'text-red-500'
+                                  }`}>
+                                    {(currentBacktest.results.summary?.alpha || 0) >= 0 ? '+' : ''}
+                                    {currentBacktest.results.summary?.alpha?.toFixed(2) || '0.00'}%
+                                  </div>
                                 </div>
                                 <div className="mt-4">
                                   <div className="text-sm text-muted-foreground">Beta</div>
-                                  <div className="text-xl font-semibold">0.92</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary?.beta?.toFixed(2) || '0.00'}
+                                  </div>
                                 </div>
                               </div>
                               
-                              {/* Trade Statistics Panel - identical to mockup */}
+                              {/* Trade Statistics Panel - with dynamic data */}
                               <div className="bg-black rounded-lg p-4">
                                 <h3 className="text-lg font-medium mb-4">Trade Statistics</h3>
                                 <div>
                                   <div className="text-sm text-muted-foreground">Win Rate</div>
-                                  <div className="text-xl font-semibold">64.0%</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary?.winRate?.toFixed(1) || '0.0'}%
+                                  </div>
                                 </div>
                                 <div className="mt-4">
                                   <div className="text-sm text-muted-foreground">Total Trades</div>
-                                  <div className="text-xl font-semibold">42</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary?.totalTrades || 0}
+                                  </div>
                                 </div>
                                 <div className="mt-4">
                                   <div className="text-sm text-muted-foreground">Profit Factor</div>
-                                  <div className="text-xl font-semibold">1.78</div>
+                                  <div className="text-xl font-semibold">
+                                    {currentBacktest.results.summary?.profitFactor?.toFixed(2) || '0.00'}
+                                  </div>
                                 </div>
                               </div>
                             </div>

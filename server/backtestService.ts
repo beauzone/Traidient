@@ -408,7 +408,7 @@ export async function runBacktest(
       },
       benchmark: {
         symbol: 'SPY',
-        return: parseFloat(benchmarkReturn.toFixed(2)),
+        totalReturn: parseFloat(benchmarkReturn.toFixed(2)),
         annualizedReturn: parseFloat(benchmarkAnnualizedReturn.toFixed(2))
       }
     };
