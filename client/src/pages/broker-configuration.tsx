@@ -151,7 +151,8 @@ export default function BrokerConfiguration() {
   
   // Filter integrations to only show broker/exchange types
   const integrations = allIntegrations?.filter(integration => 
-    integration.type === "exchange"
+    integration.provider.toLowerCase().includes("alpaca") || 
+    integration.provider.toLowerCase().includes("exchange")
   );
 
   // Mutation to add a new broker integration
