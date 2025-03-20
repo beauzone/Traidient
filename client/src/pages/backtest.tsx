@@ -183,6 +183,8 @@ const BacktestPage = () => {
   const { toast } = useToast();
   const [currentBacktest, setCurrentBacktest] = useState<Backtest | null>(null);
   const [resultsTab, setResultsTab] = useState("summary");
+  const [sortField, setSortField] = useState<string>("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   // Fetch strategies
   const { data: strategies = [], isLoading: isLoadingStrategies } = useQuery({
@@ -382,6 +384,24 @@ const BacktestPage = () => {
       const minutes = Math.floor((seconds % 3600) / 60);
       return `${hours} hr ${minutes} min`;
     }
+  };
+  
+  // Function to handle sorting of columns
+  const handleSort = (field: string) => {
+    if (field === sortField) {
+      // Toggle sort direction if clicking the same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new sort field and default to descending
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+  
+  // Function to render sort indicator
+  const renderSortIndicator = (field: string) => {
+    if (sortField !== field) return null;
+    return sortDirection === "asc" ? " ↑" : " ↓";
   };
 
   return (
@@ -1040,19 +1060,65 @@ const BacktestPage = () => {
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left pb-2">Name</th>
-                    <th className="text-left pb-2">Strategy</th>
-                    <th className="text-left pb-2">Date Range</th>
-                    <th className="text-right pb-2">Return</th>
-                    <th className="text-right pb-2">Sharpe</th>
-                    <th className="text-right pb-2">Created</th>
+                    <th className="text-left pb-2 cursor-pointer hover:text-primary" onClick={() => handleSort("name")}>
+                      Name{renderSortIndicator("name")}
+                    </th>
+                    <th className="text-left pb-2 cursor-pointer hover:text-primary" onClick={() => handleSort("strategyId")}>
+                      Strategy{renderSortIndicator("strategyId")}
+                    </th>
+                    <th className="text-left pb-2 cursor-pointer hover:text-primary" onClick={() => handleSort("configuration.startDate")}>
+                      Date Range{renderSortIndicator("configuration.startDate")}
+                    </th>
+                    <th className="text-right pb-2 cursor-pointer hover:text-primary" onClick={() => handleSort("results.summary.totalReturn")}>
+                      Return{renderSortIndicator("results.summary.totalReturn")}
+                    </th>
+                    <th className="text-right pb-2 cursor-pointer hover:text-primary" onClick={() => handleSort("results.summary.sharpeRatio")}>
+                      Sharpe{renderSortIndicator("results.summary.sharpeRatio")}
+                    </th>
+                    <th className="text-right pb-2 cursor-pointer hover:text-primary" onClick={() => handleSort("createdAt")}>
+                      Created{renderSortIndicator("createdAt")}
+                    </th>
                     <th className="text-right pb-2 pr-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {previousBacktests
                     .filter(bt => bt.status === 'completed')
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .sort((a, b) => {
+                      let aValue: any = a;
+                      let bValue: any = b;
+                      
+                      // Handle nested properties like 'results.summary.totalReturn'
+                      const fields = sortField.split('.');
+                      for (const field of fields) {
+                        aValue = aValue?.[field];
+                        bValue = bValue?.[field];
+                      }
+                      
+                      // Handle different data types
+                      if (aValue === undefined && bValue === undefined) return 0;
+                      if (aValue === undefined) return 1;
+                      if (bValue === undefined) return -1;
+                      
+                      // For dates
+                      if (sortField === 'createdAt' || sortField === 'configuration.startDate' || sortField === 'configuration.endDate') {
+                        const dateA = new Date(aValue).getTime();
+                        const dateB = new Date(bValue).getTime();
+                        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+                      } 
+                      
+                      // For numeric values
+                      if (typeof aValue === 'number' && typeof bValue === 'number') {
+                        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+                      }
+                      
+                      // For string values
+                      const stringA = String(aValue).toLowerCase();
+                      const stringB = String(bValue).toLowerCase();
+                      return sortDirection === 'asc' 
+                        ? stringA.localeCompare(stringB)
+                        : stringB.localeCompare(stringA);
+                    })
                     .map((backtest) => {
                       const strategy = strategies.find(s => s.id === backtest.strategyId);
                       return (
@@ -1083,16 +1149,9 @@ const BacktestPage = () => {
                           <td className="text-right">
                             {backtest.results.summary?.sharpeRatio?.toFixed(2) || "N/A"}
                           </td>
+
                           <td className="text-right">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium 
-                              ${backtest.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                backtest.status === 'failed' ? 'bg-red-100 text-red-800' : 
-                                'bg-blue-100 text-blue-800'}`}>
-                              {backtest.status.charAt(0).toUpperCase() + backtest.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="text-right">
-                            {new Date(backtest.createdAt).toLocaleDateString()}
+                            {formatDate(backtest.createdAt)}
                           </td>
                           <td className="text-right space-x-2 whitespace-nowrap">
                             <Button
