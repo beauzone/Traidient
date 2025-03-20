@@ -183,6 +183,9 @@ const backtestSchema = z.object({
   assets: z.array(z.string()).min(1, {
     message: "At least one asset is required",
   }),
+  dataProvider: z.enum(['alpaca', 'yahoo', 'polygon'], {
+    required_error: "Data provider is required",
+  }),
 });
 
 type BacktestFormValues = z.infer<typeof backtestSchema>;
@@ -262,6 +265,7 @@ const BacktestPage = () => {
       endDate: new Date().toISOString().split('T')[0], // Today
       initialCapital: 100000,
       assets: selectedStrategy?.configuration.assets || [],
+      dataProvider: 'alpaca', // Default to Alpaca
     },
   });
 
@@ -549,6 +553,35 @@ const BacktestPage = () => {
                       </div>
                       <FormDescription>
                         Assets used for this backtest (defined in strategy)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="dataProvider"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Market Data Provider</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a data provider" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="alpaca">Alpaca</SelectItem>
+                          <SelectItem value="yahoo">Yahoo Finance</SelectItem>
+                          <SelectItem value="polygon">Polygon.io</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Choose the data source for historical market data
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
