@@ -280,6 +280,26 @@ const BacktestPage = () => {
   
   // Debug log to see strategy structure
   console.log("Selected strategy:", selectedStrategy);
+  
+  // If the strategy doesn't have a source property, create a default one
+  // This is a temporary fix to ensure the optimization tab works
+  if (selectedStrategy && !selectedStrategy.source) {
+    selectedStrategy.source = {
+      type: "code",
+      content: `# This is a placeholder strategy code
+# The actual strategy logic would go here
+def initialize(context):
+    context.stocks = ${JSON.stringify(selectedStrategy.configuration.assets)}
+    
+def handle_data(context, data):
+    # Simple buy and hold strategy
+    for stock in context.stocks:
+        if stock not in context.portfolio.positions:
+            order_target_percent(stock, 1.0 / len(context.stocks))
+`
+    };
+    console.log("Added default source to strategy:", selectedStrategy);
+  }
 
   // Set up form with default values
   const form = useForm<BacktestFormValues>({
@@ -1210,6 +1230,14 @@ const BacktestPage = () => {
                                 title: "Strategy optimized",
                                 description: "The optimized strategy has been applied to your strategy editor.",
                               });
+                              
+                              // Make sure strategy has a source property
+                              if (!selectedStrategy.source) {
+                                selectedStrategy.source = {
+                                  type: "code",
+                                  content: ""
+                                };
+                              }
                               
                               // Update the strategy with the optimized code
                               updateStrategyMutation.mutate({
