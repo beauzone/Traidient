@@ -29,9 +29,7 @@ export async function runBacktest(
   },
   updateProgress?: (progress: any) => Promise<void>
 ): Promise<any> {
-  if (!provider.isValid) {
-    throw new Error(`Invalid market data provider: ${provider.provider}`);
-  }
+  // Provider validity is now checked in routes.ts before calling this function
   
   // Default progress tracking function if none provided
   const trackProgress = async (step: string, incrementStep = false) => {

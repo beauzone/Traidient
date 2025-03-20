@@ -1096,22 +1096,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
             updateProgress
           );
         } else {
-          // Get user's integration for polygon if selected
-          const integration = dataProvider === 'polygon' 
-            ? await storage.getApiIntegrationByProviderAndUser(req.user.id, 'polygon')
-            : undefined; // Yahoo doesn't need an integration
+          try {
+            // Get user's integration for polygon if selected
+            const integration = dataProvider === 'polygon' 
+              ? await storage.getApiIntegrationByProviderAndUser(req.user.id, 'polygon')
+              : undefined; // Yahoo doesn't need an integration
+              
+            // Create the appropriate market data provider
+            const provider = createMarketDataProvider(dataProvider, integration);
             
-          // Create the appropriate market data provider
-          const provider = createMarketDataProvider(dataProvider, integration);
-          
-          // Run the backtest with the selected provider
-          console.log(`Running backtest ${backtest.id} with ${dataProvider} data provider`);
-          results = await runBacktest(
-            provider,
-            strategy.source.content,
-            backtest.configuration,
-            updateProgress
-          );
+            // Check if provider is valid
+            if (!provider.isValid) {
+              if (dataProvider === 'polygon') {
+                throw new Error(`To use Polygon.io as a data provider, you need to add a valid Polygon.io API key in the Integrations page.`);
+              } else {
+                throw new Error(`Invalid market data provider: ${dataProvider}`);
+              }
+            }
+            
+            // Run the backtest with the selected provider
+            console.log(`Running backtest ${backtest.id} with ${dataProvider} data provider`);
+            results = await runBacktest(
+              provider,
+              strategy.source.content,
+              backtest.configuration,
+              updateProgress
+            );
+          } catch (error) {
+            console.error(`Error with data provider ${dataProvider}:`, error);
+            throw error; // Re-throw to be caught by the outer catch
+          }
         }
         
         console.log(`Backtest ${backtest.id} completed, updating results`);
