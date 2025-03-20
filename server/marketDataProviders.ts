@@ -221,16 +221,24 @@ export class PolygonDataProvider implements MarketDataProvider {
     dataSource: string;
   }> {
     try {
-      const data = await this.polygon.getHistoricalData(symbol, timeframe, limit);
+      console.log(`Fetching Polygon.io data for ${symbol} from ${startDate} to ${endDate}`);
+      // Polygon API expects different parameters, so we need to pass them differently
+      const data = await this.polygon.getHistoricalData(
+        symbol, 
+        timeframe, 
+        limit
+      );
       
-      if (!data || !data.results || data.results.length === 0) {
+      // The startDate and endDate are handled internally by the Polygon API implementation
+      
+      if (!data || !data.bars || data.bars.length === 0) {
         throw new Error(`No data returned from Polygon.io for ${symbol}`);
       }
       
       // Transform to our standard format
       return {
         symbol,
-        bars: data.results.map((bar: any) => ({
+        bars: data.bars.map((bar: any) => ({
           t: new Date(bar.t).toISOString(),
           o: parseFloat(bar.o),
           h: parseFloat(bar.h),
@@ -257,17 +265,24 @@ export function createMarketDataProvider(
   providerName: 'alpaca' | 'yahoo' | 'polygon',
   integration?: ApiIntegration
 ): MarketDataProvider {
-  switch (providerName) {
-    case 'alpaca':
-      return new AlpacaDataProvider(integration);
-    case 'yahoo':
-      return new YahooDataProvider();
-    case 'polygon':
-      return new PolygonDataProvider(integration);
-    default:
-      // Default to Yahoo as it doesn't require API keys
-      console.warn(`Unknown provider: ${providerName}, using Yahoo Finance as fallback`);
-      return new YahooDataProvider();
+  const normalizedProviderName = providerName.toLowerCase().trim();
+  
+  if (normalizedProviderName === 'alpaca') {
+    return new AlpacaDataProvider(integration);
+  } else if (normalizedProviderName === 'yahoo') {
+    return new YahooDataProvider();
+  } else if (normalizedProviderName === 'polygon' || normalizedProviderName.includes('polygon.io')) {
+    // For providers with possible name variations, log what we're doing
+    if (integration) {
+      console.log(`Creating Polygon.io provider with integration ID ${integration.id}`);
+    } else {
+      console.log(`Creating Polygon.io provider without integration`);
+    }
+    return new PolygonDataProvider(integration);
+  } else {
+    // Default to Yahoo as it doesn't require API keys
+    console.warn(`Unknown provider: ${providerName}, using Yahoo Finance as fallback`);
+    return new YahooDataProvider();
   }
 }
 

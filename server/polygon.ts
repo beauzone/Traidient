@@ -108,12 +108,22 @@ export default class PolygonAPI {
    * @param symbol Stock symbol
    * @param timeframe Timeframe string (e.g., '1D', '1M')
    * @param limit Number of bars to return
+   * @param startDate Optional start date in ISO format
+   * @param endDate Optional end date in ISO format
    * @returns Historical market data
    */
-  async getHistoricalData(symbol: string, timeframe: string = '1D', limit: number = 100): Promise<any> {
+  async getHistoricalData(
+    symbol: string, 
+    timeframe: string = '1D', 
+    limit: number = 100,
+    startDate?: string,
+    endDate?: string
+  ): Promise<any> {
     if (!this.isValid) {
       throw new Error('Polygon API not properly initialized with valid API key');
     }
+
+    console.log(`Polygon.io API: Getting historical data for ${symbol} from ${startDate} to ${endDate}`);
 
     // Convert alpaca timeframes to polygon timeframes
     let multiplier = 1;
@@ -121,11 +131,11 @@ export default class PolygonAPI {
 
     if (timeframe === '1D') {
       multiplier = 1;
-      timespan = 'minute';
+      timespan = 'day';
       limit = Math.min(limit, 1000); // Polygon limit
     } else if (timeframe === '5D') {
       multiplier = 5;
-      timespan = 'minute';
+      timespan = 'day';
       limit = Math.min(limit, 1000);
     } else if (timeframe === '1M') {
       multiplier = 1;
@@ -141,28 +151,41 @@ export default class PolygonAPI {
       timespan = 'week';
     }
 
-    // Calculate from date based on timeframe
-    const to = new Date();
-    const from = new Date();
+    // Use the provided date range if specified, otherwise calculate from timeframe
+    let fromStr: string;
+    let toStr: string;
 
-    if (timeframe === '1D') {
-      from.setDate(from.getDate() - 1);
-    } else if (timeframe === '5D') {
-      from.setDate(from.getDate() - 5);
-    } else if (timeframe === '1M') {
-      from.setMonth(from.getMonth() - 1);
-    } else if (timeframe === '3M') {
-      from.setMonth(from.getMonth() - 3);
-    } else if (timeframe === '1Y') {
-      from.setFullYear(from.getFullYear() - 1);
-    } else if (timeframe === '5Y') {
-      from.setFullYear(from.getFullYear() - 5);
+    if (startDate && endDate) {
+      // Use the provided dates, but ensure they're in the expected format (YYYY-MM-DD)
+      fromStr = startDate.split('T')[0];
+      toStr = endDate.split('T')[0];
+      console.log(`Using provided date range: ${fromStr} to ${toStr}`);
+    } else {
+      // Calculate from date based on timeframe
+      const to = new Date();
+      const from = new Date();
+
+      if (timeframe === '1D') {
+        from.setDate(from.getDate() - 1);
+      } else if (timeframe === '5D') {
+        from.setDate(from.getDate() - 5);
+      } else if (timeframe === '1M') {
+        from.setMonth(from.getMonth() - 1);
+      } else if (timeframe === '3M') {
+        from.setMonth(from.getMonth() - 3);
+      } else if (timeframe === '1Y') {
+        from.setFullYear(from.getFullYear() - 1);
+      } else if (timeframe === '5Y') {
+        from.setFullYear(from.getFullYear() - 5);
+      }
+
+      fromStr = from.toISOString().split('T')[0];
+      toStr = to.toISOString().split('T')[0];
+      console.log(`Calculated date range from timeframe: ${fromStr} to ${toStr}`);
     }
 
-    const fromStr = from.toISOString().split('T')[0];
-    const toStr = to.toISOString().split('T')[0];
-
     try {
+      console.log(`Polygon.io API calling: /v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${fromStr}/${toStr}`);
       const response = await axios.get(
         `${this.baseUrl}/v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${fromStr}/${toStr}`, 
         {
@@ -173,7 +196,9 @@ export default class PolygonAPI {
         }
       );
 
+      console.log(`Polygon.io API response status: ${response.status}`);
       const results = response.data.results || [];
+      console.log(`Polygon.io API returned ${results.length} bars for ${symbol}`);
 
       // Format the response to match our expected format
       const bars = results.map((bar: any) => ({
