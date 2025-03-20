@@ -142,6 +142,7 @@ export const backtests = pgTable("backtests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   strategyId: integer("strategy_id").notNull().references(() => strategies.id),
+  name: text("name"), // Adding name field for backtest
   status: text("status").notNull().default('queued'), // 'queued', 'running', 'completed', 'failed', 'cancelled'
   progress: jsonb("progress").$type<{
     percentComplete: number;
@@ -204,6 +205,7 @@ export const backtests = pgTable("backtests", {
 export const insertBacktestSchema = createInsertSchema(backtests).pick({
   userId: true,
   strategyId: true,
+  name: true,
   configuration: true,
 });
 
