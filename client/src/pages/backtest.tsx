@@ -277,6 +277,9 @@ const BacktestPage = () => {
   const selectedStrategy = strategies.find(
     s => s.id === (strategyIdParam ? parseInt(strategyIdParam) : null)
   );
+  
+  // Debug log to see strategy structure
+  console.log("Selected strategy:", selectedStrategy);
 
   // Set up form with default values
   const form = useForm<BacktestFormValues>({
