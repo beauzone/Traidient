@@ -83,9 +83,30 @@ interface Strategy {
   name: string;
   description: string;
   type: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  source: {
+    type: string;
+    content: string;
+  };
   configuration: {
     assets: string[];
     parameters: Record<string, any>;
+    riskControls?: {
+      maxPositionSize: number;
+      stopLoss: number;
+      takeProfit: number;
+    };
+    schedule?: {
+      isActive: boolean;
+      timezone: string;
+      activeDays: number[];
+      activeHours: {
+        start: string;
+        end: string;
+      };
+    };
   };
 }
 
@@ -363,6 +384,27 @@ const BacktestPage = () => {
       toast({
         title: "Failed to delete backtest",
         description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Update strategy mutation for optimization
+  const updateStrategyMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => 
+      updateData(`/api/strategies/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
+      toast({
+        title: "Strategy updated",
+        description: "Your strategy has been updated with the optimized code.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error updating strategy:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update the strategy. Please try again.",
         variant: "destructive",
       });
     }
@@ -1148,6 +1190,43 @@ const BacktestPage = () => {
                           </table>
                         </div>
                       )}
+                    </TabsContent>
+                    
+                    <TabsContent value="optimize">
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-medium mb-4">AI Strategy Optimization</h3>
+                        {selectedStrategy ? (
+                          <OptimizeStrategy
+                            strategyId={selectedStrategy.id}
+                            strategyCode={selectedStrategy.source?.content || ""}
+                            backtestId={currentBacktest.id}
+                            backtestResults={currentBacktest.results}
+                            onOptimizationApplied={(optimizedStrategy) => {
+                              // Handle applying optimized strategy code
+                              toast({
+                                title: "Strategy optimized",
+                                description: "The optimized strategy has been applied to your strategy editor.",
+                              });
+                              
+                              // Update the strategy with the optimized code
+                              updateStrategyMutation.mutate({
+                                id: selectedStrategy.id,
+                                data: {
+                                  ...selectedStrategy,
+                                  source: {
+                                    type: selectedStrategy.source?.type || "code",
+                                    content: optimizedStrategy
+                                  }
+                                }
+                              });
+                            }}
+                          />
+                        ) : (
+                          <div className="rounded-md border border-dashed p-8 text-center">
+                            <p className="text-muted-foreground">Strategy not found. Please select a valid strategy to optimize.</p>
+                          </div>
+                        )}
+                      </div>
                     </TabsContent>
                     
                     <TabsContent value="export">
