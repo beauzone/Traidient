@@ -527,7 +527,7 @@ const BacktestPage = () => {
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-md mt-2 text-center">
                       We're analyzing your strategy's performance over the selected time period.
-                      {currentBacktest.progress?.processingSpeed > 0 && 
+                      {currentBacktest.progress?.processingSpeed && currentBacktest.progress.processingSpeed > 0 && 
                         ` Processing at ${currentBacktest.progress.processingSpeed.toFixed(1)} steps/second.`}
                     </p>
                     <Button 
@@ -635,7 +635,7 @@ const BacktestPage = () => {
                                     <Bar 
                                       dataKey="return" 
                                       fill="#3B82F6" 
-                                      radius={[4, 4, 0, 0]}
+                                      radius={4}
                                       // Adding custom colors for positive/negative returns
                                       isAnimationActive={false}
                                       shape={(props: any) => {
@@ -647,7 +647,7 @@ const BacktestPage = () => {
                                             width={width}
                                             height={Math.abs(height)}
                                             fill={value >= 0 ? '#10B981' : '#EF4444'}
-                                            radius={[4, 4, 0, 0]}
+                                            rx={4} ry={4}
                                           />
                                         );
                                       }}

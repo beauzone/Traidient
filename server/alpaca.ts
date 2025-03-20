@@ -483,10 +483,22 @@ export class AlpacaAPI {
       }
     };
     
-    // Update progress - Strategy analysis
+    // Update progress with more detailed steps
     await trackProgress('Analyzing strategy code', true);
     
     // Simulate a small delay to make progress visible
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Update progress - Data preparation
+    await trackProgress('Fetching historical data', true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Update progress - Strategy compilation
+    await trackProgress('Compiling trading rules', true);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    // Update progress - Backtesting initialization
+    await trackProgress('Initializing simulation engine', true);
     await new Promise(resolve => setTimeout(resolve, 300));
     
     // Generate realistic performance metrics
@@ -508,10 +520,19 @@ export class AlpacaAPI {
     const equityPoints = Math.min(durationDays, 100); // Cap at 100 points to avoid too much data
     const equity = [];
     
+    // Update progress - Starting simulation
+    await trackProgress('Starting market simulation', true);
+    
     for (let i = 0; i < equityPoints; i++) {
       const progress = i / (equityPoints - 1);
       const dayOffset = Math.floor(progress * durationDays);
       const timestamp = new Date(start.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+      
+      // Update progress every 10% of simulation
+      if (i % Math.max(1, Math.floor(equityPoints / 10)) === 0) {
+        const simProgress = Math.floor(progress * 100);
+        await trackProgress(`Running simulation (${simProgress}%)`, true);
+      }
       
       // Add some volatility to the equity curve
       const noise = Math.random() * 0.03 - 0.015; // +/- 1.5%
@@ -542,6 +563,11 @@ export class AlpacaAPI {
           value: value,
           fees: value * 0.001 // 0.1% fee
         });
+      }
+      
+      // Add small delay to make the simulation visible
+      if (i % Math.max(1, Math.floor(equityPoints / 5)) === 0) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
     
@@ -589,6 +615,31 @@ export class AlpacaAPI {
         value: Math.random() * 10000 + 1000
       }))
     };
+    
+    // Update progress - Analyzing results
+    await trackProgress('Analyzing trade performance', true);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    // Update progress - Calculating statistics
+    await trackProgress('Calculating performance metrics', true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Update progress - Finalizing
+    await trackProgress('Finalizing backtest results', true);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Complete the progress to 100%
+    if (updateProgress) {
+      await updateProgress({
+        percentComplete: 100,
+        currentStep: 'Backtest completed',
+        stepsCompleted: totalSteps,
+        totalSteps,
+        estimatedTimeRemaining: 0,
+        startedAt: new Date(startTime).toISOString(),
+        processingSpeed: Math.round((totalSteps / ((Date.now() - startTime) / 1000)) * 100) / 100
+      });
+    }
     
     console.log(`Backtest completed with ${trades.length} trades and ${equity.length} equity points.`);
     
