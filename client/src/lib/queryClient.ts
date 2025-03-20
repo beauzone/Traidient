@@ -49,10 +49,22 @@ export async function apiRequest(
     
     await throwIfResNotOk(res);
     
-    // For successful responses, parse and return the JSON data
-    const responseData = await res.json();
-    console.log(`Response data from ${url}:`, responseData);
-    return responseData;
+    // For successful responses, parse JSON data if there is content
+    // For 204 No Content responses (common with DELETE operations), return empty object
+    if (res.status === 204) {
+      return {};
+    }
+    
+    // Otherwise, try to parse the JSON content
+    try {
+      const responseData = await res.json();
+      console.log(`Response data from ${url}:`, responseData);
+      return responseData;
+    } catch (error) {
+      console.warn(`Could not parse response from ${url} as JSON:`, error);
+      // Return empty object for successful requests that don't return JSON
+      return {};
+    }
   } catch (error) {
     console.error(`API error (${method} ${url}):`, error);
     throw error;
@@ -105,9 +117,21 @@ export const getQueryFn: <T>(options: {
       
       await throwIfResNotOk(res);
       
-      const data = await res.json();
-      console.log(`Query data from ${url}:`, data);
-      return data;
+      // For 204 No Content responses, return empty object
+      if (res.status === 204) {
+        return {};
+      }
+      
+      // Try to parse JSON response, handle empty responses
+      try {
+        const data = await res.json();
+        console.log(`Query data from ${url}:`, data);
+        return data;
+      } catch (error) {
+        console.warn(`Could not parse query response from ${url} as JSON:`, error);
+        // Return empty object for successful requests that don't return JSON
+        return {};
+      }
     } catch (error) {
       console.error(`Query error (${url}):`, error);
       throw error;
