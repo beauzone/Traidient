@@ -379,11 +379,15 @@ const BacktestPage = () => {
                         <div className="flex">
                           <DollarSign className="mr-2 h-4 w-4 opacity-50 mt-3" />
                           <Input 
-                            type="number" 
+                            type="text"
                             min="1" 
                             step="1000"
                             {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={String(field.value)}
+                            onChange={(e) => {
+                              const numValue = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                              field.onChange(numValue);
+                            }}
                           />
                         </div>
                       </FormControl>
