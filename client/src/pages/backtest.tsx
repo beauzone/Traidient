@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import MainLayout from "@/components/layout/MainLayout";
-import { fetchData, postData, updateData } from "@/lib/api";
+import { fetchData, postData, updateData, deleteData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -81,6 +81,7 @@ interface Backtest {
   id: number;
   userId: number;
   strategyId: number;
+  name?: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   configuration: {
     startDate: string;
@@ -189,6 +190,14 @@ const BacktestPage = () => {
     queryFn: () => fetchData<Strategy[]>('/api/strategies'),
   });
 
+  // Fetch all user backtests for the history list
+  const { data: previousBacktests = [], isLoading: isLoadingPreviousBacktests } = useQuery({
+    queryKey: ['/api/backtests'],
+    queryFn: () => fetchData<Backtest[]>('/api/backtests'),
+    // Don't refetch these too aggressively
+    refetchInterval: 30000, // Every 30 seconds
+  });
+
   // Fetch backtest results if we have an active backtest
   const { data: backtestData, isLoading: isLoadingBacktest } = useQuery({
     queryKey: ['/api/backtests', currentBacktest?.id],
@@ -288,6 +297,50 @@ const BacktestPage = () => {
     onError: (error) => {
       toast({
         title: "Failed to cancel backtest",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Rename backtest mutation
+  const renameBacktest = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => 
+      updateData(`/api/backtests/${id}`, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/backtests'] });
+      toast({
+        title: "Backtest renamed",
+        description: "The backtest has been renamed successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to rename backtest",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Delete backtest mutation
+  const deleteBacktest = useMutation({
+    mutationFn: (backtestId: number) => 
+      deleteData(`/api/backtests/${backtestId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/backtests'] });
+      // If we're deleting the current backtest, clear it
+      if (currentBacktest && deleteBacktest.variables === currentBacktest.id) {
+        setCurrentBacktest(null);
+      }
+      toast({
+        title: "Backtest deleted",
+        description: "The backtest has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete backtest",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
@@ -975,6 +1028,124 @@ const BacktestPage = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Previous Backtests Panel */}
+      {previousBacktests.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Previous Backtests</CardTitle>
+            <CardDescription>
+              View results from your previously saved backtests
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left pb-2">Name</th>
+                    <th className="text-left pb-2">Strategy</th>
+                    <th className="text-left pb-2">Date Range</th>
+                    <th className="text-right pb-2">Return</th>
+                    <th className="text-right pb-2">Sharpe</th>
+                    <th className="text-right pb-2">Status</th>
+                    <th className="text-right pb-2">Created</th>
+                    <th className="text-right pb-2 pr-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previousBacktests
+                    .filter(bt => bt.status === 'completed')
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .map((backtest) => {
+                      const strategy = strategies.find(s => s.id === backtest.strategyId);
+                      return (
+                        <tr key={backtest.id} className="border-b hover:bg-muted/50">
+                          <td className="py-3">
+                            {renameBacktest.isPending && renameBacktest.variables?.id === backtest.id ? (
+                              <div className="flex items-center">
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Saving...
+                              </div>
+                            ) : (
+                              <span className="font-medium">
+                                {backtest.name || `${strategy?.name || "Strategy"} Backtest`}
+                              </span>
+                            )}
+                          </td>
+                          <td>{strategy?.name || "Unknown Strategy"}</td>
+                          <td>
+                            {formatDate(backtest.configuration.startDate)} - {formatDate(backtest.configuration.endDate)}
+                          </td>
+                          <td className="text-right">
+                            {backtest.results.summary ? (
+                              <span className={backtest.results.summary.totalReturn >= 0 ? "text-green-600" : "text-red-600"}>
+                                {formatPercentage(backtest.results.summary.totalReturn)}
+                              </span>
+                            ) : "N/A"}
+                          </td>
+                          <td className="text-right">
+                            {backtest.results.summary?.sharpeRatio?.toFixed(2) || "N/A"}
+                          </td>
+                          <td className="text-right">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium 
+                              ${backtest.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                backtest.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                                'bg-blue-100 text-blue-800'}`}>
+                              {backtest.status.charAt(0).toUpperCase() + backtest.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="text-right">
+                            {new Date(backtest.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="text-right space-x-2 whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const newName = window.prompt(
+                                  "Enter a new name for this backtest:",
+                                  backtest.name || `${strategy?.name || "Strategy"} Backtest`
+                                );
+                                if (newName && newName.trim()) {
+                                  renameBacktest.mutate({ id: backtest.id, name: newName.trim() });
+                                }
+                              }}
+                            >
+                              Rename
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setCurrentBacktest(backtest);
+                                setResultsTab("summary");
+                              }}
+                            >
+                              View
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this backtest? This action cannot be undone.")) {
+                                  deleteBacktest.mutate(backtest.id);
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </MainLayout>
   );
 };
