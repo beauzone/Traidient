@@ -169,6 +169,7 @@ export const backtests = pgTable("backtests", {
     initialCapital: number;
     assets: string[];
     parameters: Record<string, any>;
+    dataProvider?: 'alpaca' | 'yahoo' | 'polygon';
   }>().notNull(),
   results: jsonb("results").$type<{
     summary?: {

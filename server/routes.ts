@@ -8,6 +8,8 @@ import PolygonAPI from "./polygon";
 import AlphaVantageAPI from "./alphavantage";
 import TiingoAPI from "./tiingo";
 import { startMarketDataStream, stopMarketDataStream, getHistoricalMarketData } from "./marketDataService";
+import { createMarketDataProvider } from './marketDataProviders';
+import { runBacktest } from './backtestService';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
@@ -1057,9 +1059,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateBacktest(backtest.id, { status: 'running' });
         console.log(`Backtest ${backtest.id} status set to running`);
         
-        // Get user's Alpaca integration
-        const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-        const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+        // Get the requested data provider from configuration or default to alpaca
+        const dataProvider = backtest.configuration.dataProvider || 'alpaca';
+        console.log(`Using ${dataProvider} data provider for backtest ${backtest.id}`);
         
         // Initialize progress
         await storage.updateBacktest(backtest.id, {
@@ -1079,13 +1081,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateBacktest(backtest.id, { progress });
         };
         
-        // Run the backtest with progress tracking
-        console.log(`Running backtest ${backtest.id} with Alpaca API`);
-        const results = await alpacaAPI.runBacktest(
-          strategy.source.content,
-          backtest.configuration,
-          updateProgress
-        );
+        let results;
+        
+        // Get appropriate API integration based on provider
+        if (dataProvider === 'alpaca') {
+          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+          const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+          
+          // Run the backtest with alpaca data
+          console.log(`Running backtest ${backtest.id} with Alpaca API`);
+          results = await alpacaAPI.runBacktest(
+            strategy.source.content,
+            backtest.configuration,
+            updateProgress
+          );
+        } else {
+          // Get user's integration for polygon if selected
+          const integration = dataProvider === 'polygon' 
+            ? await storage.getApiIntegrationByProviderAndUser(req.user.id, 'polygon')
+            : undefined; // Yahoo doesn't need an integration
+            
+          // Create the appropriate market data provider
+          const provider = createMarketDataProvider(dataProvider, integration);
+          
+          // Run the backtest with the selected provider
+          console.log(`Running backtest ${backtest.id} with ${dataProvider} data provider`);
+          results = await runBacktest(
+            provider,
+            strategy.source.content,
+            backtest.configuration,
+            updateProgress
+          );
+        }
         
         console.log(`Backtest ${backtest.id} completed, updating results`);
         // Update with results

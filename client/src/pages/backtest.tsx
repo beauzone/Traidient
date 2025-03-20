@@ -278,6 +278,7 @@ const BacktestPage = () => {
         endDate: data.endDate,
         initialCapital: data.initialCapital,
         assets: data.assets,
+        dataProvider: data.dataProvider,
         parameters: strategies.find(s => s.id === data.strategyId)?.configuration.parameters || {},
       }
     }),
