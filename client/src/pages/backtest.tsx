@@ -710,11 +710,12 @@ const BacktestPage = () => {
                   </div>
                 ) : (
                   <Tabs value={resultsTab} onValueChange={setResultsTab}>
-                    <TabsList className="grid grid-cols-5 mb-4">
+                    <TabsList className="grid grid-cols-6 mb-4">
                       <TabsTrigger value="summary">Summary</TabsTrigger>
                       <TabsTrigger value="equity">Equity</TabsTrigger>
                       <TabsTrigger value="drawdown">Drawdown</TabsTrigger>
                       <TabsTrigger value="trades">Trades</TabsTrigger>
+                      <TabsTrigger value="optimize">Optimize</TabsTrigger>
                       <TabsTrigger value="export">Export</TabsTrigger>
                     </TabsList>
                     
