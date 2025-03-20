@@ -365,13 +365,10 @@ const BacktestPage = () => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  // Format date
+  // Format date in MM/DD/YYYY format
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    const date = new Date(dateString);
+    return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()}`;
   };
   
   // Format time remaining for backtest progress
@@ -1048,7 +1045,6 @@ const BacktestPage = () => {
                     <th className="text-left pb-2">Date Range</th>
                     <th className="text-right pb-2">Return</th>
                     <th className="text-right pb-2">Sharpe</th>
-                    <th className="text-right pb-2">Status</th>
                     <th className="text-right pb-2">Created</th>
                     <th className="text-right pb-2 pr-2">Actions</th>
                   </tr>
