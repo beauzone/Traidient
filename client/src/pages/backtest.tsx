@@ -197,7 +197,7 @@ const BacktestPage = () => {
       strategyId: selectedStrategy?.id || 0,
       startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 90 days ago
       endDate: new Date().toISOString().split('T')[0], // Today
-      initialCapital: 10000,
+      initialCapital: 100000,
       assets: selectedStrategy?.configuration.assets || [],
     },
   });
