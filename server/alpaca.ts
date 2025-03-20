@@ -428,8 +428,8 @@ export class AlpacaAPI {
     return false;
   }
 
-  // Additional mock methods for backtesting
-  async runBacktest(strategyCode: string, params: any): Promise<any> {
+  // Enhanced backtesting with progress tracking
+  async runBacktest(strategyCode: string, params: any, updateProgress?: (progress: any) => Promise<void>): Promise<any> {
     console.log(`Running backtest with strategy: ${strategyCode.substring(0, 50)}... and params:`, params);
     // In a real implementation, this would send the strategy code to a backtesting engine
     // For MVP, we'll return simulated data for demonstration
@@ -441,6 +441,53 @@ export class AlpacaAPI {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const durationDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Setup progress tracking
+    const totalSteps = Math.min(durationDays, 100) + 5; // Add extra steps for initialization and finalization
+    const startTime = Date.now();
+    let stepsCompleted = 0;
+    
+    // Initial progress update
+    if (updateProgress) {
+      await updateProgress({
+        percentComplete: 0,
+        currentStep: 'Initializing backtest',
+        stepsCompleted: 0,
+        totalSteps,
+        estimatedTimeRemaining: durationDays * 0.5, // Initial estimate: 0.5 seconds per day
+        startedAt: new Date().toISOString(),
+        processingSpeed: 0
+      });
+    }
+    
+    // Progress tracking function
+    const trackProgress = async (step: string, forceUpdate = false) => {
+      stepsCompleted++;
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      const percentComplete = Math.min(99, Math.round((stepsCompleted / totalSteps) * 100));
+      const processingSpeed = stepsCompleted / elapsedSeconds; // Steps per second
+      const remainingSteps = totalSteps - stepsCompleted;
+      const estimatedTimeRemaining = remainingSteps / processingSpeed;
+      
+      // Only update every few steps or on force update to avoid excessive DB writes
+      if (updateProgress && (forceUpdate || stepsCompleted % 3 === 0 || percentComplete >= 99)) {
+        await updateProgress({
+          percentComplete,
+          currentStep: step,
+          stepsCompleted,
+          totalSteps,
+          estimatedTimeRemaining: Math.ceil(estimatedTimeRemaining),
+          startedAt: new Date(startTime).toISOString(),
+          processingSpeed: Math.round(processingSpeed * 100) / 100
+        });
+      }
+    };
+    
+    // Update progress - Strategy analysis
+    await trackProgress('Analyzing strategy code', true);
+    
+    // Simulate a small delay to make progress visible
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Generate realistic performance metrics
     const totalReturn = Math.random() * 20 - 5; // Between -5% and +15%

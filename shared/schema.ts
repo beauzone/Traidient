@@ -142,7 +142,24 @@ export const backtests = pgTable("backtests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   strategyId: integer("strategy_id").notNull().references(() => strategies.id),
-  status: text("status").notNull().default('queued'), // 'queued', 'running', 'completed', 'failed'
+  status: text("status").notNull().default('queued'), // 'queued', 'running', 'completed', 'failed', 'cancelled'
+  progress: jsonb("progress").$type<{
+    percentComplete: number;
+    currentStep: string;
+    stepsCompleted: number;
+    totalSteps: number;
+    estimatedTimeRemaining: number; // in seconds
+    startedAt: string;
+    processingSpeed: number; // data points per second
+  }>().default({
+    percentComplete: 0,
+    currentStep: 'Initializing',
+    stepsCompleted: 0,
+    totalSteps: 100,
+    estimatedTimeRemaining: 0,
+    startedAt: '',
+    processingSpeed: 0
+  }),
   configuration: jsonb("configuration").$type<{
     startDate: string;
     endDate: string;
