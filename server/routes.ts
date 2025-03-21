@@ -20,8 +20,13 @@ import {
   insertBacktestSchema,
   insertDeploymentSchema,
   insertWatchlistSchema,
-  type ApiIntegration
+  insertAlertThresholdSchema,
+  insertNotificationSchema,
+  type ApiIntegration,
+  type AlertThreshold,
+  type Notification
 } from "@shared/schema";
+import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAlerts, type EvaluationContext } from "./notificationService";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";

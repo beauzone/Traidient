@@ -16,7 +16,13 @@ import {
   InsertDeployment,
   watchlist,
   WatchlistItem,
-  InsertWatchlistItem
+  InsertWatchlistItem,
+  alertThresholds,
+  AlertThreshold,
+  InsertAlertThreshold,
+  notifications,
+  Notification,
+  InsertNotification
 } from "@shared/schema";
 
 export interface IStorage {
@@ -62,6 +68,21 @@ export interface IStorage {
   getWatchlistItems(userId: number): Promise<WatchlistItem[]>;
   addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem>;
   removeFromWatchlist(id: number): Promise<boolean>;
+  
+  // Alert Thresholds
+  getAlertThreshold(id: number): Promise<AlertThreshold | undefined>;
+  getAlertThresholdsByUser(userId: number): Promise<AlertThreshold[]>;
+  createAlertThreshold(threshold: InsertAlertThreshold): Promise<AlertThreshold>;
+  updateAlertThreshold(id: number, threshold: Partial<AlertThreshold>): Promise<AlertThreshold | undefined>;
+  deleteAlertThreshold(id: number): Promise<boolean>;
+  
+  // Notifications
+  getNotification(id: number): Promise<Notification | undefined>;
+  getNotificationsByUser(userId: number, options?: { limit?: number, offset?: number, isRead?: boolean }): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<Notification | undefined>;
+  markAllNotificationsAsRead(userId: number): Promise<boolean>;
+  deleteNotification(id: number): Promise<boolean>;
 }
 
 import { db } from './db';
@@ -283,6 +304,115 @@ export class DatabaseStorage implements IStorage {
 
   async removeFromWatchlist(id: number): Promise<boolean> {
     const result = await db.delete(watchlist).where(eq(watchlist.id, id));
+    return result.count > 0;
+  }
+  
+  // Alert Threshold methods
+  async getAlertThreshold(id: number): Promise<AlertThreshold | undefined> {
+    const result = await db.select().from(alertThresholds).where(eq(alertThresholds.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getAlertThresholdsByUser(userId: number): Promise<AlertThreshold[]> {
+    return await db.select().from(alertThresholds).where(eq(alertThresholds.userId, userId));
+  }
+
+  async createAlertThreshold(threshold: InsertAlertThreshold): Promise<AlertThreshold> {
+    const now = new Date();
+    const [newThreshold] = await db.insert(alertThresholds).values({
+      ...threshold,
+      createdAt: now,
+      updatedAt: now
+    }).returning();
+    return newThreshold;
+  }
+
+  async updateAlertThreshold(id: number, thresholdData: Partial<AlertThreshold>): Promise<AlertThreshold | undefined> {
+    const now = new Date();
+    const [updatedThreshold] = await db.update(alertThresholds)
+      .set({
+        ...thresholdData,
+        updatedAt: now
+      })
+      .where(eq(alertThresholds.id, id))
+      .returning();
+    return updatedThreshold;
+  }
+
+  async deleteAlertThreshold(id: number): Promise<boolean> {
+    const result = await db.delete(alertThresholds).where(eq(alertThresholds.id, id));
+    return result.count > 0;
+  }
+  
+  // Notification methods
+  async getNotification(id: number): Promise<Notification | undefined> {
+    const result = await db.select().from(notifications).where(eq(notifications.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getNotificationsByUser(userId: number, options?: { limit?: number, offset?: number, isRead?: boolean }): Promise<Notification[]> {
+    let query = db.select().from(notifications).where(eq(notifications.userId, userId));
+    
+    // Apply additional filters if provided
+    if (options?.isRead !== undefined) {
+      query = query.where(eq(notifications.isRead, options.isRead));
+    }
+    
+    // Apply limit and offset
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+    
+    if (options?.offset) {
+      query = query.offset(options.offset);
+    }
+    
+    // Order by creation date, newest first
+    query = query.orderBy(notifications.createdAt, "desc");
+    
+    return await query;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const now = new Date();
+    const [newNotification] = await db.insert(notifications).values({
+      ...notification,
+      isRead: false,
+      isDeleted: false,
+      createdAt: now,
+      readAt: null
+    }).returning();
+    return newNotification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<Notification | undefined> {
+    const now = new Date();
+    const [updatedNotification] = await db.update(notifications)
+      .set({
+        isRead: true,
+        readAt: now
+      })
+      .where(eq(notifications.id, id))
+      .returning();
+    return updatedNotification;
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
+    const now = new Date();
+    const result = await db.update(notifications)
+      .set({
+        isRead: true,
+        readAt: now
+      })
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+    return result.count > 0;
+  }
+
+  async deleteNotification(id: number): Promise<boolean> {
+    const result = await db.delete(notifications).where(eq(notifications.id, id));
     return result.count > 0;
   }
 }
