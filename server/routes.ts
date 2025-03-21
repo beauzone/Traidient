@@ -2667,5 +2667,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User notification settings routes
+  app.get('/api/users/notification-settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Get all alert thresholds for the user to derive notification settings
+      const alertThresholds = await storage.getAlertThresholdsByUser(req.user.id);
+      
+      // Get phone number from user settings
+      const user = await storage.getUser(req.user.id);
+      const phoneNumber = user?.settings?.phoneNumber || '';
+      
+      // Create a map of alert type to settings
+      const alertSettings: Record<string, any> = {};
+      
+      // Default alert types
+      const defaultAlertTypes = [
+        'price', 'price_change_percent', 'volume', 
+        'order_placed', 'order_filled', 'order_rejected', 
+        'backtest_finished', 'strategy_performance', 'market_events'
+      ];
+      
+      // Initialize defaults for all alert types
+      for (const type of defaultAlertTypes) {
+        alertSettings[type] = {
+          enabled: true,
+          channels: {
+            app: true,
+            email: user?.settings?.notifications?.email || false,
+            sms: user?.settings?.notifications?.sms || false
+          }
+        };
+      }
+      
+      // Override with any custom settings from alert thresholds
+      for (const threshold of alertThresholds) {
+        if (threshold.type in alertSettings) {
+          alertSettings[threshold.type] = {
+            enabled: threshold.enabled,
+            channels: {
+              app: threshold.notifications.channels.includes('app'),
+              email: threshold.notifications.channels.includes('email'),
+              sms: threshold.notifications.channels.includes('sms')
+            }
+          };
+        }
+      }
+      
+      // Global settings (enabled if any notification channel is enabled)
+      const globalEnabled = user?.settings?.notifications?.email || 
+                          user?.settings?.notifications?.push || 
+                          user?.settings?.notifications?.sms || 
+                          true;
+      
+      res.json({
+        globalEnabled,
+        phoneNumber,
+        alertSettings
+      });
+    } catch (error) {
+      console.error('Get notification settings error:', error);
+      res.status(500).json({ message: 'Error retrieving notification settings' });
+    }
+  });
+  
+  app.put('/api/users/notification-settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { globalEnabled, phoneNumber, alertSettings } = req.body;
+      
+      // Update the user's global notification settings
+      const userUpdateData: Partial<User> = {
+        settings: {
+          ...(req.user.settings || {}),
+          phoneNumber,
+          notifications: {
+            email: globalEnabled,
+            push: globalEnabled,
+            sms: globalEnabled
+          }
+        }
+      };
+      
+      await storage.updateUser(req.user.id, userUpdateData);
+      
+      // Get existing alert thresholds for the user
+      const existingThresholds = await storage.getAlertThresholdsByUser(req.user.id);
+      const existingThresholdByType: Record<string, AlertThreshold> = {};
+      
+      for (const threshold of existingThresholds) {
+        existingThresholdByType[threshold.type] = threshold;
+      }
+      
+      // Update or create alert thresholds based on the new settings
+      for (const [type, settings] of Object.entries(alertSettings)) {
+        const alertEnabled = settings.enabled;
+        const channels = [];
+        
+        if (settings.channels.app) channels.push('app');
+        if (settings.channels.email) channels.push('email');
+        if (settings.channels.sms) channels.push('sms');
+        
+        const notificationSettings = {
+          channels,
+          severity: 'medium', // Default severity
+          throttle: {
+            enabled: false
+          }
+        };
+        
+        if (existingThresholdByType[type]) {
+          // Update existing threshold
+          await storage.updateAlertThreshold(existingThresholdByType[type].id, {
+            enabled: alertEnabled,
+            notifications: notificationSettings
+          });
+        } else {
+          // Create a new threshold for this alert type
+          const newThreshold: InsertAlertThreshold = {
+            userId: req.user.id,
+            name: `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} Alert`,
+            type,
+            enabled: alertEnabled,
+            conditions: {},
+            notifications: notificationSettings
+          };
+          
+          await storage.createAlertThreshold(newThreshold);
+        }
+      }
+      
+      res.json({
+        globalEnabled, 
+        phoneNumber,
+        alertSettings,
+        message: 'Notification settings updated successfully'
+      });
+    } catch (error) {
+      console.error('Update notification settings error:', error);
+      res.status(500).json({ message: 'Error updating notification settings' });
+    }
+  });
+
   return httpServer;
 }

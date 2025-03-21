@@ -26,6 +26,7 @@ export const users = pgTable("users", {
       push: boolean;
       sms: boolean;
     };
+    phoneNumber?: string;
     defaultExchange: string;
     defaultAssets: string[];
     backtestDataProvider: 'alpaca' | 'yahoo' | 'polygon';
@@ -36,6 +37,7 @@ export const users = pgTable("users", {
       push: true,
       sms: false
     },
+    phoneNumber: '',
     defaultExchange: 'alpaca',
     defaultAssets: ['AAPL', 'MSFT', 'GOOGL', 'AMZN'],
     backtestDataProvider: 'yahoo'
