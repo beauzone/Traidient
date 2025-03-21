@@ -111,13 +111,20 @@ const NotificationSettingsPage = () => {
     queryKey: ['/api/users/notification-settings'],
     queryFn: async () => {
       try {
-        return await fetchData('/api/users/notification-settings');
+        return await fetchData<NotificationSettingsFormValues>('/api/users/notification-settings');
       } catch (error) {
         // If the API doesn't exist yet or returns an error, return defaults
         return {
           globalEnabled: true,
           phoneNumber: '',
-          alertSettings: alertTypes.reduce((acc, type) => {
+          alertSettings: alertTypes.reduce((acc: Record<string, {
+            enabled: boolean;
+            channels: {
+              app: boolean;
+              email: boolean;
+              sms: boolean;
+            }
+          }>, type) => {
             acc[type.id] = {
               enabled: true,
               channels: {
@@ -128,7 +135,7 @@ const NotificationSettingsPage = () => {
             };
             return acc;
           }, {})
-        };
+        } as NotificationSettingsFormValues;
       }
     }
   });
@@ -138,7 +145,14 @@ const NotificationSettingsPage = () => {
     defaultValues: alertSettings || {
       globalEnabled: true,
       phoneNumber: '',
-      alertSettings: alertTypes.reduce((acc, type) => {
+      alertSettings: alertTypes.reduce((acc: Record<string, {
+        enabled: boolean;
+        channels: {
+          app: boolean;
+          email: boolean;
+          sms: boolean;
+        }
+      }>, type) => {
         acc[type.id] = {
           enabled: true,
           channels: {
@@ -330,7 +344,7 @@ const AlertTypeSettings = ({
   disabled 
 }: { 
   alertType: { id: string, name: string, description: string }, 
-  form: any,
+  form: ReturnType<typeof useForm<NotificationSettingsFormValues>>,
   disabled: boolean
 }) => {
   // Watch the enabled state for this alert type

@@ -24,7 +24,9 @@ import {
   insertNotificationSchema,
   type ApiIntegration,
   type AlertThreshold,
-  type Notification
+  type Notification,
+  type User,
+  type InsertAlertThreshold
 } from "@shared/schema";
 import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAlerts, type EvaluationContext } from "./notificationService";
 import { z } from "zod";
@@ -2679,10 +2681,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get phone number from user settings
       const user = await storage.getUser(req.user.id);
-      const phoneNumber = user?.settings?.phoneNumber || '';
+      
+      // Use type assertion to access settings properly
+      const userSettings = user?.settings as {
+        theme: 'dark' | 'light';
+        notifications: {
+          email: boolean;
+          push: boolean;
+          sms: boolean;
+        };
+        phoneNumber?: string;
+        defaultExchange: string;
+        defaultAssets: string[];
+        backtestDataProvider: 'alpaca' | 'yahoo' | 'polygon';
+      } | undefined;
+      
+      const phoneNumber = userSettings?.phoneNumber || '';
       
       // Create a map of alert type to settings
-      const alertSettings: Record<string, any> = {};
+      const alertSettings: Record<string, {
+        enabled: boolean;
+        channels: {
+          app: boolean;
+          email: boolean;
+          sms: boolean;
+        };
+      }> = {};
       
       // Default alert types
       const defaultAlertTypes = [
@@ -2697,8 +2721,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           enabled: true,
           channels: {
             app: true,
-            email: user?.settings?.notifications?.email || false,
-            sms: user?.settings?.notifications?.sms || false
+            email: userSettings?.notifications?.email || false,
+            sms: userSettings?.notifications?.sms || false
           }
         };
       }
@@ -2718,9 +2742,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Global settings (enabled if any notification channel is enabled)
-      const globalEnabled = user?.settings?.notifications?.email || 
-                          user?.settings?.notifications?.push || 
-                          user?.settings?.notifications?.sms || 
+      const globalEnabled = userSettings?.notifications?.email || 
+                          userSettings?.notifications?.push || 
+                          userSettings?.notifications?.sms || 
                           true;
       
       res.json({
@@ -2742,10 +2766,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { globalEnabled, phoneNumber, alertSettings } = req.body;
       
+      // Use type assertion to access settings properly
+      const currentSettings = req.user.settings as {
+        theme: 'dark' | 'light';
+        notifications: {
+          email: boolean;
+          push: boolean;
+          sms: boolean;
+        };
+        phoneNumber?: string;
+        defaultExchange: string;
+        defaultAssets: string[];
+        backtestDataProvider: 'alpaca' | 'yahoo' | 'polygon';
+      } | undefined || {};
+      
       // Update the user's global notification settings
       const userUpdateData: Partial<User> = {
         settings: {
-          ...(req.user.settings || {}),
+          ...currentSettings,
           phoneNumber,
           notifications: {
             email: globalEnabled,
@@ -2767,16 +2805,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update or create alert thresholds based on the new settings
       for (const [type, settings] of Object.entries(alertSettings)) {
-        const alertEnabled = settings.enabled;
+        // Type assertion for TypeScript
+        const typedSettings = settings as { enabled: boolean, channels: { app: boolean, email: boolean, sms: boolean } };
+        const alertEnabled = typedSettings.enabled;
         const channels = [];
         
-        if (settings.channels.app) channels.push('app');
-        if (settings.channels.email) channels.push('email');
-        if (settings.channels.sms) channels.push('sms');
+        if (typedSettings.channels.app) channels.push('app');
+        if (typedSettings.channels.email) channels.push('email');
+        if (typedSettings.channels.sms) channels.push('sms');
         
         const notificationSettings = {
           channels,
-          severity: 'medium', // Default severity
+          severity: 'medium' as 'info' | 'low' | 'medium' | 'high' | 'critical', // Default severity with correct type
           throttle: {
             enabled: false
           }
