@@ -288,5 +288,117 @@ export type InsertBacktest = z.infer<typeof insertBacktestSchema>;
 export type Deployment = typeof deployments.$inferSelect;
 export type InsertDeployment = z.infer<typeof insertDeploymentSchema>;
 
+// Alert Threshold settings for users
+export const alertThresholds = pgTable("alert_thresholds", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'price', 'price_change_percent', 'volume', etc.
+  enabled: boolean("enabled").notNull().default(true),
+  
+  // Conditions JSON blob
+  conditions: jsonb("conditions").$type<{
+    symbol?: string;
+    strategyId?: number;
+    deploymentId?: number;
+    // For price alerts
+    price?: number;
+    priceDirection?: 'above' | 'below';
+    // For percentage change alerts
+    changePercent?: number;
+    timeframe?: string; // '1d', '1h', etc.
+    // For volume alerts
+    volume?: number;
+    // For P&L alerts
+    profitLossAmount?: number;
+    profitLossPercent?: number;
+    // For technical indicator alerts 
+    indicator?: {
+      type: 'ma' | 'ema' | 'rsi' | 'macd' | 'bollinger';
+      parameters: Record<string, any>;
+      condition: string; // e.g., 'cross_above', 'cross_below', etc.
+    };
+    // For market event alerts
+    eventType?: 'market_open' | 'market_close' | 'earnings' | 'economic_announcement';
+    // Additional conditions
+    filters?: Record<string, any>;
+  }>().notNull(),
+  
+  // Notification settings
+  notifications: jsonb("notifications").$type<{
+    channels: string[]; // Array of channels: 'app', 'email', 'sms', 'push'
+    severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+    throttle?: {
+      enabled: boolean;
+      maxPerDay?: number;
+      cooldownMinutes?: number;
+    };
+  }>().notNull(),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastTriggered: timestamp("last_triggered"),
+});
+
+export const insertAlertThresholdSchema = createInsertSchema(alertThresholds).pick({
+  userId: true,
+  name: true,
+  type: true,
+  enabled: true,
+  conditions: true,
+  notifications: true,
+});
+
+// Notifications history
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  thresholdId: integer("threshold_id").references(() => alertThresholds.id),
+  
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'price', 'price_change_percent', etc.
+  severity: varchar("severity", { length: 20 }).notNull(), // 'info', 'low', 'medium', 'high', 'critical'
+  
+  metadata: jsonb("metadata").$type<{
+    symbol?: string;
+    price?: number;
+    changePercent?: number;
+    volume?: number;
+    strategyId?: number;
+    deploymentId?: number;
+    additionalInfo?: Record<string, any>;
+  }>().notNull().default({}),
+  
+  deliveredChannels: jsonb("delivered_channels").$type<{
+    channel: string;
+    status: 'delivered' | 'failed';
+    failureReason?: string;
+    timestamp: string;
+  }[]>().notNull().default([]),
+  
+  isRead: boolean("is_read").notNull().default(false),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  readAt: timestamp("read_at"),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  userId: true,
+  thresholdId: true,
+  title: true,
+  message: true,
+  type: true,
+  severity: true,
+  metadata: true,
+});
+
 export type WatchlistItem = typeof watchlist.$inferSelect;
 export type InsertWatchlistItem = z.infer<typeof insertWatchlistSchema>;
+
+export type AlertThreshold = typeof alertThresholds.$inferSelect;
+export type InsertAlertThreshold = z.infer<typeof insertAlertThresholdSchema>;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
