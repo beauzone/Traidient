@@ -29,6 +29,7 @@ import {
   type InsertAlertThreshold
 } from "@shared/schema";
 import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAlerts, type EvaluationContext } from "./notificationService";
+import { sendVerificationCode, verifyPhoneNumber, isPhoneNumberVerified, sendAlertSMS } from "./twilio";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
