@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bell, ArrowLeft, AlertTriangle, ShoppingCart, BarChart } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { fetchData, updateData } from "@/lib/api";
@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "wouter";
 
 // Define alert types for the form
 const alertTypes = [
@@ -105,6 +106,7 @@ type NotificationSettingsFormValues = z.infer<typeof notificationSettingsSchema>
 const NotificationSettingsPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("alerts");
 
   // Query to fetch current notification settings
   const { data: alertSettings, isLoading } = useQuery({
@@ -201,17 +203,26 @@ const NotificationSettingsPage = () => {
 
   return (
     <MainLayout title="Notification Settings">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Notification Settings</CardTitle>
-            <CardDescription>
-              Configure how and when you want to be notified
-            </CardDescription>
+          <CardHeader className="border-b">
+            <div className="flex items-center">
+              <Link href="/settings">
+                <Button variant="ghost" size="icon" className="mr-2">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div>
+                <CardTitle className="text-2xl">Notification Settings</CardTitle>
+                <CardDescription>
+                  Configure how and when you want to be notified
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {isLoading ? (
-              <div className="space-y-4">
+              <div className="p-6 space-y-4">
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-24 w-full" />
@@ -219,114 +230,141 @@ const NotificationSettingsPage = () => {
             ) : (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="globalEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">
-                            Enable All Notifications
-                          </FormLabel>
+                  <div className="p-6">
+                    <FormField
+                      control={form.control}
+                      name="globalEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Enable All Notifications
+                            </FormLabel>
+                            <FormDescription>
+                              Quickly toggle all notifications on or off
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Mobile Phone Number</FormLabel>
+                          <FormControl>
+                            <input 
+                              type="tel" 
+                              placeholder="+1 555-123-4567"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={!globalEnabled}
+                              {...field}
+                            />
+                          </FormControl>
                           <FormDescription>
-                            Quickly toggle all notifications on or off
+                            For SMS notifications (include country code)
                           </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mobile Phone Number</FormLabel>
-                        <FormControl>
-                          <input 
-                            type="tel" 
-                            placeholder="+1 555-123-4567"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            disabled={!globalEnabled}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          For SMS notifications (include country code)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Separator className="my-4" />
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Alert Type Settings</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Customize notifications for each type of alert
-                    </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
-                  <Tabs defaultValue="alerts" className="w-full">
-                    <TabsList>
-                      <TabsTrigger value="alerts">Price Alerts</TabsTrigger>
-                      <TabsTrigger value="orders">Order Notifications</TabsTrigger>
-                      <TabsTrigger value="performance">Performance</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="alerts" className="space-y-4 pt-4">
-                      {/* Price related alerts */}
-                      {alertTypes.slice(0, 3).map(alertType => (
-                        <AlertTypeSettings 
-                          key={alertType.id}
-                          alertType={alertType}
-                          form={form}
-                          disabled={!globalEnabled}
-                        />
-                      ))}
-                    </TabsContent>
-                    
-                    <TabsContent value="orders" className="space-y-4 pt-4">
-                      {/* Order related alerts */}
-                      {alertTypes.slice(3, 6).map(alertType => (
-                        <AlertTypeSettings 
-                          key={alertType.id}
-                          alertType={alertType}
-                          form={form}
-                          disabled={!globalEnabled}
-                        />
-                      ))}
-                    </TabsContent>
-                    
-                    <TabsContent value="performance" className="space-y-4 pt-4">
-                      {/* Performance related alerts */}
-                      {alertTypes.slice(6).map(alertType => (
-                        <AlertTypeSettings 
-                          key={alertType.id}
-                          alertType={alertType}
-                          form={form}
-                          disabled={!globalEnabled}
-                        />
-                      ))}
-                    </TabsContent>
-                  </Tabs>
+                  <Separator />
 
-                  <Button type="submit" disabled={updateSettings.isPending}>
-                    {updateSettings.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-                      </>
-                    ) : (
-                      "Save Settings"
-                    )}
-                  </Button>
+                  <div className="px-6 pt-2">
+                    <h3 className="text-lg font-medium">Alert Type Settings</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Customize notifications for each type of alert
+                    </p>
+
+                    <TabsList className="w-full grid grid-cols-3 h-auto">
+                      <TabsTrigger 
+                        value="alerts" 
+                        className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                        onClick={() => setActiveTab("alerts")}
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Price Alerts
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="orders" 
+                        className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                        onClick={() => setActiveTab("orders")}
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        Order Notifications
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="performance" 
+                        className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                        onClick={() => setActiveTab("performance")}
+                      >
+                        <BarChart className="h-4 w-4 mr-2" />
+                        Performance
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <div className="px-6 pb-6">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                      <TabsContent value="alerts" className="mt-0 space-y-4">
+                        {/* Price related alerts */}
+                        {alertTypes.slice(0, 3).map(alertType => (
+                          <AlertTypeSettings 
+                            key={alertType.id}
+                            alertType={alertType}
+                            form={form}
+                            disabled={!globalEnabled}
+                          />
+                        ))}
+                      </TabsContent>
+                      
+                      <TabsContent value="orders" className="mt-0 space-y-4">
+                        {/* Order related alerts */}
+                        {alertTypes.slice(3, 6).map(alertType => (
+                          <AlertTypeSettings 
+                            key={alertType.id}
+                            alertType={alertType}
+                            form={form}
+                            disabled={!globalEnabled}
+                          />
+                        ))}
+                      </TabsContent>
+                      
+                      <TabsContent value="performance" className="mt-0 space-y-4">
+                        {/* Performance related alerts */}
+                        {alertTypes.slice(6).map(alertType => (
+                          <AlertTypeSettings 
+                            key={alertType.id}
+                            alertType={alertType}
+                            form={form}
+                            disabled={!globalEnabled}
+                          />
+                        ))}
+                      </TabsContent>
+                    </Tabs>
+
+                    <div className="mt-6 flex justify-end">
+                      <Button type="submit" disabled={updateSettings.isPending}>
+                        {updateSettings.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+                          </>
+                        ) : (
+                          "Save Settings"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </form>
               </Form>
             )}

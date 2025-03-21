@@ -8,11 +8,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Bell } from "lucide-react";
+import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { updateData } from "@/lib/api";
 import { Link } from "wouter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
 
 const profileSchema = z.object({
   name: z.string().min(2, {
@@ -25,9 +29,24 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
+interface TabDefinition {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+}
+
 const SettingsPage = () => {
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("general");
+
+  const tabs: TabDefinition[] = [
+    { id: "general", name: "General", icon: User },
+    { id: "notifications", name: "Notifications", icon: Bell },
+    { id: "dataProviders", name: "Data Providers", icon: Database },
+    { id: "tradeData", name: "Trade Data", icon: BookOpenCheck },
+    { id: "accountData", name: "Account Data", icon: Server },
+  ];
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -63,82 +82,268 @@ const SettingsPage = () => {
 
   return (
     <MainLayout title="Settings">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Profile Settings</CardTitle>
-            <CardDescription>
-              Update your personal information
-            </CardDescription>
+            <CardTitle className="text-2xl">Settings</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Your name" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        This is your public display name
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="Your email" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Your email address for notifications and updates
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={updateProfile.isPending}>
-                  {updateProfile.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-                    </>
-                  ) : (
-                    "Update Profile"
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+          <CardContent className="p-0">
+            <div className="px-6 pb-3">
+              <TabsList className="w-full grid grid-cols-5 h-auto">
+                {tabs.map((tab) => (
+                  <TabsTrigger 
+                    key={tab.id} 
+                    value={tab.id}
+                    className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    <tab.icon className="h-4 w-4 mr-2" />
+                    {tab.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Notification Settings</CardTitle>
-            <CardDescription>
-              Configure how and when you want to be notified
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Control which notifications you receive and how they are delivered.
-                Configure per-alert type settings including channel selection (in-app, email, SMS).
-              </p>
-              <Link href="/notification-settings">
-                <Button className="mt-2">
-                  <Bell className="mr-2 h-4 w-4" />
-                  Manage Notification Preferences
-                </Button>
-              </Link>
+            <div className="p-6 border-t">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                {/* General Settings Tab */}
+                <TabsContent value="general" className="mt-0 space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Display</h3>
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Theme</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="border rounded-md p-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-primary/5 data-[state=active]:bg-primary/10 data-[state=active]:border-primary">
+                            <Sun className="h-5 w-5 mr-2" />
+                            <span>Light</span>
+                          </div>
+                          <div className="border rounded-md p-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-primary/5 bg-primary/10 border-primary">
+                            <Moon className="h-5 w-5 mr-2" />
+                            <span>Dark</span>
+                          </div>
+                        </div>
+                      </div>
+                    
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Default Currency</h4>
+                        <Select defaultValue="usd">
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="usd">US Dollar ($)</SelectItem>
+                            <SelectItem value="eur">Euro (€)</SelectItem>
+                            <SelectItem value="gbp">British Pound (£)</SelectItem>
+                            <SelectItem value="jpy">Japanese Yen (¥)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Profile Information</h3>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Your name" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                This is your public display name
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="Your email" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Your email address for notifications and updates
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="submit" disabled={updateProfile.isPending}>
+                          {updateProfile.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+                            </>
+                          ) : (
+                            "Save Profile"
+                          )}
+                        </Button>
+                      </form>
+                    </Form>
+                  </div>
+                </TabsContent>
+
+                {/* Notifications Tab */}
+                <TabsContent value="notifications" className="mt-0 space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Notification Preferences</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Control which notifications you receive and how they are delivered.
+                      Configure per-alert type settings including channel selection (in-app, email, SMS).
+                    </p>
+                    
+                    <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
+                          Enable All Notifications
+                        </FormLabel>
+                        <FormDescription>
+                          Quickly toggle all notifications on or off
+                        </FormDescription>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <Link href="/notification-settings">
+                      <Button className="mt-2">
+                        <Bell className="mr-2 h-4 w-4" />
+                        Manage Detailed Notification Settings
+                      </Button>
+                    </Link>
+                  </div>
+                </TabsContent>
+
+                {/* Data Providers Tab */}
+                <TabsContent value="dataProviders" className="mt-0 space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Market Data Providers</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Configure your preferred market data sources for quotes, historical data, and backtesting.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Default Backtest Data Provider</h4>
+                        <Select defaultValue="yahoo">
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="alpaca">Alpaca</SelectItem>
+                            <SelectItem value="yahoo">Yahoo Finance</SelectItem>
+                            <SelectItem value="polygon">Polygon.io</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Real-time Market Data</h4>
+                        <Select defaultValue="alpaca">
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="alpaca">Alpaca</SelectItem>
+                            <SelectItem value="polygon">Polygon.io</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <Button className="mt-2">
+                      <Database className="mr-2 h-4 w-4" />
+                      Manage API Integrations
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                {/* Trade Data Tab */}
+                <TabsContent value="tradeData" className="mt-0 space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Trade Data Settings</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Configure settings related to your trading data, including order handling and reporting.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Order Confirmations
+                          </FormLabel>
+                          <FormDescription>
+                            Show confirmation dialogs before placing orders
+                          </FormDescription>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                      
+                      <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Export Trade History
+                          </FormLabel>
+                          <FormDescription>
+                            Enable automatic export of trade history for tax reporting
+                          </FormDescription>
+                        </div>
+                        <Switch />
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Account Data Tab */}
+                <TabsContent value="accountData" className="mt-0 space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Account Data Settings</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Configure settings for your trading accounts and brokerage connections.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Default Trading Account</h4>
+                        <Select defaultValue="alpaca-paper">
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select account" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="alpaca-paper">Alpaca Paper Trading</SelectItem>
+                            <SelectItem value="alpaca-live">Alpaca Live Trading</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Auto-refresh Account Data
+                          </FormLabel>
+                          <FormDescription>
+                            Automatically refresh account balances and positions
+                          </FormDescription>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                    </div>
+                    
+                    <Button className="mt-2">
+                      <Server className="mr-2 h-4 w-4" />
+                      Manage Broker Connections
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
           </CardContent>
         </Card>
