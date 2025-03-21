@@ -12,6 +12,8 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<any> { // Change return type to any to handle JSON responses
+  // TEMPORARY: In demo mode, we don't actually need to send tokens since auth is bypassed
+  // But we'll still include the demo token in the headers for consistency
   const token = localStorage.getItem('token');
   console.log(`API Request to ${url} - Token exists: ${!!token}`);
   
@@ -78,6 +80,9 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const url = queryKey[0] as string;
+    
+    // TEMPORARY: In demo mode, we don't need to send tokens since auth is bypassed on server
+    // But we'll still include the demo token in the headers for consistency
     const token = localStorage.getItem('token');
     console.log(`Query to ${url} - Token exists: ${!!token}`);
     

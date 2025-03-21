@@ -25,6 +25,7 @@ import DebugPage from "@/pages/debug";
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
+  // TEMPORARY: Demo mode - skip auth check and always render component
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -33,7 +34,10 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
     </div>;
   }
 
+  // In demo mode, we auto-authenticate in AuthContext, so this should never happen
+  // But just in case, we still include this check
   if (!isAuthenticated) {
+    console.log("Demo mode: Authentication check failed, redirecting to login");
     return <Redirect to="/login" />;
   }
 
@@ -41,6 +45,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 }
 
 function PublicRoute({ component: Component, ...rest }: any) {
+  // TEMPORARY: Demo mode - we should always redirect to dashboard
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -49,10 +54,12 @@ function PublicRoute({ component: Component, ...rest }: any) {
     </div>;
   }
 
+  // In demo mode, we should be auto-authenticated and redirect to dashboard
   if (isAuthenticated) {
     return <Redirect to="/dashboard" />;
   }
 
+  // This should never happen in demo mode, but just in case
   return <Component {...rest} />;
 }
 

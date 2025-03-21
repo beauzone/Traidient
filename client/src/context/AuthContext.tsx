@@ -65,6 +65,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
+      // TEMPORARY: Demo mode auto-login
+      console.log('DEMO MODE: Auto-authentication enabled');
+      
+      try {
+        console.log('Making /api/auth/me request in demo mode');
+        const response = await fetch('/api/auth/me');
+        
+        console.log('Auth check response status:', response.status);
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('Demo auth successful, user data:', userData);
+          setUser(userData);
+          
+          // Create a demo token for client-side use
+          const demoToken = "demo-mode-token";
+          localStorage.setItem('token', demoToken);
+          setToken(demoToken);
+        } else {
+          console.log('Demo auth response not OK:', response.status);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Demo auth check failed:', error);
+        setIsLoading(false);
+      }
+      
+      setIsLoading(false);
+      
+      /* Original auth code - commented out for demo
       const storedToken = localStorage.getItem('token');
       console.log('Checking auth with token:', storedToken ? 'Token exists' : 'No token found');
       
@@ -120,10 +150,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
       setIsLoading(false);
+      */
     };
 
     checkAuth();
-  }, [token]);
+  }, []);
 
   const login = async (username: string, password: string) => {
     try {
