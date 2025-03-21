@@ -87,7 +87,7 @@ export interface IStorage {
 }
 
 import { db } from './db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, SQL, asc } from 'drizzle-orm';
 
 export class DatabaseStorage implements IStorage {
   // User methods
@@ -352,12 +352,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNotificationsByUser(userId: number, options?: { limit?: number, offset?: number, isRead?: boolean }): Promise<Notification[]> {
+    // Start with base query
     let query = db.select().from(notifications).where(eq(notifications.userId, userId));
     
-    // Apply additional filters if provided
+    // Add read filter if provided
     if (options?.isRead !== undefined) {
       query = query.where(eq(notifications.isRead, options.isRead));
     }
+    
+    // Order by creation date, newest first
+    query = query.orderBy(desc(notifications.createdAt));
     
     // Apply limit and offset
     if (options?.limit) {
@@ -367,9 +371,6 @@ export class DatabaseStorage implements IStorage {
     if (options?.offset) {
       query = query.offset(options.offset);
     }
-    
-    // Order by creation date, newest first
-    query = query.orderBy(notifications.createdAt, "desc");
     
     return await query;
   }
