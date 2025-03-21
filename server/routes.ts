@@ -2472,5 +2472,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alert Thresholds API Routes
+  app.get('/api/alert-thresholds', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const thresholds = await storage.getAlertThresholdsByUser(req.user!.id);
+      res.json(thresholds);
+    } catch (error) {
+      console.error('Error fetching alert thresholds:', error);
+      res.status(500).json({ message: 'Error fetching alert thresholds' });
+    }
+  });
+
+  app.get('/api/alert-thresholds/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const threshold = await storage.getAlertThreshold(Number(req.params.id));
+      
+      if (!threshold) {
+        return res.status(404).json({ message: 'Alert threshold not found' });
+      }
+      
+      // Check if the threshold belongs to the user
+      if (threshold.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to access this alert threshold' });
+      }
+      
+      res.json(threshold);
+    } catch (error) {
+      console.error('Error fetching alert threshold:', error);
+      res.status(500).json({ message: 'Error fetching alert threshold' });
+    }
+  });
+
+  app.post('/api/alert-thresholds', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const validatedData = insertAlertThresholdSchema.parse({
+        ...req.body,
+        userId: req.user!.id
+      });
+      
+      const threshold = await storage.createAlertThreshold(validatedData);
+      res.status(201).json(threshold);
+    } catch (error) {
+      console.error('Error creating alert threshold:', error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: 'Invalid alert threshold data', 
+          errors: error.errors 
+        });
+      }
+      
+      res.status(500).json({ message: 'Error creating alert threshold' });
+    }
+  });
+
+  app.put('/api/alert-thresholds/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const threshold = await storage.getAlertThreshold(id);
+      
+      if (!threshold) {
+        return res.status(404).json({ message: 'Alert threshold not found' });
+      }
+      
+      // Check if the threshold belongs to the user
+      if (threshold.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to update this alert threshold' });
+      }
+      
+      // Remove userId from update data (can't change owner)
+      const { userId, ...updateData } = req.body;
+      
+      const updatedThreshold = await storage.updateAlertThreshold(id, updateData);
+      res.json(updatedThreshold);
+    } catch (error) {
+      console.error('Error updating alert threshold:', error);
+      res.status(500).json({ message: 'Error updating alert threshold' });
+    }
+  });
+
+  app.delete('/api/alert-thresholds/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const threshold = await storage.getAlertThreshold(id);
+      
+      if (!threshold) {
+        return res.status(404).json({ message: 'Alert threshold not found' });
+      }
+      
+      // Check if the threshold belongs to the user
+      if (threshold.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this alert threshold' });
+      }
+      
+      await storage.deleteAlertThreshold(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting alert threshold:', error);
+      res.status(500).json({ message: 'Error deleting alert threshold' });
+    }
+  });
+
+  // Notifications API Routes
+  app.get('/api/notifications', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      const offset = req.query.offset ? Number(req.query.offset) : undefined;
+      const isRead = req.query.isRead ? req.query.isRead === 'true' : undefined;
+      
+      const notifications = await storage.getNotificationsByUser(req.user!.id, {
+        limit,
+        offset,
+        isRead
+      });
+      
+      res.json(notifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ message: 'Error fetching notifications' });
+    }
+  });
+
+  app.get('/api/notifications/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const notification = await storage.getNotification(Number(req.params.id));
+      
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+      
+      // Check if the notification belongs to the user
+      if (notification.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to access this notification' });
+      }
+      
+      res.json(notification);
+    } catch (error) {
+      console.error('Error fetching notification:', error);
+      res.status(500).json({ message: 'Error fetching notification' });
+    }
+  });
+
+  app.put('/api/notifications/:id/read', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const notification = await storage.getNotification(id);
+      
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+      
+      // Check if the notification belongs to the user
+      if (notification.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to update this notification' });
+      }
+      
+      const updatedNotification = await storage.markNotificationAsRead(id);
+      res.json(updatedNotification);
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ message: 'Error marking notification as read' });
+    }
+  });
+
+  app.put('/api/notifications/mark-all-read', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      await storage.markAllNotificationsAsRead(req.user!.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      res.status(500).json({ message: 'Error marking all notifications as read' });
+    }
+  });
+
+  app.delete('/api/notifications/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const notification = await storage.getNotification(id);
+      
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+      
+      // Check if the notification belongs to the user
+      if (notification.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this notification' });
+      }
+      
+      await storage.deleteNotification(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      res.status(500).json({ message: 'Error deleting notification' });
+    }
+  });
+
   return httpServer;
 }

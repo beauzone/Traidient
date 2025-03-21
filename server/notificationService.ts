@@ -238,7 +238,7 @@ async function deliverNotification(
           });
           break;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to deliver notification to ${channel}:`, error);
       deliveredChannels.push({
         channel,
@@ -274,7 +274,7 @@ function getVolumeAlertMessage(threshold: AlertThreshold, context: EvaluationCon
   const { symbol, volume } = threshold.conditions;
   const currentVolume = context.marketData?.volume || 0;
   
-  return `${symbol} volume has reached ${currentVolume.toLocaleString()} shares, exceeding your threshold of ${volume.toLocaleString()}.`;
+  return `${symbol} volume has reached ${currentVolume.toLocaleString()} shares, exceeding your threshold of ${volume ? volume.toLocaleString() : '0'}.`;
 }
 
 function getProfitLossAlertMessage(threshold: AlertThreshold, context: EvaluationContext): string {
