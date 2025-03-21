@@ -8,6 +8,7 @@
 
 import { storage } from './storage';
 import { User } from '@shared/schema';
+import twilio from 'twilio';
 
 // Define a type for the phone verification data
 interface PhoneVerification {
@@ -28,8 +29,7 @@ let twilioClient: any;
 // Only initialize Twilio client if environment variables are present
 if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER) {
   try {
-    // Import Twilio dynamically to prevent issues if credentials aren't available
-    const twilio = require('twilio');
+    // Initialize Twilio client with ES modules syntax
     twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
     console.log("Twilio client initialized successfully");
   } catch (error) {

@@ -2692,7 +2692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { globalEnabled, phoneNumber, alertSettings } = req.body;
       
       // Use type assertion to access settings properly
-      const currentSettings = req.user.settings as {
+      const currentSettings = (req.user.settings || {}) as {
         theme: 'dark' | 'light';
         notifications: {
           email: boolean;
@@ -2700,22 +2700,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sms: boolean;
         };
         phoneNumber?: string;
+        phoneVerification?: {
+          verified: boolean;
+          verifiedAt?: string;
+          code?: string;
+          expiresAt?: string;
+        };
         defaultExchange: string;
         defaultAssets: string[];
         backtestDataProvider: 'alpaca' | 'yahoo' | 'polygon';
-      } | undefined || {};
+      };
+      
+      // Build up the notification settings object with proper typing
+      const updatedSettings = {
+        theme: 'dark' as 'dark' | 'light', // Set default values
+        phoneNumber,
+        defaultExchange: 'alpaca',
+        defaultAssets: ['AAPL', 'MSFT', 'GOOGL', 'AMZN'], 
+        backtestDataProvider: 'yahoo' as 'alpaca' | 'yahoo' | 'polygon', 
+        notifications: {
+          email: globalEnabled,
+          push: globalEnabled,
+          sms: globalEnabled
+        },
+        // Preserve phone verification data if it exists
+        phoneVerification: currentSettings.phoneVerification
+      };
+      
+      // Override with existing user settings if available
+      if (currentSettings.theme) updatedSettings.theme = currentSettings.theme;
+      if (currentSettings.defaultExchange) updatedSettings.defaultExchange = currentSettings.defaultExchange;
+      if (currentSettings.defaultAssets) updatedSettings.defaultAssets = currentSettings.defaultAssets;
+      if (currentSettings.backtestDataProvider) updatedSettings.backtestDataProvider = currentSettings.backtestDataProvider;
       
       // Update the user's global notification settings
       const userUpdateData: Partial<User> = {
-        settings: {
-          ...currentSettings,
-          phoneNumber,
-          notifications: {
-            email: globalEnabled,
-            push: globalEnabled,
-            sms: globalEnabled
-          }
-        }
+        settings: updatedSettings
       };
       
       await storage.updateUser(req.user.id, userUpdateData);
@@ -2777,6 +2797,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Update notification settings error:', error);
       res.status(500).json({ message: 'Error updating notification settings' });
+    }
+  });
+
+  // Phone verification routes
+  
+  // Send verification code
+  app.post('/api/users/verify-phone/send', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ message: 'Phone number is required' });
+      }
+      
+      // Basic phone number validation
+      const phoneRegex = /^\+[1-9]\d{1,14}$/; // E.164 format
+      if (!phoneRegex.test(phoneNumber)) {
+        return res.status(400).json({ 
+          message: 'Invalid phone number format. Please use international format (e.g., +12025550123)' 
+        });
+      }
+      
+      // Send verification code
+      const result = await sendVerificationCode(userId, phoneNumber);
+      
+      if (result.success) {
+        res.status(200).json({ 
+          message: result.message,
+          success: true
+        });
+      } else {
+        res.status(500).json({ 
+          message: result.message,
+          success: false
+        });
+      }
+    } catch (error) {
+      console.error("Error sending verification code:", error);
+      res.status(500).json({ 
+        message: 'Server error while sending verification code',
+        success: false
+      });
+    }
+  });
+
+  // Verify code
+  app.post('/api/users/verify-phone/verify', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: 'Verification code is required' });
+      }
+      
+      // Verify the code
+      const result = await verifyPhoneNumber(userId, code);
+      
+      res.status(result.success ? 200 : 400).json({ 
+        message: result.message,
+        verified: result.verified,
+        success: result.success
+      });
+    } catch (error) {
+      console.error("Error verifying phone number:", error);
+      res.status(500).json({ 
+        message: 'Server error while verifying phone number',
+        success: false,
+        verified: false
+      });
+    }
+  });
+
+  // Check verification status
+  app.get('/api/users/verify-phone/status', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const verified = await isPhoneNumberVerified(userId);
+      
+      res.status(200).json({ 
+        verified
+      });
+    } catch (error) {
+      console.error("Error checking phone verification status:", error);
+      res.status(500).json({ 
+        message: 'Server error while checking verification status',
+        verified: false
+      });
     }
   });
 
