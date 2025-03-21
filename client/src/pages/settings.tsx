@@ -88,24 +88,23 @@ const SettingsPage = () => {
             <CardTitle className="text-2xl">Settings</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="px-6 pb-3">
-              <TabsList className="w-full grid grid-cols-5 h-auto">
-                {tabs.map((tab) => (
-                  <TabsTrigger 
-                    key={tab.id} 
-                    value={tab.id}
-                    className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    <tab.icon className="h-4 w-4 mr-2" />
-                    {tab.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <div className="px-6 pb-3">
+                <TabsList className="w-full grid grid-cols-5 h-auto">
+                  {tabs.map((tab) => (
+                    <TabsTrigger 
+                      key={tab.id} 
+                      value={tab.id}
+                      className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                    >
+                      <tab.icon className="h-4 w-4 mr-2" />
+                      {tab.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
 
-            <div className="p-6 border-t">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <div className="p-6 border-t">
                 {/* General Settings Tab */}
                 <TabsContent value="general" className="mt-0 space-y-6">
                   <div>
@@ -203,12 +202,12 @@ const SettingsPage = () => {
                     
                     <div className="flex flex-row items-center justify-between rounded-lg border p-4">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">
+                        <div className="text-base font-medium">
                           Enable All Notifications
-                        </FormLabel>
-                        <FormDescription>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
                           Quickly toggle all notifications on or off
-                        </FormDescription>
+                        </div>
                       </div>
                       <Switch defaultChecked />
                     </div>
@@ -277,24 +276,24 @@ const SettingsPage = () => {
                     <div className="space-y-4">
                       <div className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">
+                          <div className="text-base font-medium">
                             Order Confirmations
-                          </FormLabel>
-                          <FormDescription>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
                             Show confirmation dialogs before placing orders
-                          </FormDescription>
+                          </div>
                         </div>
                         <Switch defaultChecked />
                       </div>
                       
                       <div className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">
+                          <div className="text-base font-medium">
                             Export Trade History
-                          </FormLabel>
-                          <FormDescription>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
                             Enable automatic export of trade history for tax reporting
-                          </FormDescription>
+                          </div>
                         </div>
                         <Switch />
                       </div>
@@ -326,12 +325,12 @@ const SettingsPage = () => {
                       
                       <div className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">
+                          <div className="text-base font-medium">
                             Auto-refresh Account Data
-                          </FormLabel>
-                          <FormDescription>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
                             Automatically refresh account balances and positions
-                          </FormDescription>
+                          </div>
                         </div>
                         <Switch defaultChecked />
                       </div>
@@ -343,8 +342,8 @@ const SettingsPage = () => {
                     </Button>
                   </div>
                 </TabsContent>
-              </Tabs>
-            </div>
+              </div>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
