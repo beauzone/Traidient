@@ -27,6 +27,12 @@ export const users = pgTable("users", {
       sms: boolean;
     };
     phoneNumber?: string;
+    phoneVerification?: {
+      verified: boolean;
+      verifiedAt?: string;
+      code?: string;
+      expiresAt?: string;
+    };
     defaultExchange: string;
     defaultAssets: string[];
     backtestDataProvider: 'alpaca' | 'yahoo' | 'polygon';

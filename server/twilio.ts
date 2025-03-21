@@ -7,6 +7,16 @@
  */
 
 import { storage } from './storage';
+import { User } from '@shared/schema';
+
+// Define a type for the phone verification data
+interface PhoneVerification {
+  verified: boolean;
+  verifiedAt?: string;
+  code?: string;
+  expiresAt?: string;
+  phoneNumber?: string;
+}
 
 // Check if the required Twilio environment variables are set
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
@@ -60,14 +70,19 @@ async function storeVerificationCode(
 
     // Update or create user settings with verification data
     const currentSettings = user.settings || {};
+    const phoneVerificationData: PhoneVerification = {
+      verified: false,
+      verifiedAt: undefined,
+      code,
+      expiresAt: expiresAt.toISOString(),
+      phoneNumber // Store phoneNumber in verification data for reference
+    };
+    
     const updatedSettings = {
       ...currentSettings,
-      phoneVerification: {
-        phoneNumber,
-        code,
-        expiresAt: expiresAt.toISOString(),
-        verified: false
-      }
+      phoneVerification: phoneVerificationData,
+      // Also store the phone number at user settings level
+      phoneNumber
     };
 
     await storage.updateUser(userId, { settings: updatedSettings });
@@ -148,10 +163,10 @@ export async function verifyPhoneNumber(
       };
     }
 
-    const verification = user.settings.phoneVerification;
+    const verification = user.settings.phoneVerification as PhoneVerification;
     
     // Check if verification has expired
-    const expiresAt = new Date(verification.expiresAt);
+    const expiresAt = verification.expiresAt ? new Date(verification.expiresAt) : new Date(0);
     if (expiresAt < new Date()) {
       return { 
         success: false, 
