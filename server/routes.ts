@@ -27,7 +27,58 @@ import { z } from "zod";
 const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
 
 // Helper for authentication
+// TEMPORARY: Authentication bypass for demo purposes
 const authMiddleware = async (req: Request, res: Response, next: Function) => {
+  // Skip authentication and use a default user
+  try {
+    // Get the existing user with id 2 to make sure we have valid data
+    const demoUser = await storage.getUser(2);
+    
+    if (demoUser) {
+      (req as any).user = demoUser;
+      next();
+      return;
+    } else {
+      // Fallback to a hardcoded demo user if no user exists
+      (req as any).user = {
+        id: 2,
+        username: 'demo-user',
+        email: 'demo@example.com',
+        name: 'Demo User',
+        hashedPassword: '',
+        subscription: {
+          tier: 'professional',
+          status: 'active',
+          expiresAt: '2030-01-01'
+        },
+        settings: {
+          theme: 'dark',
+          notifications: {
+            email: false,
+            push: false,
+            sms: false
+          },
+          defaultExchange: 'NYSE',
+          defaultAssets: ['AAPL', 'MSFT', 'GOOGL']
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      next();
+    }
+  } catch (error) {
+    console.error('Demo auth error:', error);
+    
+    // Even if there's an error, allow access with a basic demo user
+    (req as any).user = {
+      id: 2,
+      username: 'demo-user',
+      name: 'Demo User'
+    };
+    next();
+  }
+  
+  /* Original auth code - commented out for demo
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -48,6 +99,7 @@ const authMiddleware = async (req: Request, res: Response, next: Function) => {
     console.error('Auth error:', error);
     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
   }
+  */
 };
 
 // Type for requests with user
@@ -83,6 +135,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Handle authentication
         if (data.type === 'auth') {
           try {
+            // TEMPORARY: Demo mode auto-authentication
+            // Always use the demo user account (id: 2)
+            userId = 2;
+            
+            // Store connection for this user
+            if (!marketDataConnections.has(userId)) {
+              marketDataConnections.set(userId, new Set());
+            }
+            marketDataConnections.get(userId)?.add(ws);
+            
+            ws.send(JSON.stringify({ 
+              type: 'auth_success',
+              message: 'Successfully authenticated (Demo Mode)'
+            }));
+            
+            /* Original auth code - commented out for demo
             const decoded = jwt.verify(data.token, JWT_SECRET) as { userId: number };
             const user = await storage.getUser(decoded.userId);
             
@@ -103,10 +171,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               type: 'auth_success',
               message: 'Successfully authenticated'
             }));
+            */
           } catch (error) {
+            // Even if there's an error, still authenticate in demo mode
+            userId = 2;
+            
+            // Store connection for this user
+            if (!marketDataConnections.has(userId)) {
+              marketDataConnections.set(userId, new Set());
+            }
+            marketDataConnections.get(userId)?.add(ws);
+            
             ws.send(JSON.stringify({ 
-              type: 'error', 
-              message: 'Invalid authentication token'
+              type: 'auth_success',
+              message: 'Successfully authenticated (Demo Mode)'
             }));
           }
         }
