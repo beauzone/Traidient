@@ -8,10 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bell } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { updateData } from "@/lib/api";
+import { Link } from "wouter";
 
 const profileSchema = z.object({
   name: z.string().min(2, {
@@ -116,6 +117,29 @@ const SettingsPage = () => {
                 </Button>
               </form>
             </Form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Notification Settings</CardTitle>
+            <CardDescription>
+              Configure how and when you want to be notified
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Control which notifications you receive and how they are delivered.
+                Configure per-alert type settings including channel selection (in-app, email, SMS).
+              </p>
+              <Link href="/notification-settings">
+                <Button className="mt-2">
+                  <Bell className="mr-2 h-4 w-4" />
+                  Manage Notification Preferences
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

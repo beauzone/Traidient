@@ -18,6 +18,7 @@ import LiveTrading from "@/pages/live-trading";
 import MarketData from "@/pages/market-data";
 import MarketTest from "@/pages/market-test";
 import Settings from "@/pages/settings";
+import NotificationSettings from "@/pages/notification-settings";
 import Integrations from "@/pages/integrations";
 import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
@@ -98,6 +99,9 @@ function AppRoutes() {
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
+      </Route>
+      <Route path="/notification-settings">
+        <ProtectedRoute component={NotificationSettings} />
       </Route>
       <Route path="/integrations">
         <ProtectedRoute component={Integrations} />
