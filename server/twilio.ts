@@ -150,7 +150,16 @@ export async function sendVerificationCode(
         sid: result.sid,
         status: result.status,
         errorCode: result.errorCode || 'none',
-        errorMessage: result.errorMessage || 'none'
+        errorMessage: result.errorMessage || 'none',
+        accountSid: result.accountSid,
+        apiVersion: result.apiVersion,
+        dateCreated: result.dateCreated,
+        dateUpdated: result.dateUpdated,
+        direction: result.direction,
+        from: result.from,
+        to: result.to,
+        price: result.price, 
+        priceUnit: result.priceUnit
       });
       
       if (result.errorCode) {
@@ -296,7 +305,16 @@ export async function sendAlertSMS(
         sid: result.sid,
         status: result.status,
         errorCode: result.errorCode || 'none',
-        errorMessage: result.errorMessage || 'none'
+        errorMessage: result.errorMessage || 'none',
+        accountSid: result.accountSid,
+        apiVersion: result.apiVersion,
+        dateCreated: result.dateCreated,
+        dateUpdated: result.dateUpdated,
+        direction: result.direction,
+        from: result.from,
+        to: result.to,
+        price: result.price, 
+        priceUnit: result.priceUnit
       });
       
       if (result.errorCode) {
