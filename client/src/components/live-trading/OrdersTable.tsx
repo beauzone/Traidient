@@ -35,12 +35,18 @@ interface Order {
   id: string;
   symbol: string;
   side: 'buy' | 'sell';
-  type: 'market' | 'limit' | 'stop' | 'stop_limit';
+  type: 'market' | 'limit' | 'stop' | 'stop_limit' | 'bracket';
   status: 'open' | 'filled' | 'canceled' | 'rejected' | 'expired';
   quantity: number;
   filledQuantity: number;
   limitPrice?: number;
   stopPrice?: number;
+  takeProfitPrice?: number;
+  stopLossPrice?: number;
+  bracket?: {
+    takeProfitPrice: number;
+    stopLossPrice: number;
+  };
   createdAt: string;
   updatedAt: string;
   submittedBy: 'user' | 'system';
@@ -53,7 +59,7 @@ const orderSchema = z.object({
   side: z.enum(["buy", "sell"], {
     required_error: "Side is required",
   }),
-  type: z.enum(["market", "limit", "stop", "stop_limit"], {
+  type: z.enum(["market", "limit", "stop", "stop_limit", "bracket"], {
     required_error: "Order type is required",
   }),
   quantity: z.number().min(1, "Quantity must be at least 1"),
@@ -62,6 +68,9 @@ const orderSchema = z.object({
   timeInForce: z.enum(["day", "gtc", "opg", "cls", "ioc", "fok"], {
     required_error: "Time in force is required",
   }),
+  // Bracket order parameters
+  takeProfitPrice: z.number().positive("Take profit price must be positive").optional(),
+  stopLossPrice: z.number().positive("Stop loss price must be positive").optional(),
 }).refine(data => {
   if (data.type === 'limit' || data.type === 'stop_limit') {
     return data.limitPrice !== undefined && data.limitPrice > 0;
@@ -78,9 +87,58 @@ const orderSchema = z.object({
 }, {
   message: "Stop price is required for stop and stop-limit orders",
   path: ["stopPrice"],
+}).refine(data => {
+  if (data.type === 'bracket') {
+    return data.takeProfitPrice !== undefined && data.stopLossPrice !== undefined;
+  }
+  return true;
+}, {
+  message: "Both take profit and stop loss prices are required for bracket orders",
+  path: ["takeProfitPrice"],
+}).refine(data => {
+  if (data.type === 'bracket' && data.side === 'buy') {
+    return data.takeProfitPrice! > data.limitPrice! || data.limitPrice === undefined;
+  }
+  return true;
+}, {
+  message: "Take profit price must be higher than entry price for buy orders",
+  path: ["takeProfitPrice"],
+}).refine(data => {
+  if (data.type === 'bracket' && data.side === 'buy') {
+    return data.stopLossPrice! < data.limitPrice! || data.limitPrice === undefined;
+  }
+  return true;
+}, {
+  message: "Stop loss price must be lower than entry price for buy orders",
+  path: ["stopLossPrice"],
+}).refine(data => {
+  if (data.type === 'bracket' && data.side === 'sell') {
+    return data.takeProfitPrice! < data.limitPrice! || data.limitPrice === undefined;
+  }
+  return true;
+}, {
+  message: "Take profit price must be lower than entry price for sell orders",
+  path: ["takeProfitPrice"],
+}).refine(data => {
+  if (data.type === 'bracket' && data.side === 'sell') {
+    return data.stopLossPrice! > data.limitPrice! || data.limitPrice === undefined;
+  }
+  return true;
+}, {
+  message: "Stop loss price must be higher than entry price for sell orders",
+  path: ["stopLossPrice"],
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
+
+// Extended type for order data that includes bracket structure
+interface OrderDataWithBracket extends Omit<OrderFormValues, 'type'> {
+  type: 'market' | 'limit' | 'stop' | 'stop_limit';
+  bracket?: {
+    takeProfitPrice?: number;
+    stopLossPrice?: number;
+  };
+}
 
 const OrdersTable = () => {
   const [orderTab, setOrderTab] = useState("open");
@@ -142,7 +200,7 @@ const OrdersTable = () => {
 
   // Place order mutation
   const placeOrder = useMutation({
-    mutationFn: (data: OrderFormValues) => postData('/api/trading/orders', data),
+    mutationFn: (data: OrderDataWithBracket) => postData('/api/trading/orders', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/trading/orders'] });
       toast({
@@ -163,7 +221,24 @@ const OrdersTable = () => {
 
   // Handle form submission
   const onSubmit = (values: OrderFormValues) => {
-    placeOrder.mutate(values);
+    // Create a modified order based on the values
+    const orderData: OrderDataWithBracket = { ...values };
+    
+    // Special handling for bracket orders
+    if (values.type === 'bracket') {
+      // Convert bracket order to a parent order with take-profit and stop-loss child orders
+      orderData.type = 'limit'; // Entry order is a limit order
+      orderData.bracket = {
+        takeProfitPrice: values.takeProfitPrice,
+        stopLossPrice: values.stopLossPrice
+      };
+      
+      // Remove the bracket-specific fields from the main order
+      delete orderData.takeProfitPrice;
+      delete orderData.stopLossPrice;
+    }
+    
+    placeOrder.mutate(orderData);
   };
 
   // Format date
@@ -272,6 +347,7 @@ const OrdersTable = () => {
                               <SelectItem value="limit">Limit</SelectItem>
                               <SelectItem value="stop">Stop</SelectItem>
                               <SelectItem value="stop_limit">Stop Limit</SelectItem>
+                              <SelectItem value="bracket">Bracket</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -342,6 +418,86 @@ const OrdersTable = () => {
                         </FormItem>
                       )}
                     />
+                  )}
+                  
+                  {/* Bracket Order Fields */}
+                  {orderType === "bracket" && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="limitPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Entry Price</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min="0.01" 
+                                step="0.01" 
+                                {...field} 
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              The price at which you want to enter the position
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="takeProfitPrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Take Profit</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  min="0.01" 
+                                  step="0.01" 
+                                  {...field} 
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {form.watch("side") === "buy" 
+                                  ? "Price to sell for profit (above entry)" 
+                                  : "Price to buy for profit (below entry)"}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="stopLossPrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Stop Loss</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  min="0.01" 
+                                  step="0.01" 
+                                  {...field} 
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {form.watch("side") === "buy" 
+                                  ? "Price to sell to limit loss (below entry)" 
+                                  : "Price to buy to limit loss (above entry)"}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </>
                   )}
 
                   <FormField
@@ -448,8 +604,16 @@ const OrdersTable = () => {
                         `$${order.limitPrice}`
                       ) : order.type === 'stop' ? (
                         `Stop $${order.stopPrice}`
-                      ) : (
+                      ) : order.type === 'stop_limit' ? (
                         `Stop $${order.stopPrice} / Limit $${order.limitPrice}`
+                      ) : order.type === 'bracket' ? (
+                        <div className="text-xs">
+                          <div>Entry: ${order.limitPrice}</div>
+                          <div>TP: ${order.takeProfitPrice}</div>
+                          <div>SL: ${order.stopLossPrice}</div>
+                        </div>
+                      ) : (
+                        order.type
                       )}
                     </TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
