@@ -36,7 +36,7 @@ interface Order {
   symbol: string;
   side: 'buy' | 'sell';
   type: 'market' | 'limit' | 'stop' | 'stop_limit' | 'bracket';
-  status: 'open' | 'filled' | 'canceled' | 'rejected' | 'expired';
+  status: 'open' | 'new' | 'accepted' | 'filled' | 'executed' | 'partially_filled' | 'canceled' | 'rejected' | 'expired';
   quantity: number;
   filledQuantity: number;
   limitPrice?: number;
@@ -163,11 +163,11 @@ const OrdersTable = () => {
   // Filter orders based on tab
   const filteredOrders = orders.filter((order) => {
     if (orderTab === "open") {
-      return order.status === "open";
+      return ["open", "new", "accepted"].includes(order.status);
     } else if (orderTab === "filled") {
-      return order.status === "filled";
+      return ["filled", "executed", "partially_filled"].includes(order.status);
     } else if (orderTab === "canceled") {
-      return order.status === "canceled" || order.status === "rejected" || order.status === "expired";
+      return ["canceled", "rejected", "expired"].includes(order.status);
     }
     return true;
   });
@@ -258,8 +258,12 @@ const OrdersTable = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
+      case 'new':
+      case 'accepted':
         return <Badge variant="outline" className="bg-blue-500 bg-opacity-20 text-blue-500 border-none">Open</Badge>;
       case 'filled':
+      case 'executed':
+      case 'partially_filled':
         return <Badge variant="outline" className="bg-green-500 bg-opacity-20 text-green-500 border-none">Filled</Badge>;
       case 'canceled':
         return <Badge variant="outline" className="bg-yellow-500 bg-opacity-20 text-yellow-500 border-none">Canceled</Badge>;
