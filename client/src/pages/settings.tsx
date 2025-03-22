@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const profileSchema = z.object({
   name: z.string().min(2, {
@@ -40,6 +40,13 @@ const SettingsPage = () => {
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("general");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
 
   const tabs: TabDefinition[] = [
     { id: "general", name: "General", icon: User },
@@ -79,6 +86,111 @@ const SettingsPage = () => {
 
   const onSubmit = (values: ProfileFormValues) => {
     updateProfile.mutate(values);
+  };
+  
+  // Check phone verification status on component load
+  useEffect(() => {
+    const checkPhoneVerification = async () => {
+      try {
+        const response = await fetch('/api/users/verify-phone/status', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setPhoneVerified(data.verified);
+          if (data.phoneNumber) {
+            setPhoneNumber(data.phoneNumber);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check phone verification status:', error);
+      }
+    };
+    
+    checkPhoneVerification();
+  }, []);
+  
+  // Send verification code
+  const handleSendVerification = async () => {
+    if (!phoneNumber || phoneNumber.trim() === '') {
+      setVerificationError('Please enter a valid phone number');
+      return;
+    }
+    
+    setVerificationError('');
+    setSendingVerification(true);
+    
+    try {
+      const response = await fetch('/api/users/verify-phone/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ phoneNumber })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setVerificationSent(true);
+        toast({
+          title: "Verification code sent",
+          description: "Please check your phone for the verification code",
+        });
+      } else {
+        setVerificationError(data.message || 'Failed to send verification code');
+      }
+    } catch (error) {
+      setVerificationError('Network error. Please try again.');
+      console.error('Error sending verification code:', error);
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+  
+  // Verify the code
+  const handleVerifyCode = async () => {
+    if (!verificationCode || verificationCode.trim() === '') {
+      setVerificationError('Please enter the verification code');
+      return;
+    }
+    
+    setVerificationError('');
+    setVerifyingCode(true);
+    
+    try {
+      const response = await fetch('/api/users/verify-phone/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ code: verificationCode })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.verified) {
+        setPhoneVerified(true);
+        setVerificationSent(false);
+        setVerificationCode('');
+        toast({
+          title: "Phone verified",
+          description: "Your phone number has been verified successfully",
+        });
+      } else {
+        setVerificationError(data.message || 'Invalid verification code');
+      }
+    } catch (error) {
+      setVerificationError('Network error. Please try again.');
+      console.error('Error verifying code:', error);
+    } finally {
+      setVerifyingCode(false);
+    }
   };
 
   return (
@@ -222,10 +334,52 @@ const SettingsPage = () => {
                           type="tel" 
                           placeholder="+1 555-123-4567"
                           className="flex h-10 w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          defaultValue={user?.settings?.phoneNumber || ""}
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
                         />
-                        <Button variant="outline">Verify</Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={handleSendVerification}
+                          disabled={sendingVerification}
+                        >
+                          {sendingVerification ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                            </>
+                          ) : phoneVerified ? "Verified ✓" : "Verify"}
+                        </Button>
                       </div>
+                      
+                      {verificationSent && !phoneVerified && (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-sm font-medium">Enter verification code:</p>
+                          <div className="flex flex-row items-center space-x-4">
+                            <input 
+                              type="text" 
+                              placeholder="123456"
+                              className="flex h-10 w-32 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              value={verificationCode}
+                              onChange={(e) => setVerificationCode(e.target.value)}
+                            />
+                            <Button 
+                              variant="outline" 
+                              onClick={handleVerifyCode}
+                              disabled={verifyingCode}
+                            >
+                              {verifyingCode ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...
+                                </>
+                              ) : "Submit"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {verificationError && (
+                        <p className="text-sm text-red-500">{verificationError}</p>
+                      )}
+                      
                       <p className="text-sm text-muted-foreground">
                         Add and verify your phone number to receive SMS notifications
                       </p>

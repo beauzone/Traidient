@@ -31,12 +31,17 @@ if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER) {
   try {
     // Initialize Twilio client with ES modules syntax
     twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-    console.log("Twilio client initialized successfully");
+    console.log("Twilio client initialized successfully with SID:", TWILIO_ACCOUNT_SID.substring(0, 5) + "...", 
+      "and phone number:", TWILIO_PHONE_NUMBER);
   } catch (error) {
     console.error("Failed to initialize Twilio client:", error);
   }
 } else {
-  console.warn("Twilio credentials missing - SMS functionality will be disabled");
+  console.warn("Twilio credentials missing - SMS functionality will be disabled", {
+    accountSid: TWILIO_ACCOUNT_SID ? "Present" : "Missing",
+    authToken: TWILIO_AUTH_TOKEN ? "Present" : "Missing", 
+    phoneNumber: TWILIO_PHONE_NUMBER ? "Present" : "Missing"
+  });
 }
 
 /**
@@ -105,21 +110,27 @@ export async function sendVerificationCode(
   try {
     // Check if Twilio client is available
     if (!twilioClient) {
+      console.error("Twilio client not initialized - cannot send SMS");
       return { 
         success: false, 
         message: "SMS service is currently unavailable. Please try again later."
       };
     }
 
+    console.log(`Attempting to send verification code to ${phoneNumber} for user ${userId}`);
+
     // Generate a verification code
     const code = generateVerificationCode();
+    console.log(`Generated verification code: ${code}`);
     
     // Store the verification code
     await storeVerificationCode(userId, phoneNumber, code);
+    console.log(`Stored verification code in user settings`);
 
     // Format the message
     const message = `Your TradingAlpaca verification code is: ${code}. It will expire in 10 minutes.`;
 
+    console.log(`Sending SMS message via Twilio to ${phoneNumber} from ${TWILIO_PHONE_NUMBER}`);
     // Send the SMS
     const result = await twilioClient.messages.create({
       body: message,
