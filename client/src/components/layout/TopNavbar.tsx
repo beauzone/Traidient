@@ -15,7 +15,8 @@ import {
   BarChart4,
   Briefcase,
   ShoppingCart,
-  ShieldAlert
+  ShieldAlert,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -305,7 +306,7 @@ const TopNavbar = () => {
                       </div>
                     )}
                     
-                    {!isLoadingNotifications && notifications?.length === 0 && (
+                    {!isLoadingNotifications && (notifications?.length === 0 || !notifications) && (
                       <div className="py-6 px-4 text-center text-muted-foreground">
                         <div className="flex justify-center mb-2">
                           <Bell className="h-8 w-8 opacity-40" />
@@ -314,7 +315,7 @@ const TopNavbar = () => {
                       </div>
                     )}
                     
-                    {!isLoadingNotifications && notifications?.length > 0 && (
+                    {!isLoadingNotifications && notifications && notifications.length > 0 && (
                       <div>
                         {notifications.map((notification) => {
                           // Helper to get icon based on notification type
