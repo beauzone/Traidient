@@ -111,7 +111,13 @@ export class AlpacaAPI {
         throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
-      return await response.json();
+      const positions = await response.json();
+      
+      // Add positionStatus to identify these as open positions
+      return positions.map((position: any) => ({
+        ...position,
+        positionStatus: 'open'
+      }));
     } catch (error) {
       console.error('Error fetching Alpaca positions:', error);
       throw error;
@@ -159,10 +165,26 @@ export class AlpacaAPI {
         throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      console.log(`Retrieved ${data.length} closed positions from Alpaca`);
+      
+      // Format closed positions to match our Position interface
+      return data.map((position: any) => ({
+        symbol: position.symbol,
+        assetName: position.symbol, // Alpaca doesn't provide asset name in closed positions API
+        positionStatus: 'closed',
+        quantity: parseFloat(position.qty),
+        averageEntryPrice: parseFloat(position.avg_entry_price),
+        exitPrice: parseFloat(position.avg_exit_price),
+        costBasis: parseFloat(position.cost_basis),
+        realizedPnL: parseFloat(position.profit_loss),
+        realizedPnLPercent: parseFloat(position.profit_loss_pct) * 100, // Convert from decimal to percentage
+        entryDate: position.entered_at,
+        exitDate: position.closed_at
+      }));
     } catch (error) {
       console.error('Error fetching closed Alpaca positions:', error);
-      throw error;
+      return []; // Return empty array instead of throwing to prevent UI disruption
     }
   }
 
