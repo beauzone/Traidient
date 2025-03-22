@@ -134,7 +134,7 @@ const WatchlistTable = () => {
       <CardContent className="p-0">
         <div className="px-5 py-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Market Watchlist</h3>
+            <h3 className="text-lg font-medium">Watchlist</h3>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">

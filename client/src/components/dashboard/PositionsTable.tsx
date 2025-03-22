@@ -60,11 +60,25 @@ const PositionsTable = () => {
     refetchInterval: 15000, // Refresh every 15 seconds
   });
 
-  // Filter positions based on search
-  const filteredPositions = positions.filter((position) => 
-    (position.symbol.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    position.assetName.toLowerCase().includes(searchFilter.toLowerCase()))
-  );
+  // Filter positions based on search and position status
+  const filteredPositions = positions.filter((position) => {
+    // First apply the search filter
+    const matchesSearch = position.symbol.toLowerCase().includes(searchFilter.toLowerCase()) ||
+                          position.assetName.toLowerCase().includes(searchFilter.toLowerCase());
+    
+    // Then filter by position status (for now we only have open positions from the API)
+    // When the API supports closed positions, this will filter them properly
+    if (positionStatus === "open") {
+      return matchesSearch; // For open positions, return all that match search
+    } else if (positionStatus === "closed") {
+      // The API doesn't currently return closed positions
+      // This space is reserved for when the API supports closed positions
+      return false; // For now, there are no closed positions to show
+    } else {
+      // "all" status - show both open and closed
+      return matchesSearch; // Currently identical to "open" since we don't have closed positions
+    }
+  });
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -85,7 +99,7 @@ const PositionsTable = () => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Portfolio Positions</CardTitle>
+              <CardTitle>Positions</CardTitle>
               <CardDescription>
                 Current holdings in your portfolio
               </CardDescription>
