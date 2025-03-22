@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchData, deleteData } from '@/lib/api';
+import { fetchData, deleteData, updateData } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -93,11 +93,7 @@ const AlertThresholdsPage: React.FC = () => {
   // Toggle alert threshold enabled status mutation
   const toggleEnabled = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => 
-      fetchData(`/api/alert-thresholds/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled })
-      }),
+      updateData(`/api/alert-thresholds/${id}`, { enabled }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/alert-thresholds'] });
       toast({
