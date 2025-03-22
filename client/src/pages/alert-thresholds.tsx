@@ -214,7 +214,7 @@ const AlertThresholdsPage: React.FC = () => {
   };
 
   return (
-    <MainLayout>
+    <MainLayout title="Alert Thresholds">
       <div className="container mx-auto p-4 md:p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
