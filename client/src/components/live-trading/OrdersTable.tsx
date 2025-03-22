@@ -140,6 +140,14 @@ interface OrderDataWithBracket extends Omit<OrderFormValues, 'type'> {
   };
 }
 
+// Update OrderFormValues to include bracket property
+type OrderFormValuesWithBracket = OrderFormValues & {
+  bracket?: {
+    takeProfitPrice?: number;
+    stopLossPrice?: number;
+  };
+}
+
 const OrdersTable = () => {
   const [orderTab, setOrderTab] = useState("open");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -200,7 +208,7 @@ const OrdersTable = () => {
 
   // Place order mutation
   const placeOrder = useMutation({
-    mutationFn: (data: OrderDataWithBracket) => postData('/api/trading/orders', data),
+    mutationFn: (data: any) => postData('/api/trading/orders', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/trading/orders'] });
       toast({
@@ -221,8 +229,8 @@ const OrdersTable = () => {
 
   // Handle form submission
   const onSubmit = (values: OrderFormValues) => {
-    // Create a modified order based on the values
-    const orderData: OrderDataWithBracket = { ...values };
+    // Create a modified order based on the values - start with safe copy 
+    const orderData: OrderFormValuesWithBracket = { ...values };
     
     // Special handling for bracket orders
     if (values.type === 'bracket') {
@@ -606,11 +614,11 @@ const OrdersTable = () => {
                         `Stop $${order.stopPrice}`
                       ) : order.type === 'stop_limit' ? (
                         `Stop $${order.stopPrice} / Limit $${order.limitPrice}`
-                      ) : order.type === 'bracket' ? (
+                      ) : order.type === 'bracket' || (order.bracket && order.type === 'limit') ? (
                         <div className="text-xs">
                           <div>Entry: ${order.limitPrice}</div>
-                          <div>TP: ${order.takeProfitPrice}</div>
-                          <div>SL: ${order.stopLossPrice}</div>
+                          <div>TP: ${order.bracket?.takeProfitPrice || order.takeProfitPrice || 'N/A'}</div>
+                          <div>SL: ${order.bracket?.stopLossPrice || order.stopLossPrice || 'N/A'}</div>
                         </div>
                       ) : (
                         order.type
