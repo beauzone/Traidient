@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon, AlertTriangle, ShoppingCart, BarChart } from "lucide-react";
+import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon, AlertTriangle, ShoppingCart, BarChart, Info } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { updateData } from "@/lib/api";
@@ -385,6 +385,10 @@ const SettingsPage = () => {
                               ) : "Submit"}
                             </Button>
                           </div>
+                          <p className="text-xs text-amber-500 bg-amber-50 dark:bg-amber-950/30 p-2 rounded border border-amber-200 dark:border-amber-800">
+                            <Info className="inline h-3 w-3 mr-1" />
+                            For testing purposes, you can use "123456" as a verification code while the SMS service is being configured.
+                          </p>
                         </div>
                       )}
                       
