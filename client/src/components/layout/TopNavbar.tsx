@@ -104,6 +104,21 @@ const TopNavbar = () => {
   // Count unread notifications
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
+  // Apply theme to document
+  useEffect(() => {
+    // Get the document element
+    const doc = document.documentElement;
+    
+    // Remove both theme classes first
+    doc.classList.remove('light', 'dark');
+    
+    // Add the current theme class
+    doc.classList.add(theme);
+    
+    // Update data-theme attribute (for ShadCN/UI components)
+    doc.setAttribute('data-theme', theme);
+  }, [theme]);
+
   // Function to toggle theme
   const toggleTheme = async () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -118,9 +133,6 @@ const TopNavbar = () => {
             theme: newTheme,
           },
         });
-        
-        // You would typically apply theme changes to the document here
-        // but we're keeping the dark theme for the demo
       } catch (error) {
         console.error('Failed to update theme preference:', error);
       }
