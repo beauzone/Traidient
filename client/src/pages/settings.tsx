@@ -8,13 +8,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon } from "lucide-react";
+import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon, AlertTriangle, ShoppingCart, BarChart } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { updateData } from "@/lib/api";
 import { Link } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 
@@ -193,31 +194,384 @@ const SettingsPage = () => {
 
                 {/* Notifications Tab */}
                 <TabsContent value="notifications" className="mt-0 space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Notification Preferences</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Control which notifications you receive and how they are delivered.
-                      Configure per-alert type settings including channel selection (in-app, email, SMS).
-                    </p>
-                    
-                    <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <div className="text-base font-medium">
-                          Enable All Notifications
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Notification Preferences</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Control which notifications you receive and how they are delivered.
+                        Configure per-alert type settings including channel selection (in-app, email, SMS).
+                      </p>
+                      
+                      <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <div className="text-base font-medium">
+                            Enable All Notifications
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Quickly toggle all notifications on or off
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          Quickly toggle all notifications on or off
-                        </div>
+                        <Switch defaultChecked />
                       </div>
-                      <Switch defaultChecked />
                     </div>
-                    
-                    <Link href="/notification-settings">
+
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Mobile Phone</h3>
+                      <div className="flex flex-row items-center space-x-4">
+                        <input 
+                          type="tel" 
+                          placeholder="+1 555-123-4567"
+                          className="flex h-10 w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          defaultValue={user?.settings?.phoneNumber || ""}
+                        />
+                        <Button variant="outline">Verify</Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Add and verify your phone number to receive SMS notifications
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Alert Type Settings</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Customize notifications for each type of alert
+                      </p>
+                      
+                      <Tabs defaultValue="alerts" className="w-full">
+                        <TabsList className="w-full grid grid-cols-3 h-auto">
+                          <TabsTrigger 
+                            value="alerts" 
+                            className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                          >
+                            <AlertTriangle className="h-4 w-4 mr-2" />
+                            Price Alerts
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="orders" 
+                            className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Order Notifications
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="performance" 
+                            className="py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                          >
+                            <BarChart className="h-4 w-4 mr-2" />
+                            Performance
+                          </TabsTrigger>
+                        </TabsList>
+                      
+                        <TabsContent value="alerts" className="mt-4 space-y-4">
+                          {/* Price Alert */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Price Alerts</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when a stock reaches your target price</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="price-app" defaultChecked />
+                                <label htmlFor="price-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="price-email" />
+                                <label htmlFor="price-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="price-sms" />
+                                <label htmlFor="price-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Price Change Alert */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Price Change Alerts</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when a stock price changes by a specified percentage</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="price-change-app" defaultChecked />
+                                <label htmlFor="price-change-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="price-change-email" />
+                                <label htmlFor="price-change-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="price-change-sms" />
+                                <label htmlFor="price-change-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Volume Alert */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Volume Alerts</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when trading volume exceeds your threshold</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="volume-app" defaultChecked />
+                                <label htmlFor="volume-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="volume-email" />
+                                <label htmlFor="volume-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="volume-sms" />
+                                <label htmlFor="volume-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </TabsContent>
+                        
+                        <TabsContent value="orders" className="mt-4 space-y-4">
+                          {/* Order Placed */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Order Placed</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when an order is placed</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-placed-app" defaultChecked />
+                                <label htmlFor="order-placed-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-placed-email" />
+                                <label htmlFor="order-placed-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-placed-sms" />
+                                <label htmlFor="order-placed-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Order Filled */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Order Filled</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when an order is filled</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-filled-app" defaultChecked />
+                                <label htmlFor="order-filled-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-filled-email" />
+                                <label htmlFor="order-filled-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-filled-sms" />
+                                <label htmlFor="order-filled-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Order Rejected */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Order Rejected</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when an order is rejected</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-rejected-app" defaultChecked />
+                                <label htmlFor="order-rejected-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-rejected-email" />
+                                <label htmlFor="order-rejected-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="order-rejected-sms" />
+                                <label htmlFor="order-rejected-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </TabsContent>
+                        
+                        <TabsContent value="performance" className="mt-4 space-y-4">
+                          {/* Backtest Finished */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Backtest Finished</h4>
+                                <p className="text-sm text-muted-foreground">Get notified when a backtest is finished</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="backtest-app" defaultChecked />
+                                <label htmlFor="backtest-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="backtest-email" />
+                                <label htmlFor="backtest-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="backtest-sms" />
+                                <label htmlFor="backtest-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Strategy Performance */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Strategy Performance</h4>
+                                <p className="text-sm text-muted-foreground">Get notified about your strategy's performance</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="strategy-app" defaultChecked />
+                                <label htmlFor="strategy-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="strategy-email" />
+                                <label htmlFor="strategy-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="strategy-sms" />
+                                <label htmlFor="strategy-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Market Events */}
+                          <div className="rounded-lg border p-4">
+                            <div className="flex flex-row items-center justify-between mb-4">
+                              <div>
+                                <h4 className="font-medium">Market Events</h4>
+                                <p className="text-sm text-muted-foreground">Get notified about important market events (market open/close, earnings, etc.)</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="pl-2 space-y-2">
+                              <div className="text-sm font-medium mb-2">Delivery Channels:</div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="market-app" defaultChecked />
+                                <label htmlFor="market-app" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  In-App
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="market-email" />
+                                <label htmlFor="market-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  Email
+                                </label>
+                              </div>
+                              <div className="flex flex-row items-center space-x-3 space-y-0">
+                                <Checkbox id="market-sms" />
+                                <label htmlFor="market-sms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                  SMS
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+
+                    <div className="flex justify-end">
                       <Button className="mt-2">
-                        <Bell className="mr-2 h-4 w-4" />
-                        Manage Detailed Notification Settings
+                        Save Notification Settings
                       </Button>
-                    </Link>
+                    </div>
                   </div>
                 </TabsContent>
 
