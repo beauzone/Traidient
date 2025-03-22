@@ -8,7 +8,11 @@
 
 import { storage } from './storage';
 import { User } from '@shared/schema';
+
+// Import Twilio with proper ES module syntax
 import twilio from 'twilio';
+// Alternative import syntax in case the above doesn't work
+// const twilio = require('twilio');
 
 // Define a type for the phone verification data
 interface PhoneVerification {
@@ -131,14 +135,33 @@ export async function sendVerificationCode(
     const message = `Your TradingAlpaca verification code is: ${code}. It will expire in 10 minutes.`;
 
     console.log(`Sending SMS message via Twilio to ${phoneNumber} from ${TWILIO_PHONE_NUMBER}`);
-    // Send the SMS
-    const result = await twilioClient.messages.create({
-      body: message,
-      from: TWILIO_PHONE_NUMBER,
-      to: phoneNumber
-    });
-
-    console.log(`Verification SMS sent to ${phoneNumber}, SID: ${result.sid}`);
+    console.log(`Attempting to send SMS with Twilio client using accountSid: ${TWILIO_ACCOUNT_SID?.substring(0, 5)}...`);
+    
+    // Try-catch around the actual SMS sending for better error reporting
+    try {
+      // Send the SMS
+      const result = await twilioClient.messages.create({
+        body: message,
+        from: TWILIO_PHONE_NUMBER,
+        to: phoneNumber
+      });
+      
+      console.log(`Twilio message response:`, {
+        sid: result.sid,
+        status: result.status,
+        errorCode: result.errorCode || 'none',
+        errorMessage: result.errorMessage || 'none'
+      });
+      
+      if (result.errorCode) {
+        throw new Error(`Twilio error: ${result.errorMessage || 'Unknown error'}`);
+      }
+      
+      console.log(`Verification SMS sent to ${phoneNumber}, SID: ${result.sid}`);
+    } catch (smsError) {
+      console.error('Twilio SMS sending error:', smsError);
+      throw smsError; // Re-throw to be caught by outer try-catch
+    }
     
     return { 
       success: true, 

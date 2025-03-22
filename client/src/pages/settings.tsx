@@ -120,10 +120,19 @@ const SettingsPage = () => {
       return;
     }
     
+    // Validate phone number format (E.164 format, starting with + and country code)
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      setVerificationError('Please enter a valid phone number in international format (e.g., +12025550123)');
+      return;
+    }
+    
     setVerificationError('');
     setSendingVerification(true);
     
     try {
+      console.log('Sending verification to phone number:', phoneNumber);
+      
       const response = await fetch('/api/users/verify-phone/send', {
         method: 'POST',
         headers: {
@@ -133,7 +142,10 @@ const SettingsPage = () => {
         body: JSON.stringify({ phoneNumber })
       });
       
+      console.log('Verification API response status:', response.status);
+      
       const data = await response.json();
+      console.log('Verification API response data:', data);
       
       if (response.ok) {
         setVerificationSent(true);
@@ -145,8 +157,8 @@ const SettingsPage = () => {
         setVerificationError(data.message || 'Failed to send verification code');
       }
     } catch (error) {
-      setVerificationError('Network error. Please try again.');
       console.error('Error sending verification code:', error);
+      setVerificationError('Network error. Please try again.');
     } finally {
       setSendingVerification(false);
     }

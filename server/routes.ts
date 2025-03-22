@@ -2805,34 +2805,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Send verification code
   app.post('/api/users/verify-phone/send', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
+      console.log("Received phone verification request");
       const userId = req.user?.id;
       if (!userId) {
+        console.log("Unauthorized request - no user ID");
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
       const { phoneNumber } = req.body;
+      console.log(`Request data: userId=${userId}, phoneNumber=${phoneNumber}`);
       
       if (!phoneNumber) {
+        console.log("No phone number provided");
         return res.status(400).json({ message: 'Phone number is required' });
       }
       
       // Basic phone number validation
       const phoneRegex = /^\+[1-9]\d{1,14}$/; // E.164 format
       if (!phoneRegex.test(phoneNumber)) {
+        console.log(`Invalid phone number format: ${phoneNumber}`);
         return res.status(400).json({ 
           message: 'Invalid phone number format. Please use international format (e.g., +12025550123)' 
         });
       }
       
+      console.log(`Calling sendVerificationCode for user ${userId} and phone ${phoneNumber}`);
       // Send verification code
       const result = await sendVerificationCode(userId, phoneNumber);
+      console.log(`Verification code send result:`, result);
       
       if (result.success) {
+        console.log("Successfully sent verification code");
         res.status(200).json({ 
           message: result.message,
           success: true
         });
       } else {
+        console.log("Failed to send verification code:", result.message);
         res.status(500).json({ 
           message: result.message,
           success: false
