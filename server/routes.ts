@@ -2003,8 +2003,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
-      // Check for accountId parameter
+      // Check for parameters
       const accountId = req.query.accountId as string;
+      const positionStatus = req.query.status as string || 'open'; // Default to open positions
+      const startDate = req.query.startDate as string || ''; // Optional start date in YYYY-MM-DD format
+      const endDate = req.query.endDate as string || ''; // Optional end date in YYYY-MM-DD format
       
       // Try to get API integration for trading
       try {
@@ -2052,24 +2055,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("Using user's Alpaca API integration for positions");
         }
         
-        // Get real positions from Alpaca
-        const positions = await alpacaAPI.getPositions();
-        console.log(`Retrieved ${positions.length} positions from Alpaca`);
+        // Determine which positions to fetch based on the status
+        let positions: any[] = [];
         
-        // Format for frontend
-        const formattedPositions = positions.map((position: any) => ({
-          symbol: position.symbol,
-          assetName: position.symbol, // Alpaca doesn't provide name, just symbol
-          quantity: parseFloat(position.qty),
-          averageEntryPrice: parseFloat(position.avg_entry_price || 0),
-          marketValue: parseFloat(position.market_value || 0),
-          costBasis: parseFloat(position.cost_basis || 0),
-          unrealizedPnL: parseFloat(position.unrealized_pl || 0),
-          unrealizedPnLPercent: parseFloat(position.unrealized_plpc || 0) * 100,
-          currentPrice: parseFloat(position.current_price || 0)
-        }));
+        if (positionStatus === 'closed') {
+          // Fetch closed positions with a 365-day lookback by default
+          const closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+          console.log(`Retrieved ${closedPositions.length} closed positions from Alpaca`);
+          
+          // Format closed positions for frontend
+          positions = closedPositions.map((position: any) => ({
+            symbol: position.symbol,
+            assetName: position.symbol, // Alpaca doesn't provide name, just symbol
+            quantity: parseFloat(position.qty),
+            averageEntryPrice: parseFloat(position.avg_entry_price || 0),
+            exitPrice: parseFloat(position.avg_exit_price || 0),
+            costBasis: parseFloat(position.cost_basis || 0),
+            realizedPnL: parseFloat(position.profit_loss || 0),
+            realizedPnLPercent: (parseFloat(position.profit_loss || 0) / parseFloat(position.cost_basis || 1)) * 100,
+            entryDate: position.entered_at,
+            exitDate: position.closed_at,
+            positionStatus: 'closed'
+          }));
+        } else if (positionStatus === 'all') {
+          // Fetch both open and closed positions
+          const openPositions = await alpacaAPI.getPositions();
+          const closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+          
+          console.log(`Retrieved ${openPositions.length} open positions and ${closedPositions.length} closed positions from Alpaca`);
+          
+          // Format open positions for frontend
+          const formattedOpenPositions = openPositions.map((position: any) => ({
+            symbol: position.symbol,
+            assetName: position.symbol, // Alpaca doesn't provide name, just symbol
+            quantity: parseFloat(position.qty),
+            averageEntryPrice: parseFloat(position.avg_entry_price || 0),
+            marketValue: parseFloat(position.market_value || 0),
+            costBasis: parseFloat(position.cost_basis || 0),
+            unrealizedPnL: parseFloat(position.unrealized_pl || 0),
+            unrealizedPnLPercent: parseFloat(position.unrealized_plpc || 0) * 100,
+            currentPrice: parseFloat(position.current_price || 0),
+            positionStatus: 'open'
+          }));
+          
+          // Format closed positions for frontend
+          const formattedClosedPositions = closedPositions.map((position: any) => ({
+            symbol: position.symbol,
+            assetName: position.symbol, // Alpaca doesn't provide name, just symbol
+            quantity: parseFloat(position.qty),
+            averageEntryPrice: parseFloat(position.avg_entry_price || 0),
+            exitPrice: parseFloat(position.avg_exit_price || 0),
+            costBasis: parseFloat(position.cost_basis || 0),
+            realizedPnL: parseFloat(position.profit_loss || 0),
+            realizedPnLPercent: (parseFloat(position.profit_loss || 0) / parseFloat(position.cost_basis || 1)) * 100,
+            entryDate: position.entered_at,
+            exitDate: position.closed_at,
+            positionStatus: 'closed'
+          }));
+          
+          positions = [...formattedOpenPositions, ...formattedClosedPositions];
+        } else {
+          // Default to open positions
+          const openPositions = await alpacaAPI.getPositions();
+          console.log(`Retrieved ${openPositions.length} open positions from Alpaca`);
+          
+          // Format open positions for frontend
+          positions = openPositions.map((position: any) => ({
+            symbol: position.symbol,
+            assetName: position.symbol, // Alpaca doesn't provide name, just symbol
+            quantity: parseFloat(position.qty),
+            averageEntryPrice: parseFloat(position.avg_entry_price || 0),
+            marketValue: parseFloat(position.market_value || 0),
+            costBasis: parseFloat(position.cost_basis || 0),
+            unrealizedPnL: parseFloat(position.unrealized_pl || 0),
+            unrealizedPnLPercent: parseFloat(position.unrealized_plpc || 0) * 100,
+            currentPrice: parseFloat(position.current_price || 0),
+            positionStatus: 'open'
+          }));
+        }
         
-        res.json(formattedPositions);
+        res.json(positions);
       } catch (alpacaError) {
         console.error('Error fetching Alpaca positions:', alpacaError);
         // Return empty array instead of error for UI compatibility

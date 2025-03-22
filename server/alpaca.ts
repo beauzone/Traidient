@@ -117,6 +117,54 @@ export class AlpacaAPI {
       throw error;
     }
   }
+  
+  /**
+   * Get closed positions from Alpaca
+   * @param startDate Optional start date in YYYY-MM-DD format
+   * @param endDate Optional end date in YYYY-MM-DD format
+   * @param limit Maximum number of positions to return
+   * @returns Array of closed position objects
+   */
+  async getClosedPositions(startDate?: string, endDate?: string, limit: number = 100): Promise<any[]> {
+    try {
+      // Build the query parameters
+      const queryParams = new URLSearchParams();
+      
+      if (startDate) {
+        queryParams.append('after', `${startDate}T00:00:00Z`);
+      } else {
+        // Default to the last 90 days if no date is provided
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        queryParams.append('after', ninetyDaysAgo.toISOString().split('T')[0] + 'T00:00:00Z');
+      }
+      
+      if (endDate) {
+        queryParams.append('until', `${endDate}T23:59:59Z`);
+      }
+      
+      if (limit) {
+        queryParams.append('limit', limit.toString());
+      }
+      
+      const response = await fetch(`${this.tradingBaseUrl}/positions/closed?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching closed Alpaca positions:', error);
+      throw error;
+    }
+  }
 
   async getOrders(): Promise<any[]> {
     try {

@@ -30,16 +30,27 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link } from "wouter";
 
+// Generic position interface that can represent both open and closed positions
 interface Position {
   symbol: string;
   assetName: string;
   quantity: number;
   averageEntryPrice: number;
-  marketValue: number;
   costBasis: number;
-  unrealizedPnL: number;
-  unrealizedPnLPercent: number;
-  currentPrice: number;
+  positionStatus?: 'open' | 'closed';
+  
+  // Fields for open positions
+  currentPrice?: number;
+  marketValue?: number;
+  unrealizedPnL?: number;
+  unrealizedPnLPercent?: number;
+  
+  // Fields for closed positions
+  exitPrice?: number;
+  realizedPnL?: number;
+  realizedPnLPercent?: number;
+  entryDate?: string;
+  exitDate?: string;
 }
 
 const PositionsTable = () => {
@@ -50,11 +61,25 @@ const PositionsTable = () => {
 
   // Fetch positions data
   const { data: positions = [], isLoading } = useQuery({
-    queryKey: ['/api/trading/positions', selectedAccount],
+    queryKey: ['/api/trading/positions', selectedAccount, positionStatus],
     queryFn: () => {
-      const endpoint = selectedAccount && selectedAccount !== "all" 
-        ? `/api/trading/positions?accountId=${selectedAccount}` 
-        : '/api/trading/positions';
+      // Build the endpoint with appropriate query parameters
+      let endpoint = '/api/trading/positions';
+      const params = new URLSearchParams();
+      
+      // Add accountId parameter if specified
+      if (selectedAccount && selectedAccount !== "all") {
+        params.append('accountId', selectedAccount);
+      }
+      
+      // Add status parameter based on filter
+      params.append('status', positionStatus);
+      
+      // Add query parameters to endpoint
+      if (params.toString()) {
+        endpoint += `?${params.toString()}`;
+      }
+      
       return fetchData<Position[]>(endpoint);
     },
     refetchInterval: 15000, // Refresh every 15 seconds
@@ -148,37 +173,72 @@ const PositionsTable = () => {
                     <TableHead>Symbol</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead>Entry Price</TableHead>
-                    <TableHead>Current Price</TableHead>
-                    <TableHead className="text-right">Market Value</TableHead>
-                    <TableHead className="text-right">Unrealized P&L</TableHead>
+                    {positionStatus !== 'closed' && (
+                      <>
+                        <TableHead>Current Price</TableHead>
+                        <TableHead className="text-right">Market Value</TableHead>
+                        <TableHead className="text-right">Unrealized P&L</TableHead>
+                      </>
+                    )}
+                    {positionStatus === 'closed' && (
+                      <>
+                        <TableHead>Exit Price</TableHead>
+                        <TableHead>Exit Date</TableHead>
+                        <TableHead className="text-right">Realized P&L</TableHead>
+                      </>
+                    )}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPositions.map((position) => (
-                    <TableRow key={position.symbol}>
+                    <TableRow key={`${position.symbol}-${position.entryDate || ''}`}>
                       <TableCell>
                         <div className="font-medium">{position.symbol}</div>
                         <div className="text-xs text-muted-foreground">{position.assetName}</div>
                       </TableCell>
                       <TableCell>{position.quantity}</TableCell>
                       <TableCell>{formatCurrency(position.averageEntryPrice)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          {formatCurrency(position.currentPrice)}
-                          {position.currentPrice > position.averageEntryPrice ? (
-                            <TrendingUp className="ml-1 h-4 w-4 text-green-500" />
-                          ) : (
-                            <TrendingDown className="ml-1 h-4 w-4 text-red-500" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(position.marketValue)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className={position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}>
-                          {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
-                        </div>
-                      </TableCell>
+                      
+                      {/* Open position specific columns */}
+                      {position.positionStatus !== 'closed' && position.currentPrice !== undefined && (
+                        <>
+                          <TableCell>
+                            <div className="flex items-center">
+                              {formatCurrency(position.currentPrice)}
+                              {position.currentPrice > position.averageEntryPrice ? (
+                                <TrendingUp className="ml-1 h-4 w-4 text-green-500" />
+                              ) : (
+                                <TrendingDown className="ml-1 h-4 w-4 text-red-500" />
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{position.marketValue !== undefined ? formatCurrency(position.marketValue) : '-'}</TableCell>
+                          <TableCell className="text-right">
+                            {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
+                              <div className={position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}>
+                                {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
+                              </div>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
+                      
+                      {/* Closed position specific columns */}
+                      {position.positionStatus === 'closed' && position.exitPrice !== undefined && (
+                        <>
+                          <TableCell>{formatCurrency(position.exitPrice)}</TableCell>
+                          <TableCell>{position.exitDate ? new Date(position.exitDate).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="text-right">
+                            {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
+                              <div className={position.realizedPnL >= 0 ? "text-green-500" : "text-red-500"}>
+                                {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
+                              </div>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
+                      
                       <TableCell className="text-right">
                         <Dialog>
                           <DialogTrigger asChild>
@@ -210,28 +270,75 @@ const PositionsTable = () => {
                                     <p className="font-medium">{formatCurrency(position.averageEntryPrice)}</p>
                                   </div>
                                   <div>
-                                    <p className="text-sm text-muted-foreground">Current Price</p>
-                                    <p className="font-medium">{formatCurrency(position.currentPrice)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Market Value</p>
-                                    <p className="font-medium">{formatCurrency(position.marketValue)}</p>
-                                  </div>
-                                  <div>
                                     <p className="text-sm text-muted-foreground">Cost Basis</p>
                                     <p className="font-medium">{formatCurrency(position.costBasis)}</p>
                                   </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Unrealized P&L</p>
-                                    <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                      {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
-                                    </p>
+                                  
+                                  {/* Show additional fields based on position status */}
+                                  {position.positionStatus === 'closed' ? (
+                                    // Closed position details
+                                    <>
+                                      {position.exitPrice !== undefined && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Exit Price</p>
+                                          <p className="font-medium">{formatCurrency(position.exitPrice)}</p>
+                                        </div>
+                                      )}
+                                      {position.exitDate && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Exit Date</p>
+                                          <p className="font-medium">{new Date(position.exitDate).toLocaleDateString()}</p>
+                                        </div>
+                                      )}
+                                      {position.entryDate && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Entry Date</p>
+                                          <p className="font-medium">{new Date(position.entryDate).toLocaleDateString()}</p>
+                                        </div>
+                                      )}
+                                      {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Realized P&L</p>
+                                          <p className={`font-medium ${position.realizedPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                            {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
+                                          </p>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    // Open position details
+                                    <>
+                                      {position.currentPrice !== undefined && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Current Price</p>
+                                          <p className="font-medium">{formatCurrency(position.currentPrice)}</p>
+                                        </div>
+                                      )}
+                                      {position.marketValue !== undefined && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Market Value</p>
+                                          <p className="font-medium">{formatCurrency(position.marketValue)}</p>
+                                        </div>
+                                      )}
+                                      {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
+                                        <div>
+                                          <p className="text-sm text-muted-foreground">Unrealized P&L</p>
+                                          <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                            {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
+                                          </p>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {/* Only show action buttons for open positions */}
+                                {position.positionStatus !== 'closed' && (
+                                  <div className="flex justify-end space-x-2">
+                                    <Button variant="outline">Close Position</Button>
+                                    <Button variant="outline">Modify Position</Button>
                                   </div>
-                                </div>
-                                <div className="flex justify-end space-x-2">
-                                  <Button variant="outline">Close Position</Button>
-                                  <Button variant="outline">Modify Position</Button>
-                                </div>
+                                )}
                               </div>
                             )}
                           </DialogContent>
