@@ -281,14 +281,33 @@ export async function sendAlertSMS(
       };
     }
 
-    // Send the SMS
-    const result = await twilioClient.messages.create({
-      body: message,
-      from: TWILIO_PHONE_NUMBER,
-      to: phoneNumber
-    });
-
-    console.log(`Alert SMS sent to ${phoneNumber}, SID: ${result.sid}`);
+    console.log(`Attempting to send alert SMS with Twilio client to ${phoneNumber} from ${TWILIO_PHONE_NUMBER}`);
+    
+    // Try-catch around the actual SMS sending for better error reporting
+    try {
+      // Send the SMS
+      const result = await twilioClient.messages.create({
+        body: message,
+        from: TWILIO_PHONE_NUMBER,
+        to: phoneNumber
+      });
+      
+      console.log(`Twilio alert message response:`, {
+        sid: result.sid,
+        status: result.status,
+        errorCode: result.errorCode || 'none',
+        errorMessage: result.errorMessage || 'none'
+      });
+      
+      if (result.errorCode) {
+        throw new Error(`Twilio error: ${result.errorMessage || 'Unknown error'}`);
+      }
+      
+      console.log(`Alert SMS sent to ${phoneNumber}, SID: ${result.sid}`);
+    } catch (smsError) {
+      console.error('Twilio SMS alert sending error:', smsError);
+      throw smsError; // Re-throw to be caught by outer try-catch
+    }
     
     return { 
       success: true, 
