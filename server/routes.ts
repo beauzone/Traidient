@@ -2059,7 +2059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let positions: any[] = [];
         
         if (positionStatus === 'closed') {
-          // Fetch closed positions with a 365-day lookback by default
+          // Fetch closed positions with a 90-day lookback by default
           const closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
           console.log(`Retrieved ${closedPositions.length} closed positions from Alpaca`);
           
@@ -2078,7 +2078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             positionStatus: 'closed'
           }));
         } else if (positionStatus === 'all') {
-          // Fetch both open and closed positions
+          // Fetch both open and closed positions (with 90-day lookback for closed positions by default)
           const openPositions = await alpacaAPI.getPositions();
           const closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
           
