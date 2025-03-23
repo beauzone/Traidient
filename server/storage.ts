@@ -22,7 +22,10 @@ import {
   InsertAlertThreshold,
   notifications,
   Notification,
-  InsertNotification
+  InsertNotification,
+  webhooks,
+  Webhook,
+  InsertWebhook
 } from "@shared/schema";
 
 export interface IStorage {

@@ -95,10 +95,10 @@ export const strategies = pgTable("strategies", {
   userId: integer("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  type: text("type").notNull(), // 'ai-generated', 'template', 'custom'
+  type: text("type").notNull(), // 'ai-generated', 'template', 'custom', 'tradingview'
   status: text("status").notNull().default('draft'), // 'draft', 'active', 'inactive', 'error'
   source: jsonb("source").$type<{
-    type: 'natural-language' | 'visual-builder' | 'code';
+    type: 'natural-language' | 'visual-builder' | 'code' | 'tradingview-webhook';
     content: string;
   }>().notNull(),
   configuration: jsonb("configuration").$type<{
@@ -410,3 +410,52 @@ export type InsertAlertThreshold = z.infer<typeof insertAlertThresholdSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// TradingView Webhooks
+export const webhooks = pgTable("webhooks", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  strategyId: integer("strategy_id").notNull().references(() => strategies.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  token: varchar("token", { length: 64 }).notNull(), // Unique token for webhook URL
+  action: varchar("action", { length: 50 }).notNull(), // 'entry', 'exit', 'update'
+  isActive: boolean("is_active").notNull().default(true),
+  configuration: jsonb("configuration").$type<{
+    parameters: Record<string, any>;
+    requiredFields: string[];
+    positionSizing: {
+      type: 'fixed' | 'percentage' | 'risk-based';
+      value: number; // shares, percentage, or risk amount
+    };
+  }>().notNull().default({
+    parameters: {},
+    requiredFields: [],
+    positionSizing: {
+      type: 'fixed',
+      value: 100
+    }
+  }),
+  recentCalls: jsonb("recent_calls").$type<{
+    timestamp: string;
+    payload: Record<string, any>;
+    action: string;
+    result: 'success' | 'error';
+    message?: string;
+  }[]>().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastCalledAt: timestamp("last_called_at"),
+});
+
+export const insertWebhookSchema = createInsertSchema(webhooks).pick({
+  userId: true,
+  strategyId: true,
+  name: true,
+  token: true,
+  action: true,
+  isActive: true,
+  configuration: true,
+});
+
+export type Webhook = typeof webhooks.$inferSelect;
+export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
