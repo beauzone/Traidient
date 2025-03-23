@@ -50,6 +50,16 @@ export interface IStorage {
   createStrategy(strategy: InsertStrategy): Promise<Strategy>;
   updateStrategy(id: number, strategy: Partial<Strategy>): Promise<Strategy | undefined>;
   deleteStrategy(id: number): Promise<boolean>;
+  
+  // Webhooks
+  getWebhook(id: number): Promise<Webhook | undefined>;
+  getWebhookByToken(token: string): Promise<Webhook | undefined>;
+  getWebhooksByUser(userId: number): Promise<Webhook[]>;
+  getWebhooksByStrategy(strategyId: number): Promise<Webhook[]>;
+  createWebhook(webhook: InsertWebhook): Promise<Webhook>;
+  updateWebhook(id: number, webhook: Partial<Webhook>): Promise<Webhook | undefined>;
+  deleteWebhook(id: number): Promise<boolean>;
+  logWebhookCall(id: number, payload: Record<string, any>, action: string, result: 'success' | 'error', message?: string): Promise<Webhook | undefined>;
 
   // Backtests
   getBacktest(id: number): Promise<Backtest | undefined>;
@@ -427,6 +437,78 @@ export class DatabaseStorage implements IStorage {
   async deleteNotification(id: number): Promise<boolean> {
     const result = await db.delete(notifications).where(eq(notifications.id, id));
     return result.count > 0;
+  }
+  
+  // Webhook methods
+  async getWebhook(id: number): Promise<Webhook | undefined> {
+    const result = await db.select().from(webhooks).where(eq(webhooks.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getWebhookByToken(token: string): Promise<Webhook | undefined> {
+    const result = await db.select().from(webhooks).where(eq(webhooks.token, token));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getWebhooksByUser(userId: number): Promise<Webhook[]> {
+    return await db.select().from(webhooks).where(eq(webhooks.userId, userId));
+  }
+  
+  async getWebhooksByStrategy(strategyId: number): Promise<Webhook[]> {
+    return await db.select().from(webhooks).where(eq(webhooks.strategyId, strategyId));
+  }
+  
+  async createWebhook(webhook: InsertWebhook): Promise<Webhook> {
+    const now = new Date();
+    const [newWebhook] = await db.insert(webhooks).values({
+      ...webhook,
+      createdAt: now,
+      updatedAt: now,
+      lastCalledAt: null
+    }).returning();
+    return newWebhook;
+  }
+  
+  async updateWebhook(id: number, webhookData: Partial<Webhook>): Promise<Webhook | undefined> {
+    const now = new Date();
+    const [updatedWebhook] = await db.update(webhooks)
+      .set({
+        ...webhookData,
+        updatedAt: now
+      })
+      .where(eq(webhooks.id, id))
+      .returning();
+    return updatedWebhook;
+  }
+  
+  async deleteWebhook(id: number): Promise<boolean> {
+    const result = await db.delete(webhooks).where(eq(webhooks.id, id));
+    return result.count > 0;
+  }
+  
+  async logWebhookCall(id: number, payload: Record<string, any>, action: string, result: 'success' | 'error', message?: string): Promise<Webhook | undefined> {
+    // Get the current webhook
+    const webhook = await this.getWebhook(id);
+    if (!webhook) return undefined;
+    
+    // Create a new call log entry
+    const callLog = {
+      timestamp: new Date().toISOString(),
+      payload,
+      action,
+      result,
+      message
+    };
+    
+    // Update the webhook with the new call log
+    // Keep only the 10 most recent calls
+    const recentCalls = [callLog, ...webhook.recentCalls.slice(0, 9)];
+    
+    // Update the webhook
+    return this.updateWebhook(id, {
+      recentCalls,
+      lastCalledAt: new Date()
+    });
   }
 }
 
