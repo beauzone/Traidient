@@ -527,7 +527,7 @@ export function WebhookManager() {
                                 <SelectValue placeholder="Select a strategy" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
                                 {strategies?.map((strategy: any) => (
                                   <SelectItem key={strategy.id} value={strategy.id.toString()}>
                                     {strategy.name}
@@ -569,7 +569,7 @@ export function WebhookManager() {
                                 <SelectValue placeholder="Select a brokerage account" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">Use Default</SelectItem>
+                                <SelectItem value="default">Use Default</SelectItem>
                                 {integrations?.filter((i: any) => i.type === 'exchange').map((integration: any) => (
                                   <SelectItem key={integration.id} value={integration.id.toString()}>
                                     {integration.description || integration.provider}
@@ -910,7 +910,7 @@ export function WebhookManager() {
                                       <SelectValue placeholder="Select a strategy" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">None</SelectItem>
+                                      <SelectItem value="none">None</SelectItem>
                                       {strategies?.map((strategy: any) => (
                                         <SelectItem key={strategy.id} value={strategy.id.toString()}>
                                           {strategy.name}
@@ -976,7 +976,7 @@ export function WebhookManager() {
                                         <SelectValue placeholder="Select a brokerage account" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="">Use Default</SelectItem>
+                                        <SelectItem value="default">Use Default</SelectItem>
                                         {integrations?.filter((i: any) => i.type === 'exchange').map((integration: any) => (
                                           <SelectItem key={integration.id} value={integration.id.toString()}>
                                             {integration.description || integration.provider}
