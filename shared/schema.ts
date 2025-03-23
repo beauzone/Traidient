@@ -415,32 +415,45 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export const webhooks = pgTable("webhooks", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  strategyId: integer("strategy_id").notNull().references(() => strategies.id),
+  strategyId: integer("strategy_id").references(() => strategies.id),
   name: varchar("name", { length: 100 }).notNull(),
-  token: varchar("token", { length: 64 }).notNull(), // Unique token for webhook URL
-  action: varchar("action", { length: 50 }).notNull(), // 'entry', 'exit', 'update'
+  description: text("description"),
+  token: varchar("token", { length: 64 }).notNull().unique(), // Unique token for webhook URL
+  action: varchar("action", { length: 50 }).notNull(), // 'trade', 'cancel', 'status'
   isActive: boolean("is_active").notNull().default(true),
+  callCount: integer("call_count").notNull().default(0),
   configuration: jsonb("configuration").$type<{
-    parameters: Record<string, any>;
-    requiredFields: string[];
-    positionSizing: {
+    integrationId?: number;
+    securitySettings?: {
+      useSignature: boolean;
+      signatureSecret?: string;
+      ipWhitelist?: string[];
+    };
+    allowShortSelling?: boolean;
+    parameters?: Record<string, any>;
+    positionSizing?: {
       type: 'fixed' | 'percentage' | 'risk-based';
       value: number; // shares, percentage, or risk amount
     };
   }>().notNull().default({
+    securitySettings: {
+      useSignature: false
+    },
+    allowShortSelling: false,
     parameters: {},
-    requiredFields: [],
     positionSizing: {
       type: 'fixed',
       value: 100
     }
   }),
-  recentCalls: jsonb("recent_calls").$type<{
+  logs: jsonb("logs").$type<{
+    id: number;
+    webhookId: number;
     timestamp: string;
-    payload: Record<string, any>;
     action: string;
-    result: 'success' | 'error';
-    message?: string;
+    status: 'success' | 'error';
+    message: string;
+    payload?: Record<string, any>;
   }[]>().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -451,6 +464,7 @@ export const insertWebhookSchema = createInsertSchema(webhooks).pick({
   userId: true,
   strategyId: true,
   name: true,
+  description: true,
   token: true,
   action: true,
   isActive: true,
