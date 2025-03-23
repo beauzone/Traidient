@@ -1,708 +1,1383 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'wouter';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Clipboard, Plus, Trash2, RefreshCw, AlertCircle, Check, X, Eye } from 'lucide-react';
-import { getData, postData, deleteData } from '@/lib/api';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Trash, Copy, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/api";
+import { Heading } from "@/components/ui/heading";
+import { useToast } from "@/hooks/use-toast";
 
-// Define the webhook schema for form validation
-const webhookSchema = z.object({
-  name: z.string().min(3, { message: 'Name must be at least 3 characters' }),
+// Schema for webhook form
+const webhookFormSchema = z.object({
+  name: z.string().min(3, { message: "Name must be at least 3 characters" }),
   description: z.string().optional(),
+  action: z.enum(["trade", "cancel", "status"]),
+  isActive: z.boolean().default(true),
   strategyId: z.number().optional(),
-  action: z.enum(['entry', 'exit', 'cancel']),
   configuration: z.object({
-    positionSizing: z.object({
-      type: z.enum(['fixed', 'percentage', 'risk-based']),
-      value: z.number().min(1)
-    }),
-    parameters: z.record(z.any()).optional(),
-    requiredFields: z.array(z.string()).optional(),
+    integrationId: z.number().optional(),
+    allowShortSelling: z.boolean().default(false),
     securitySettings: z.object({
-      useSignatureVerification: z.boolean().optional(),
+      useSignature: z.boolean().default(false),
       signatureSecret: z.string().optional(),
       ipWhitelist: z.array(z.string()).optional()
-    }).optional()
+    }),
+    positionSizing: z.object({
+      type: z.enum(["fixed", "percentage", "risk-based"]).default("fixed"),
+      value: z.number().default(100)
+    })
   })
 });
 
-type WebhookFormValues = z.infer<typeof webhookSchema>;
+type WebhookFormValues = z.infer<typeof webhookFormSchema>;
 
-interface Webhook {
-  id: number;
-  name: string;
-  description?: string;
-  token: string;
-  userId: number;
-  strategyId?: number;
-  action: 'entry' | 'exit' | 'cancel';
-  configuration: {
-    positionSizing: {
-      type: 'fixed' | 'percentage' | 'risk-based';
-      value: number;
-    };
-    parameters?: Record<string, any>;
-    requiredFields?: string[];
-    securitySettings?: {
-      useSignatureVerification?: boolean;
-      signatureSecret?: string;
-      ipWhitelist?: string[];
-    };
-  };
-  lastCalledAt?: string;
-  lastStatus?: 'success' | 'error';
-  lastError?: string;
-  callCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Strategy {
-  id: number;
-  name: string;
-}
-
-export default function WebhookManager() {
-  const [activeTab, setActiveTab] = useState('webhooks');
-  const [isCreating, setIsCreating] = useState(false);
-  const [selectedWebhook, setSelectedWebhook] = useState<Webhook | null>(null);
-  const [webhookUrl, setWebhookUrl] = useState<string>('');
-  const [isCopied, setIsCopied] = useState(false);
-  const [viewWebhookLogs, setViewWebhookLogs] = useState<number | null>(null);
-
+export function WebhookManager() {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [currentWebhook, setCurrentWebhook] = useState<any>(null);
+  const [tab, setTab] = useState("overview");
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [newIpAddress, setNewIpAddress] = useState("");
 
-  // Fetch user's webhooks
-  const { data: webhooks = [], isLoading: isLoadingWebhooks } = useQuery({
-    queryKey: ['/api/webhooks'],
-    queryFn: () => getData('/api/webhooks')
+  // Get webhooks
+  const { data: webhooks, isLoading: isLoadingWebhooks } = useQuery({
+    queryKey: ["/api/webhooks"],
+    staleTime: 60000
   });
 
-  // Fetch strategies for dropdown
-  const { data: strategies = [] } = useQuery({
-    queryKey: ['/api/strategies'],
-    queryFn: () => getData('/api/strategies')
+  // Get strategies for linking
+  const { data: strategies } = useQuery({
+    queryKey: ["/api/strategies"],
+    staleTime: 60000
   });
 
-  // Create webhook mutation
+  // Get integrations for broker selection
+  const { data: integrations } = useQuery({
+    queryKey: ["/api/integrations"],
+    staleTime: 60000
+  });
+
+  // Get webhook logs if a webhook is selected
+  const { data: webhookLogs, isLoading: isLoadingLogs } = useQuery({
+    queryKey: ["/api/webhooks", currentWebhook?.id, "logs"],
+    enabled: !!currentWebhook?.id,
+    staleTime: 10000
+  });
+
+  // Create a new webhook
   const createWebhookMutation = useMutation({
-    mutationFn: (data: WebhookFormValues) => postData('/api/webhooks', data),
+    mutationFn: (webhook: WebhookFormValues) => apiRequest("/api/webhooks", "POST", webhook),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/webhooks'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
       toast({
-        title: 'Webhook created',
-        description: 'Your webhook endpoint has been created successfully.',
+        title: "Webhook created",
+        description: "Your webhook has been created successfully.",
       });
-      setIsCreating(false);
+      form.reset();
     },
     onError: (error) => {
-      console.error('Error creating webhook:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to create webhook. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to create webhook. Please try again.",
+        variant: "destructive"
       });
-    },
+      console.error("Error creating webhook:", error);
+    }
   });
 
-  // Delete webhook mutation
+  // Update webhook
+  const updateWebhookMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest(`/api/webhooks/${id}`, "PUT", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
+      toast({
+        title: "Webhook updated",
+        description: "Your webhook has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update webhook. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Error updating webhook:", error);
+    }
+  });
+
+  // Delete webhook
   const deleteWebhookMutation = useMutation({
-    mutationFn: (id: number) => deleteData(`/api/webhooks/${id}`),
+    mutationFn: (id: number) => apiRequest(`/api/webhooks/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/webhooks'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
+      setCurrentWebhook(null);
       toast({
-        title: 'Webhook deleted',
-        description: 'Your webhook endpoint has been deleted.',
+        title: "Webhook deleted",
+        description: "Your webhook has been deleted successfully.",
       });
     },
     onError: (error) => {
-      console.error('Error deleting webhook:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to delete webhook. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to delete webhook. Please try again.",
+        variant: "destructive"
       });
-    },
+      console.error("Error deleting webhook:", error);
+    }
   });
 
-  // Get webhook logs mutation
-  const getWebhookLogsMutation = useMutation({
-    mutationFn: (id: number) => getData(`/api/webhooks/${id}/logs`),
-    onSuccess: (data) => {
-      // Handle webhook logs data
-      console.log('Webhook logs:', data);
-    },
-    onError: (error) => {
-      console.error('Error fetching webhook logs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch webhook logs. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Form for creating webhooks
+  // Form hook
   const form = useForm<WebhookFormValues>({
-    resolver: zodResolver(webhookSchema),
+    resolver: zodResolver(webhookFormSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      action: 'entry',
+      name: "",
+      description: "",
+      action: "trade",
+      isActive: true,
       configuration: {
-        positionSizing: {
-          type: 'fixed',
-          value: 1
-        },
-        parameters: {},
-        requiredFields: [],
+        allowShortSelling: false,
         securitySettings: {
-          useSignatureVerification: false,
+          useSignature: false,
+          signatureSecret: "",
           ipWhitelist: []
+        },
+        positionSizing: {
+          type: "fixed",
+          value: 100
         }
       }
     }
   });
 
-  // Effect to update webhook URL when a webhook is selected
-  useEffect(() => {
-    if (selectedWebhook) {
-      const baseUrl = window.location.origin;
-      setWebhookUrl(`${baseUrl}/api/webhook/${selectedWebhook.token}`);
-    }
-  }, [selectedWebhook]);
-
-  // Handle form submission
+  // Handle form submit
   const onSubmit = (values: WebhookFormValues) => {
-    createWebhookMutation.mutate(values);
+    if (currentWebhook?.id) {
+      updateWebhookMutation.mutate({ id: currentWebhook.id, data: values });
+    } else {
+      createWebhookMutation.mutate(values);
+    }
   };
 
-  // Copy webhook URL to clipboard
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(webhookUrl).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+  // Edit webhook handler
+  const handleEditWebhook = (webhook: any) => {
+    setCurrentWebhook(webhook);
+    form.reset({
+      name: webhook.name,
+      description: webhook.description || "",
+      action: webhook.action,
+      isActive: webhook.isActive,
+      strategyId: webhook.strategyId,
+      configuration: {
+        integrationId: webhook.configuration?.integrationId,
+        allowShortSelling: webhook.configuration?.allowShortSelling || false,
+        securitySettings: {
+          useSignature: webhook.configuration?.securitySettings?.useSignature || false,
+          signatureSecret: webhook.configuration?.securitySettings?.signatureSecret || "",
+          ipWhitelist: webhook.configuration?.securitySettings?.ipWhitelist || []
+        },
+        positionSizing: webhook.configuration?.positionSizing || {
+          type: "fixed",
+          value: 100
+        }
+      }
+    });
+    setTab("edit");
+  };
+
+  // Cancel edit
+  const handleCancelEdit = () => {
+    setCurrentWebhook(null);
+    form.reset();
+    setTab("overview");
+  };
+
+  // New webhook button
+  const handleNewWebhook = () => {
+    setCurrentWebhook(null);
+    form.reset();
+    setTab("create");
+  };
+
+  // Add IP to whitelist
+  const handleAddIpToWhitelist = () => {
+    if (!newIpAddress || !newIpAddress.trim()) return;
+    
+    const currentIps = form.getValues("configuration.securitySettings.ipWhitelist") || [];
+    if (currentIps.includes(newIpAddress)) {
+      toast({
+        title: "Duplicate IP",
+        description: "This IP address is already in the whitelist.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    form.setValue("configuration.securitySettings.ipWhitelist", [...currentIps, newIpAddress]);
+    setNewIpAddress("");
+  };
+
+  // Remove IP from whitelist
+  const handleRemoveIpFromWhitelist = (ip: string) => {
+    const currentIps = form.getValues("configuration.securitySettings.ipWhitelist") || [];
+    form.setValue(
+      "configuration.securitySettings.ipWhitelist",
+      currentIps.filter(i => i !== ip)
+    );
+  };
+
+  // Copy webhook URL
+  const handleCopyWebhookUrl = (token: string) => {
+    const baseUrl = window.location.origin;
+    const webhookUrl = `${baseUrl}/api/webhook-triggers/${token}`;
+    navigator.clipboard.writeText(webhookUrl);
+    toast({
+      title: "Copied!",
+      description: "Webhook URL copied to clipboard.",
     });
   };
 
-  // Delete a webhook
-  const handleDeleteWebhook = (id: number) => {
-    if (confirm('Are you sure you want to delete this webhook?')) {
-      deleteWebhookMutation.mutate(id);
+  // Generate example curl command for webhook
+  const getExampleCurlCommand = (webhook: any) => {
+    const baseUrl = window.location.origin;
+    const webhookUrl = `${baseUrl}/api/webhook-triggers/${webhook.token}`;
+    let headers = "";
+    
+    if (webhook.configuration?.securitySettings?.useSignature) {
+      headers += ' \\\n  -H "X-Signature: YOUR_HMAC_SHA256_SIGNATURE"';
     }
+    
+    let command = `curl -X POST ${webhookUrl}${headers} \\\n  -H "Content-Type: application/json" \\\n  -d '`;
+    
+    if (webhook.action === "trade") {
+      command += JSON.stringify({
+        action: "BUY",
+        ticker: "AAPL",
+        quantity: 100,
+        stop_loss: 150.0,
+        take_profit: 170.0
+      }, null, 2);
+    } else if (webhook.action === "cancel") {
+      command += JSON.stringify({
+        cancel_order: "order-123456"
+      }, null, 2);
+    } else if (webhook.action === "status") {
+      command += JSON.stringify({
+        order_id: "order-123456"
+      }, null, 2);
+    }
+    
+    command += "'";
+    return command;
   };
 
-  // View webhook logs
-  const handleViewLogs = (id: number) => {
-    setViewWebhookLogs(id);
-    getWebhookLogsMutation.mutate(id);
-  };
-
-  // Format date for display
-  const formatDate = (dateString: string) => {
+  function getRelativeTime(dateString: string) {
+    const now = new Date();
     const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  };
+    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 60) return `${seconds} seconds ago`;
+    
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    
+    const days = Math.round(hours / 24);
+    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+    
+    const months = Math.round(days / 30);
+    if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+    
+    const years = Math.round(months / 12);
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">TradingView Webhooks</h2>
-        <Button variant="default" onClick={() => setIsCreating(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Webhook
-        </Button>
-      </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="webhooks">My Webhooks</TabsTrigger>
-          <TabsTrigger value="documentation">Documentation</TabsTrigger>
+    <div className="container mx-auto py-6">
+      <Heading 
+        title="Webhook Management" 
+        description="Create and manage webhooks for trading based on external signals"
+        actions={
+          <Button onClick={handleNewWebhook}>New Webhook</Button>
+        }
+      />
+
+      <Tabs value={tab} onValueChange={setTab} className="mt-6">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="create">Create</TabsTrigger>
+          <TabsTrigger value="edit" disabled={!currentWebhook}>Edit</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="webhooks" className="space-y-4">
-          {isLoadingWebhooks ? (
-            <div className="flex justify-center py-6">
-              <RefreshCw className="w-6 h-6 animate-spin" />
-            </div>
-          ) : webhooks.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium">No webhooks found</h3>
-                <p className="text-muted-foreground mt-2 mb-4">
-                  You haven't created any webhook endpoints yet. Create one to start receiving signals from TradingView.
-                </p>
-                <Button variant="default" onClick={() => setIsCreating(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create your first webhook
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {webhooks.map((webhook: Webhook) => (
-                <Card key={webhook.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{webhook.name}</CardTitle>
-                        <CardDescription className="mt-1">
-                          {webhook.description || 'No description'}
-                        </CardDescription>
-                      </div>
-                      <Badge variant={webhook.lastStatus === 'error' ? 'destructive' : 'default'}>
-                        {webhook.action.toUpperCase()}
-                      </Badge>
+
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isLoadingWebhooks ? (
+              <div className="col-span-full flex justify-center">
+                <p>Loading webhooks...</p>
+              </div>
+            ) : webhooks && webhooks.length > 0 ? (
+              webhooks.map((webhook: any) => (
+                <Card key={webhook.id} className="overflow-hidden">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div>
+                      <CardTitle className="text-lg font-medium truncate">
+                        {webhook.name}
+                      </CardTitle>
+                      <CardDescription>
+                        {webhook.action === "trade" && "Trading signals"}
+                        {webhook.action === "cancel" && "Cancel orders"}
+                        {webhook.action === "status" && "Order status checks"}
+                      </CardDescription>
                     </div>
+                    <Badge variant={webhook.isActive ? "default" : "outline"}>
+                      {webhook.isActive ? "Active" : "Inactive"}
+                    </Badge>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm font-medium mb-1">Webhook URL</p>
-                          <div className="flex items-center space-x-2">
+                    <div className="space-y-2">
+                      <div className="text-sm">
+                        <span className="font-semibold">Token:</span>{" "}
+                        <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                          {webhook.token.substring(0, 10)}...
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 ml-1"
+                          onClick={() => handleCopyWebhookUrl(webhook.token)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {webhook.strategyId && (
+                        <div className="text-sm">
+                          <span className="font-semibold">Strategy:</span>{" "}
+                          {strategies?.find((s: any) => s.id === webhook.strategyId)?.name || "Unknown"}
+                        </div>
+                      )}
+                      <div className="text-sm">
+                        <span className="font-semibold">Calls:</span>{" "}
+                        {webhook.callCount || 0}
+                      </div>
+                      {webhook.lastCalledAt && (
+                        <div className="text-sm">
+                          <span className="font-semibold">Last called:</span>{" "}
+                          {getRelativeTime(webhook.lastCalledAt)}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-between pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditWebhook(webhook)}
+                    >
+                      View Details
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => deleteWebhookMutation.mutate(webhook.id)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>No webhooks found</CardTitle>
+                    <CardDescription>
+                      You haven't created any webhooks yet. Create one to get started.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <Button onClick={() => setTab("create")}>Create Webhook</Button>
+                  </CardFooter>
+                </Card>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="create">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                    <CardDescription>
+                      Configure the basic details of your webhook
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="My TradingView Strategy" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Details about this webhook and how it will be used" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="action"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Webhook Action</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select action type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="trade">Trade Execution</SelectItem>
+                                <SelectItem value="cancel">Cancel Orders</SelectItem>
+                                <SelectItem value="status">Order Status</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>
+                            The type of action this webhook will trigger
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="isActive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Active</FormLabel>
+                            <FormDescription>
+                              Enable or disable this webhook
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="strategyId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Link to Strategy (Optional)</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value?.toString()}
+                              onValueChange={val => field.onChange(val ? parseInt(val) : undefined)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a strategy" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">None</SelectItem>
+                                {strategies?.map((strategy: any) => (
+                                  <SelectItem key={strategy.id} value={strategy.id.toString()}>
+                                    {strategy.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>
+                            Linking to a strategy will help with tracking
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Trading Configuration</CardTitle>
+                    <CardDescription>
+                      Configure how trades will be executed
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="configuration.integrationId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brokerage Account</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value?.toString()}
+                              onValueChange={val => field.onChange(val ? parseInt(val) : undefined)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a brokerage account" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Use Default</SelectItem>
+                                {integrations?.filter((i: any) => i.type === 'exchange').map((integration: any) => (
+                                  <SelectItem key={integration.id} value={integration.id.toString()}>
+                                    {integration.description || integration.provider}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>
+                            Choose a specific brokerage account or use the default
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="configuration.allowShortSelling"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Allow Short Selling</FormLabel>
+                            <FormDescription>
+                              Allow this webhook to execute short orders
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="configuration.positionSizing.type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Position Sizing</FormLabel>
+                          <FormControl>
+                            <ToggleGroup 
+                              type="single" 
+                              value={field.value}
+                              onValueChange={(value) => {
+                                if (value) field.onChange(value);
+                              }}
+                              className="justify-start"
+                            >
+                              <ToggleGroupItem value="fixed">Fixed</ToggleGroupItem>
+                              <ToggleGroupItem value="percentage">Percentage</ToggleGroupItem>
+                              <ToggleGroupItem value="risk-based">Risk-Based</ToggleGroupItem>
+                            </ToggleGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="configuration.positionSizing.value"
+                      render={({ field }) => {
+                        const sizingType = form.watch("configuration.positionSizing.type");
+                        return (
+                          <FormItem>
+                            <FormLabel>
+                              {sizingType === "fixed" && "Number of Shares"}
+                              {sizingType === "percentage" && "Percentage of Portfolio"}
+                              {sizingType === "risk-based" && "Risk Percentage"}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={sizingType === "fixed" ? 1 : 0.1}
+                                {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {sizingType === "fixed" && "Fixed number of shares to trade"}
+                              {sizingType === "percentage" && "Percentage of portfolio to allocate (1-100)"}
+                              {sizingType === "risk-based" && "Percentage of account to risk per trade (0.1-5)"}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+                
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Security Settings</CardTitle>
+                    <CardDescription>
+                      Configure security settings for your webhook
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="configuration.securitySettings.useSignature"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Require HMAC Signature</FormLabel>
+                            <FormDescription>
+                              Require a valid HMAC-SHA256 signature with each webhook call
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {form.watch("configuration.securitySettings.useSignature") && (
+                      <FormField
+                        control={form.control}
+                        name="configuration.securitySettings.signatureSecret"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Signature Secret Key</FormLabel>
+                            <FormControl>
+                              <div className="flex">
+                                <Input
+                                  type={showSecretKey ? "text" : "password"}
+                                  placeholder="Secret key for HMAC signatures"
+                                  {...field}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={() => setShowSecretKey(!showSecretKey)}
+                                >
+                                  {showSecretKey ? "Hide" : "Show"}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormDescription>
+                              This secret key will be used to verify the HMAC signature
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    
+                    <div>
+                      <Label>IP Whitelist (Optional)</Label>
+                      <div className="mt-2 flex">
+                        <Input
+                          value={newIpAddress}
+                          onChange={(e) => setNewIpAddress(e.target.value)}
+                          placeholder="192.168.1.1"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="ml-2"
+                          onClick={handleAddIpToWhitelist}
+                        >
+                          Add IP
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Only allow webhook calls from these IP addresses. Leave empty to allow all.
+                      </p>
+                      
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {form.watch("configuration.securitySettings.ipWhitelist")?.map((ip: string) => (
+                          <Badge key={ip} variant="secondary" className="flex items-center gap-1">
+                            {ip}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 p-0"
+                              onClick={() => handleRemoveIpFromWhitelist(ip)}
+                            >
+                              <Trash className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {currentWebhook ? "Update Webhook" : "Create Webhook"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </TabsContent>
+        
+        <TabsContent value="edit">
+          {currentWebhook && (
+            <Tabs defaultValue="details" className="mt-6">
+              <TabsList className="mb-4">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="logs">Activity Logs</TabsTrigger>
+                <TabsTrigger value="examples">Example Usage</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Basic Information</CardTitle>
+                          <CardDescription>
+                            Configure the basic details of your webhook
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="My TradingView Strategy" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description (Optional)</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="Details about this webhook and how it will be used" 
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="action"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Webhook Action</FormLabel>
+                                <FormControl>
+                                  <Select
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select action type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="trade">Trade Execution</SelectItem>
+                                      <SelectItem value="cancel">Cancel Orders</SelectItem>
+                                      <SelectItem value="status">Order Status</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormControl>
+                                <FormDescription>
+                                  The type of action this webhook will trigger
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="isActive"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Active</FormLabel>
+                                  <FormDescription>
+                                    Enable or disable this webhook
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="strategyId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Link to Strategy (Optional)</FormLabel>
+                                <FormControl>
+                                  <Select
+                                    value={field.value?.toString()}
+                                    onValueChange={val => field.onChange(val ? parseInt(val) : undefined)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select a strategy" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="">None</SelectItem>
+                                      {strategies?.map((strategy: any) => (
+                                        <SelectItem key={strategy.id} value={strategy.id.toString()}>
+                                          {strategy.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </FormControl>
+                                <FormDescription>
+                                  Linking to a strategy will help with tracking
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <div className="pt-2">
+                            <Label>Webhook URL</Label>
+                            <div className="mt-1 flex">
+                              <Input
+                                readOnly
+                                value={`${window.location.origin}/api/webhook-triggers/${currentWebhook.token}`}
+                                className="flex-1 font-mono text-xs"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="ml-2"
+                                onClick={() => handleCopyWebhookUrl(currentWebhook.token)}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Use this URL in your TradingView alerts
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <div className="space-y-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Trading Configuration</CardTitle>
+                            <CardDescription>
+                              Configure how trades will be executed
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="configuration.integrationId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Brokerage Account</FormLabel>
+                                  <FormControl>
+                                    <Select
+                                      value={field.value?.toString()}
+                                      onValueChange={val => field.onChange(val ? parseInt(val) : undefined)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select a brokerage account" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="">Use Default</SelectItem>
+                                        {integrations?.filter((i: any) => i.type === 'exchange').map((integration: any) => (
+                                          <SelectItem key={integration.id} value={integration.id.toString()}>
+                                            {integration.description || integration.provider}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </FormControl>
+                                  <FormDescription>
+                                    Choose a specific brokerage account or use the default
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="configuration.allowShortSelling"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                  <div className="space-y-0.5">
+                                    <FormLabel>Allow Short Selling</FormLabel>
+                                    <FormDescription>
+                                      Allow this webhook to execute short orders
+                                    </FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="configuration.positionSizing.type"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Position Sizing</FormLabel>
+                                  <FormControl>
+                                    <ToggleGroup 
+                                      type="single" 
+                                      value={field.value}
+                                      onValueChange={(value) => {
+                                        if (value) field.onChange(value);
+                                      }}
+                                      className="justify-start"
+                                    >
+                                      <ToggleGroupItem value="fixed">Fixed</ToggleGroupItem>
+                                      <ToggleGroupItem value="percentage">Percentage</ToggleGroupItem>
+                                      <ToggleGroupItem value="risk-based">Risk-Based</ToggleGroupItem>
+                                    </ToggleGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="configuration.positionSizing.value"
+                              render={({ field }) => {
+                                const sizingType = form.watch("configuration.positionSizing.type");
+                                return (
+                                  <FormItem>
+                                    <FormLabel>
+                                      {sizingType === "fixed" && "Number of Shares"}
+                                      {sizingType === "percentage" && "Percentage of Portfolio"}
+                                      {sizingType === "risk-based" && "Risk Percentage"}
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        step={sizingType === "fixed" ? 1 : 0.1}
+                                        {...field}
+                                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      {sizingType === "fixed" && "Fixed number of shares to trade"}
+                                      {sizingType === "percentage" && "Percentage of portfolio to allocate (1-100)"}
+                                      {sizingType === "risk-based" && "Percentage of account to risk per trade (0.1-5)"}
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                );
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Security Settings</CardTitle>
+                            <CardDescription>
+                              Configure security settings for your webhook
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="configuration.securitySettings.useSignature"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                  <div className="space-y-0.5">
+                                    <FormLabel>Require HMAC Signature</FormLabel>
+                                    <FormDescription>
+                                      Require a valid HMAC-SHA256 signature with each webhook call
+                                    </FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            {form.watch("configuration.securitySettings.useSignature") && (
+                              <FormField
+                                control={form.control}
+                                name="configuration.securitySettings.signatureSecret"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Signature Secret Key</FormLabel>
+                                    <FormControl>
+                                      <div className="flex">
+                                        <Input
+                                          type={showSecretKey ? "text" : "password"}
+                                          placeholder="Secret key for HMAC signatures"
+                                          {...field}
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="ml-2"
+                                          onClick={() => setShowSecretKey(!showSecretKey)}
+                                        >
+                                          {showSecretKey ? "Hide" : "Show"}
+                                        </Button>
+                                      </div>
+                                    </FormControl>
+                                    <FormDescription>
+                                      This secret key will be used to verify the HMAC signature
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                            
+                            <div>
+                              <Label>IP Whitelist (Optional)</Label>
+                              <div className="mt-2 flex">
+                                <Input
+                                  value={newIpAddress}
+                                  onChange={(e) => setNewIpAddress(e.target.value)}
+                                  placeholder="192.168.1.1"
+                                  className="flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={handleAddIpToWhitelist}
+                                >
+                                  Add IP
+                                </Button>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Only allow webhook calls from these IP addresses. Leave empty to allow all.
+                              </p>
+                              
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {form.watch("configuration.securitySettings.ipWhitelist")?.map((ip: string) => (
+                                  <Badge key={ip} variant="secondary" className="flex items-center gap-1">
+                                    {ip}
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-4 w-4 p-0"
+                                      onClick={() => handleRemoveIpFromWhitelist(ip)}
+                                    >
+                                      <Trash className="h-3 w-3" />
+                                    </Button>
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit">
+                        Update Webhook
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </TabsContent>
+              
+              <TabsContent value="logs">
+                <Card>
+                  <CardHeader className="flex flex-row items-start justify-between">
+                    <div>
+                      <CardTitle>Activity Logs</CardTitle>
+                      <CardDescription>
+                        Recent activity for this webhook
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingLogs ? (
+                      <div className="flex justify-center py-4">
+                        <p>Loading logs...</p>
+                      </div>
+                    ) : webhookLogs && webhookLogs.length > 0 ? (
+                      <div className="space-y-4">
+                        {webhookLogs.map((log: any, index: number) => (
+                          <div key={index} className="border rounded-lg p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center">
+                                {log.status === 'success' ? (
+                                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                                ) : (
+                                  <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                                )}
+                                <div>
+                                  <p className="font-medium">{log.action}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {new Date(log.timestamp).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
+                                {log.status}
+                              </Badge>
+                            </div>
+                            
+                            {log.message && (
+                              <p className="text-sm mb-2">{log.message}</p>
+                            )}
+                            
+                            {log.payload && (
+                              <div className="mt-2">
+                                <p className="text-sm font-medium mb-1">Payload:</p>
+                                <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
+                                  {JSON.stringify(log.payload, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 px-4">
+                        <p className="text-muted-foreground">No activity logs yet</p>
+                        <p className="text-sm mt-1">
+                          Logs will appear here when the webhook is triggered
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="examples">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Example Usage</CardTitle>
+                    <CardDescription>
+                      Examples for using this webhook with TradingView
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">TradingView Alert Setup</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Configure your TradingView alert with the following settings:
+                        </p>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <Label>1. In TradingView, create a new alert</Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Use any condition that matches your trading strategy
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <Label>2. In the "Alert actions" section, select "Webhook URL"</Label>
                             <Input 
                               readOnly 
-                              value={`${window.location.origin}/api/webhook/${webhook.token}`} 
-                              className="font-mono text-sm"
+                              value={`${window.location.origin}/api/webhook-triggers/${currentWebhook.token}`}
+                              className="mt-1 font-mono text-xs"
                             />
                             <Button 
                               variant="outline" 
-                              size="icon" 
-                              onClick={() => {
-                                setSelectedWebhook(webhook);
-                                copyToClipboard();
-                              }}
+                              size="sm" 
+                              className="mt-2"
+                              onClick={() => handleCopyWebhookUrl(currentWebhook.token)}
                             >
-                              {isCopied && selectedWebhook?.id === webhook.id ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <Clipboard className="h-4 w-4" />
-                              )}
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy Webhook URL
                             </Button>
                           </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+                          
                           <div>
-                            <p className="text-sm font-medium mb-1">Position Sizing</p>
-                            <p className="text-sm">
-                              {webhook.configuration.positionSizing.type} ({webhook.configuration.positionSizing.value}{webhook.configuration.positionSizing.type === 'percentage' ? '%' : ''})
+                            <Label>3. Set the "Message" field with your trading signal</Label>
+                            <Textarea 
+                              readOnly
+                              value={
+                                currentWebhook.action === "trade"
+                                  ? JSON.stringify({
+                                      action: "BUY",
+                                      ticker: "{{ticker}}",
+                                      quantity: 100,
+                                      // Optional parameters
+                                      entry_price: "{{close}}",
+                                      stop_loss: "{{low}}",
+                                      take_profit: "{{high}}" 
+                                    }, null, 2)
+                                  : currentWebhook.action === "cancel"
+                                  ? JSON.stringify({
+                                      cancel_order: "order-123456"
+                                    }, null, 2)
+                                  : JSON.stringify({
+                                      order_id: "order-123456" 
+                                    }, null, 2)
+                              }
+                              className="mt-1 font-mono text-xs h-44"
+                            />
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Replace placeholders with appropriate TradingView variables
                             </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium mb-1">Call Count</p>
-                            <p className="text-sm">{webhook.callCount} times</p>
                           </div>
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm font-medium mb-1">Created</p>
-                          <p className="text-sm">{formatDate(webhook.createdAt)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium mb-1">Last Called</p>
-                          <p className="text-sm">{webhook.lastCalledAt ? formatDate(webhook.lastCalledAt) : 'Never'}</p>
+                      <Separator />
+                      
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">Testing with cURL</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          You can test your webhook with the following cURL command:
+                        </p>
+                        
+                        <div className="bg-muted p-4 rounded">
+                          <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                            {getExampleCurlCommand(currentWebhook)}
+                          </pre>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Run this command in your terminal to test the webhook
+                          </p>
                         </div>
                       </div>
+                      
+                      {currentWebhook.configuration?.securitySettings?.useSignature && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Signature Required</AlertTitle>
+                          <AlertDescription>
+                            This webhook requires a valid HMAC-SHA256 signature. You'll need to generate the signature by creating an HMAC-SHA256 hash of the request body using your secret key, and include it in the X-Signature header.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-end space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleViewLogs(webhook.id)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Logs
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={() => handleDeleteWebhook(webhook.id)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  </CardFooter>
                 </Card>
-              ))}
-            </div>
+              </TabsContent>
+            </Tabs>
           )}
-        </TabsContent>
-        
-        <TabsContent value="documentation" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>How to Use TradingView Webhooks</CardTitle>
-              <CardDescription>
-                Follow these instructions to connect your TradingView alerts to this trading bot.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Step 1: Create a Webhook Endpoint</h3>
-                <p>Create a new webhook using the "Create Webhook" button. Choose the action type (entry, exit, or cancel) and configure position sizing.</p>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Step 2: Copy Webhook URL</h3>
-                <p>Copy the webhook URL for the endpoint you created. You'll paste this into TradingView.</p>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Step 3: Create a TradingView Alert</h3>
-                <p>In TradingView, create a new alert for your strategy:</p>
-                <ol className="list-decimal pl-5 space-y-2">
-                  <li>Open your chart and select "Alerts" from the right sidebar</li>
-                  <li>Click "Create Alert"</li>
-                  <li>Set your alert conditions</li>
-                  <li>In the "Notifications" section, enable "Webhook URL"</li>
-                  <li>Paste your webhook URL</li>
-                  <li>Format the alert message as JSON. See examples below.</li>
-                </ol>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Message Format Examples</h3>
-                <p className="text-sm font-bold mt-2">Buy Signal JSON:</p>
-                <pre className="bg-secondary p-3 rounded text-xs overflow-auto">
-{`{
-  "action": "BUY",
-  "ticker": "{{ticker}}",
-  "quantity": 10,
-  "entry_price": {{close}},
-  "stop_loss": {{close}} * 0.95,
-  "take_profit": {{close}} * 1.10
-}`}
-                </pre>
-                
-                <p className="text-sm font-bold mt-2">Sell Signal JSON:</p>
-                <pre className="bg-secondary p-3 rounded text-xs overflow-auto">
-{`{
-  "action": "SELL",
-  "ticker": "{{ticker}}",
-  "quantity": 10
-}`}
-                </pre>
-                
-                <p className="text-sm font-bold mt-2">Close Position JSON:</p>
-                <pre className="bg-secondary p-3 rounded text-xs overflow-auto">
-{`{
-  "action": "CLOSE",
-  "ticker": "{{ticker}}"
-}`}
-                </pre>
-                
-                <p className="text-sm font-bold mt-2">Cancel Order JSON:</p>
-                <pre className="bg-secondary p-3 rounded text-xs overflow-auto">
-{`{
-  "cancel_order": "order_id_here"
-}`}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
-      
-      {/* Create Webhook Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
-            <DialogTitle>Create Webhook Endpoint</DialogTitle>
-            <DialogDescription>
-              Create a new webhook endpoint to receive signals from TradingView.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Webhook Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="My TradingView Strategy" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Golden Cross strategy for SPY" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="action"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Webhook Action</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an action" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="entry">Entry (Buy)</SelectItem>
-                        <SelectItem value="exit">Exit (Sell/Close)</SelectItem>
-                        <SelectItem value="cancel">Cancel Order</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      This determines how the webhook will process incoming signals.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="strategyId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Related Strategy (Optional)</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(parseInt(value))} 
-                      defaultValue={field.value?.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a strategy" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        {strategies.map((strategy: Strategy) => (
-                          <SelectItem key={strategy.id} value={strategy.id.toString()}>
-                            {strategy.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Link this webhook to an existing strategy for tracking purposes.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="configuration.positionSizing.type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Position Sizing Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select position sizing type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="fixed">Fixed Quantity</SelectItem>
-                        <SelectItem value="percentage">Percentage of Portfolio</SelectItem>
-                        <SelectItem value="risk-based">Risk-Based</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      How to calculate position sizes for incoming trade signals.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="configuration.positionSizing.value"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {form.watch('configuration.positionSizing.type') === 'fixed' ? 'Quantity' : 
-                       form.watch('configuration.positionSizing.type') === 'percentage' ? 'Percentage' : 
-                       'Risk Percentage'}
-                    </FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder={
-                          form.watch('configuration.positionSizing.type') === 'fixed' ? '10' : 
-                          form.watch('configuration.positionSizing.type') === 'percentage' ? '5' : '1'
-                        } 
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {form.watch('configuration.positionSizing.type') === 'fixed' ? 
-                        'Number of shares to buy/sell' : 
-                        form.watch('configuration.positionSizing.type') === 'percentage' ? 
-                        'Percentage of portfolio value to use (1-100)' : 
-                        'Percentage of portfolio to risk per trade (1-10)'}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="configuration.securitySettings.useSignatureVerification"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel>Signature Verification</FormLabel>
-                      <FormDescription>
-                        Enable HMAC signature verification for enhanced security
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              
-              {form.watch('configuration.securitySettings.useSignatureVerification') && (
-                <FormField
-                  control={form.control}
-                  name="configuration.securitySettings.signatureSecret"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Signature Secret</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Shared secret for HMAC signatures" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        This secret will be used to verify webhook signatures.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreating(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createWebhookMutation.isPending}>
-                  {createWebhookMutation.isPending ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Webhook'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-      
-      {/* View Webhook Logs Dialog */}
-      <Dialog open={viewWebhookLogs !== null} onOpenChange={() => setViewWebhookLogs(null)}>
-        <DialogContent className="sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle>Webhook Activity Logs</DialogTitle>
-            <DialogDescription>
-              Recent activity for this webhook endpoint.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {getWebhookLogsMutation.isPending ? (
-            <div className="flex justify-center py-6">
-              <RefreshCw className="w-6 h-6 animate-spin" />
-            </div>
-          ) : getWebhookLogsMutation.data?.logs?.length > 0 ? (
-            <div className="max-h-[400px] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Message</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {getWebhookLogsMutation.data?.logs.map((log: any) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{formatDate(log.timestamp)}</TableCell>
-                      <TableCell>{log.action}</TableCell>
-                      <TableCell>
-                        {log.status === 'success' ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            Success
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                            Error
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {log.message || 'No message'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <p>No activity logs found for this webhook.</p>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewWebhookLogs(null)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
