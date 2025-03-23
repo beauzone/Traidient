@@ -229,7 +229,7 @@ export function WebhookManager() {
       const newIps = [...currentIps];
       let changed = false;
       
-      for (const ip of tradingViewIpAddresses) {
+      for (const ip of TRADINGVIEW_IPS) {
         if (!newIps.includes(ip)) {
           newIps.push(ip);
           changed = true;
@@ -245,7 +245,7 @@ export function WebhookManager() {
       }
     } else {
       // Remove TradingView IPs from the whitelist
-      const filteredIps = currentIps.filter(ip => !tradingViewIpAddresses.includes(ip));
+      const filteredIps = currentIps.filter(ip => !TRADINGVIEW_IPS.includes(ip));
       
       if (filteredIps.length !== currentIps.length) {
         form.setValue("configuration.securitySettings.ipWhitelist", filteredIps);
