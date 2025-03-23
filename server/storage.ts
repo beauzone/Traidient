@@ -491,22 +491,31 @@ export class DatabaseStorage implements IStorage {
     const webhook = await this.getWebhook(id);
     if (!webhook) return undefined;
     
-    // Create a new call log entry
-    const callLog = {
+    // Create a new call log entry with a unique ID
+    const logEntry = {
+      id: Date.now(), // Use timestamp as a simple unique ID
+      webhookId: id,
       timestamp: new Date().toISOString(),
       payload,
       action,
-      result,
-      message
+      status: result,
+      message: message || (result === 'success' ? 'Webhook call successful' : 'Webhook call failed')
     };
     
-    // Update the webhook with the new call log
-    // Keep only the 10 most recent calls
-    const recentCalls = [callLog, ...webhook.recentCalls.slice(0, 9)];
+    // Get current logs or initialize empty array
+    const currentLogs = webhook.logs || [];
     
-    // Update the webhook
+    // Add new log entry to the beginning of the logs array
+    // Keep only the 20 most recent logs
+    const updatedLogs = [logEntry, ...currentLogs.slice(0, 19)];
+    
+    // Increment the call count
+    const callCount = (webhook.callCount || 0) + 1;
+    
+    // Update the webhook with the new logs and update the call count
     return this.updateWebhook(id, {
-      recentCalls,
+      logs: updatedLogs,
+      callCount,
       lastCalledAt: new Date()
     });
   }

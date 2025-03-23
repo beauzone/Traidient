@@ -4,11 +4,11 @@
  * This service handles incoming webhook requests from TradingView alerts
  * and processes them into trading actions using the configured broker.
  */
-import crypto from 'crypto';
-import { Webhook } from '@shared/schema';
 import { storage } from './storage';
 import { AlpacaAPI } from './alpaca';
 import { getApiIntegrationByIdOrDefault } from './utils';
+import crypto from 'crypto';
+import { Webhook } from '@shared/schema';
 
 /**
  * Verify the webhook payload signature
@@ -17,17 +17,20 @@ import { getApiIntegrationByIdOrDefault } from './utils';
  * @param secret The secret key used to generate the signature
  */
 export function verifySignature(payload: string, signature: string, secret: string): boolean {
-  if (!signature || !secret) {
+  try {
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+    
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch (error) {
+    console.error('Signature verification error:', error);
     return false;
   }
-  
-  const hmac = crypto.createHmac('sha256', secret);
-  const calculatedSignature = hmac.update(payload).digest('hex');
-  
-  return crypto.timingSafeEqual(
-    Buffer.from(calculatedSignature),
-    Buffer.from(signature)
-  );
 }
 
 /**
@@ -37,7 +40,7 @@ export function verifySignature(payload: string, signature: string, secret: stri
  */
 export function verifyIpWhitelist(ip: string, whitelist: string[]): boolean {
   if (!whitelist || whitelist.length === 0) {
-    return true; // No whitelist means allow all
+    return true; // No whitelist means all IPs are allowed
   }
   
   return whitelist.includes(ip);
@@ -80,146 +83,139 @@ export async function processWebhook(
   payload: WebhookPayload,
   ip: string,
   signature?: string
-): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> {
+): Promise<{ success: boolean, message: string, data?: any }> {
   try {
-    // Get the webhook from database by token
+    // Find the webhook by token
     const webhook = await storage.getWebhookByToken(webhookToken);
     
     if (!webhook) {
-      return {
-        success: false,
-        message: 'Invalid webhook token'
+      return { 
+        success: false, 
+        message: 'Invalid webhook token' 
       };
     }
     
-    // Verify IP whitelist if configured
-    if (webhook.configuration && webhook.configuration.securitySettings && 
-        webhook.configuration.securitySettings.ipWhitelist && 
-        webhook.configuration.securitySettings.ipWhitelist.length > 0) {
-      const isValidIp = verifyIpWhitelist(ip, webhook.configuration.securitySettings.ipWhitelist);
-      if (!isValidIp) {
-        await storage.logWebhookCall(
-          webhook.id, 
-          payload as Record<string, any>, 
-          'AUTHENTICATE',
-          'error',
-          `IP address ${ip} not in whitelist`
-        );
-        return {
-          success: false,
-          message: 'IP address not authorized'
-        };
-      }
+    // Webhook must be active
+    if (!webhook.isActive) {
+      return { 
+        success: false, 
+        message: 'Webhook is inactive' 
+      };
     }
     
-    // Verify signature if required
-    if (webhook.configuration && webhook.configuration.securitySettings && 
-        webhook.configuration.securitySettings.useSignature && 
-        webhook.configuration.securitySettings.signatureSecret) {
+    // Verify security settings if enabled
+    if (webhook.configuration.securitySettings?.useSignature) {
+      if (!signature) {
+        return { 
+          success: false, 
+          message: 'Missing signature for webhook with signature verification enabled' 
+        };
+      }
+      
+      if (!webhook.configuration.securitySettings.signatureSecret) {
+        return { 
+          success: false, 
+          message: 'Webhook signature verification is enabled but no secret is configured' 
+        };
+      }
+      
       const isValidSignature = verifySignature(
         JSON.stringify(payload),
-        signature || '',
+        signature,
         webhook.configuration.securitySettings.signatureSecret
       );
       
       if (!isValidSignature) {
-        await storage.logWebhookCall(
-          webhook.id, 
-          payload as Record<string, any>, 
-          'AUTHENTICATE',
-          'error',
-          'Invalid signature'
-        );
-        return {
-          success: false,
-          message: 'Invalid signature'
+        return { 
+          success: false, 
+          message: 'Invalid signature' 
         };
       }
     }
     
-    // Update call count
-    await storage.updateWebhook(webhook.id, {
-      callCount: (webhook.callCount || 0) + 1,
-      lastCalledAt: new Date().toISOString()
-    });
-    
-    // Process by signal type
-    if ('action' in payload) {
-      // It's a trade signal
-      const signal = payload as TradeSignal;
+    // Verify IP whitelist if configured
+    if (webhook.configuration.securitySettings?.ipWhitelist && 
+        webhook.configuration.securitySettings.ipWhitelist.length > 0) {
+      const isValidIp = verifyIpWhitelist(ip, webhook.configuration.securitySettings.ipWhitelist);
       
-      if (signal.action === 'BUY') {
-        return await processEntrySignal(webhook, signal);
-      } else if (signal.action === 'SELL' || signal.action === 'CLOSE') {
-        return await processExitSignal(webhook, signal);
-      } else if (signal.action === 'REVERSE') {
-        // First close any existing position
-        const closeResult = await processExitSignal(webhook, { 
-          ...signal, 
-          action: 'CLOSE' 
-        });
-        
-        // Then open a new position in the opposite direction
-        if (closeResult.success) {
-          return await processEntrySignal(webhook, signal);
-        } else {
-          return closeResult;
-        }
-      }
-    } else if ('cancel_order' in payload) {
-      // It's a cancel order signal
-      return await processCancelSignal(webhook, payload as CancelOrderSignal);
-    } else if ('order_id' in payload) {
-      // It's an order status request
-      const orderId = (payload as OrderStatusSignal).order_id;
-      
-      // Get the integration based on the webhook configuration
-      const integration = await getApiIntegrationByIdOrDefault(
-        webhook.userId,
-        webhook.configuration?.integrationId
-      );
-      
-      if (!integration) {
-        return {
-          success: false,
-          message: 'No broker integration available'
+      if (!isValidIp) {
+        return { 
+          success: false, 
+          message: 'IP address not allowed' 
         };
       }
-      
-      const alpaca = new AlpacaAPI(integration);
-      const orders = await alpaca.getOrders();
-      const order = orders.find(o => o.id === orderId);
-      
-      return {
-        success: true,
-        message: order ? `Order ${orderId} status: ${order.status}` : `Order ${orderId} not found`,
-        data: order
+    }
+    
+    // Log the webhook call
+    await storage.updateWebhook(webhook.id, {
+      callCount: (webhook.callCount || 0) + 1,
+      lastCalledAt: new Date()
+    });
+    
+    // Process the webhook based on the action
+    let result;
+    
+    if (webhook.action === 'trade' && 'action' in payload) {
+      if (payload.action === 'BUY') {
+        result = await processEntrySignal(webhook, payload);
+      } else if (payload.action === 'SELL' || payload.action === 'CLOSE') {
+        result = await processExitSignal(webhook, payload);
+      } else if (payload.action === 'REVERSE') {
+        // Reverse means close any existing position and open a new one in the opposite direction
+        const closeResult = await processExitSignal(webhook, {
+          ...payload,
+          action: 'CLOSE'
+        });
+        
+        // Only proceed with the reverse entry if the close was successful
+        if (closeResult.success) {
+          // Create a new payload with the opposite action
+          const reversePayload = {
+            ...payload,
+            action: 'BUY' as 'BUY'
+          };
+          
+          result = await processEntrySignal(webhook, reversePayload);
+        } else {
+          result = closeResult;
+        }
+      } else {
+        result = { 
+          success: false, 
+          message: `Unknown action: ${payload.action}` 
+        };
+      }
+    } else if (webhook.action === 'cancel' && 'cancel_order' in payload) {
+      result = await processCancelSignal(webhook, payload);
+    } else if (webhook.action === 'status' && 'order_id' in payload) {
+      // Order status check will be implemented in a future version
+      result = { 
+        success: false, 
+        message: 'Order status check is not yet implemented' 
+      };
+    } else {
+      result = { 
+        success: false, 
+        message: 'Invalid webhook payload for the configured action' 
       };
     }
     
-    // Log the invalid payload
+    // Log the webhook action and result
     await storage.logWebhookCall(
-      webhook.id, 
-      payload as Record<string, any>, 
-      'UNKNOWN',
-      'error',
-      'Invalid payload format'
+      webhook.id,
+      payload,
+      'action' in payload ? payload.action : webhook.action,
+      result.success ? 'success' : 'error',
+      result.message
     );
     
-    return {
-      success: false,
-      message: 'Invalid webhook payload format'
-    };
+    return result;
     
   } catch (error) {
     console.error('Error processing webhook:', error);
     return {
       success: false,
-      message: `Error processing webhook: ${error.message}`
+      message: `Internal error: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -230,97 +226,71 @@ export async function processWebhook(
 async function processEntrySignal(
   webhook: Webhook, 
   signal: TradeSignal
-): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> {
+): Promise<{ success: boolean, message: string, data?: any }> {
   try {
-    // Get the integration based on the webhook configuration
-    const integration = await getApiIntegrationByIdOrDefault(
+    // Get the Alpaca API instance using the webhook's configured integration or the user's default
+    const alpacaIntegration = await getApiIntegrationByIdOrDefault(
       webhook.userId,
-      webhook.configuration?.integrationId
+      webhook.configuration.integrationId
     );
     
-    if (!integration) {
+    if (!alpacaIntegration) {
       return {
         success: false,
-        message: 'No broker integration available'
+        message: 'No valid trading account found'
       };
     }
     
-    const alpaca = new AlpacaAPI(integration);
+    const alpaca = new AlpacaAPI(alpacaIntegration);
     
-    // Get current price if not provided
-    let entryPrice = signal.entry_price;
-    if (!entryPrice) {
-      const quote = await alpaca.getQuote(signal.ticker);
-      entryPrice = quote.latestTrade ? quote.latestTrade.p : null;
+    // Validate required fields
+    if (!signal.ticker) {
+      return {
+        success: false,
+        message: 'Missing required field: ticker'
+      };
     }
     
-    // Calculate quantity based on risk if not provided
+    // Determine the quantity to trade
     let quantity = signal.quantity;
-    if (!quantity && signal.risk_percent) {
-      const account = await alpaca.getAccount();
-      const accountValue = parseFloat(account.equity);
-      const riskAmount = accountValue * (signal.risk_percent / 100);
-      
-      if (signal.stop_loss && entryPrice) {
-        const riskPerShare = Math.abs(entryPrice - signal.stop_loss);
-        if (riskPerShare > 0) {
-          quantity = Math.floor(riskAmount / riskPerShare);
-        }
-      } else if (entryPrice) {
-        // Default 2% max loss per position if no stop loss
-        quantity = Math.floor(riskAmount / entryPrice);
-      }
+    
+    if (!quantity) {
+      // If no quantity is specified, use the webhook configuration for position sizing
+      // This is a simplified implementation - in a real system you'd have more advanced sizing logic
+      const defaultQuantity = 1;
+      quantity = defaultQuantity;
     }
     
-    // Default to 1 share if we couldn't calculate
-    if (!quantity || quantity <= 0) {
-      quantity = 1;
-    }
-    
-    // Place the order
+    // Set up the order parameters
     const orderParams = {
       symbol: signal.ticker,
-      qty: quantity,
-      side: 'buy',
-      type: 'market',
-      time_in_force: 'day'
+      qty: quantity.toString(),
+      side: 'buy' as 'buy',  // Type assertion to match expected type
+      type: 'market' as 'market',  // Type assertion to match expected type
+      time_in_force: 'day' as 'day'  // Type assertion to match expected type
     };
     
-    const order = await alpaca.placeOrder(orderParams);
-    
-    // Log the webhook call
-    await storage.logWebhookCall(
-      webhook.id, 
-      signal as Record<string, any>, 
-      'BUY',
-      'success',
-      `Buy order placed for ${quantity} ${signal.ticker}`
-    );
-    
-    return {
-      success: true,
-      message: `Buy order placed for ${quantity} ${signal.ticker}`,
-      data: order
-    };
+    // Place the order
+    try {
+      const order = await alpaca.placeOrder(orderParams);
+      
+      return {
+        success: true,
+        message: `Successfully placed buy order for ${quantity} shares of ${signal.ticker}`,
+        data: order
+      };
+    } catch (error) {
+      console.error('Error placing order:', error);
+      return {
+        success: false,
+        message: `Error placing order: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   } catch (error) {
     console.error('Error processing entry signal:', error);
-    
-    // Log the webhook failure
-    await storage.logWebhookCall(
-      webhook.id, 
-      signal as Record<string, any>, 
-      'BUY',
-      'error',
-      `Error: ${error.message}`
-    );
-    
     return {
       success: false,
-      message: `Error placing buy order: ${error.message}`
+      message: `Error processing entry signal: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -331,122 +301,111 @@ async function processEntrySignal(
 async function processExitSignal(
   webhook: Webhook, 
   signal: TradeSignal
-): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> {
+): Promise<{ success: boolean, message: string, data?: any }> {
   try {
-    // Get the integration based on the webhook configuration
-    const integration = await getApiIntegrationByIdOrDefault(
+    // Get the Alpaca API instance using the webhook's configured integration or the user's default
+    const alpacaIntegration = await getApiIntegrationByIdOrDefault(
       webhook.userId,
-      webhook.configuration?.integrationId
+      webhook.configuration.integrationId
     );
     
-    if (!integration) {
+    if (!alpacaIntegration) {
       return {
         success: false,
-        message: 'No broker integration available'
+        message: 'No valid trading account found'
       };
     }
     
-    const alpaca = new AlpacaAPI(integration);
+    const alpaca = new AlpacaAPI(alpacaIntegration);
     
-    // Check if we have a position for this symbol
+    // Validate required fields
+    if (!signal.ticker) {
+      return {
+        success: false,
+        message: 'Missing required field: ticker'
+      };
+    }
+    
+    // Get current positions to determine quantity
     const positions = await alpaca.getPositions();
     const position = positions.find(p => p.symbol === signal.ticker);
     
-    // If no position, handle based on configuration
     if (!position) {
-      if (webhook.configuration && webhook.configuration.allowShortSelling) {
-        // Place a short sell order if shorting is allowed
-        const quantity = signal.quantity || 1;
+      // Check if we should allow short selling
+      if (webhook.configuration.allowShortSelling && signal.action === 'SELL') {
+        // Determine the quantity to short
+        let quantity = signal.quantity;
         
+        if (!quantity) {
+          // Default short quantity
+          quantity = 1;
+        }
+        
+        // Set up the order parameters for a short sell
         const orderParams = {
           symbol: signal.ticker,
-          qty: quantity,
-          side: 'sell',
-          type: 'market',
-          time_in_force: 'day'
+          qty: quantity.toString(),
+          side: 'sell' as 'sell',  // Type assertion to match expected type
+          type: 'market' as 'market',  // Type assertion to match expected type
+          time_in_force: 'day' as 'day'  // Type assertion to match expected type
         };
         
-        const order = await alpaca.placeOrder(orderParams);
-        
-        // Log the webhook call
-        await storage.logWebhookCall(
-          webhook.id, 
-          signal as Record<string, any>, 
-          'SHORT',
-          'success',
-          `Short sell order placed for ${quantity} ${signal.ticker}`
-        );
-        
-        return {
-          success: true,
-          message: `Short sell order placed for ${quantity} ${signal.ticker}`,
-          data: order
-        };
+        // Place the short sell order
+        try {
+          const order = await alpaca.placeOrder(orderParams);
+          
+          return {
+            success: true,
+            message: `Successfully placed short sell order for ${quantity} shares of ${signal.ticker}`,
+            data: order
+          };
+        } catch (error) {
+          return {
+            success: false,
+            message: `Error placing short sell order: ${error instanceof Error ? error.message : 'Unknown error'}`
+          };
+        }
       } else {
-        await storage.logWebhookCall(
-          webhook.id, 
-          signal as Record<string, any>, 
-          'SELL',
-          'error',
-          `No position found for ${signal.ticker} and short selling is disabled`
-        );
-        
         return {
           success: false,
-          message: `No position found for ${signal.ticker} and short selling is disabled`
+          message: `No position found for ${signal.ticker}`
         };
       }
     }
     
-    // Place the sell order for the existing position
+    // Determine quantity to sell
+    const quantityToSell = signal.quantity || parseInt(position.qty);
+    
+    // Set up the order parameters
     const orderParams = {
       symbol: signal.ticker,
-      qty: signal.quantity || position.qty,
-      side: 'sell',
-      type: 'market',
-      time_in_force: 'day'
+      qty: quantityToSell.toString(),
+      side: 'sell' as 'sell',  // Type assertion to match expected type
+      type: 'market' as 'market',  // Type assertion to match expected type
+      time_in_force: 'day' as 'day'  // Type assertion to match expected type
     };
     
-    // If we're specifying a smaller quantity than the position, adjust
-    if (signal.quantity && parseInt(position.qty) > signal.quantity) {
-      orderParams.qty = signal.quantity;
+    // Place the order
+    try {
+      const order = await alpaca.placeOrder(orderParams);
+      
+      return {
+        success: true,
+        message: `Successfully placed sell order for ${quantityToSell} shares of ${signal.ticker}`,
+        data: order
+      };
+    } catch (error) {
+      console.error('Error placing sell order:', error);
+      return {
+        success: false,
+        message: `Error placing sell order: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
-    
-    const order = await alpaca.placeOrder(orderParams);
-    
-    // Log the webhook call
-    await storage.logWebhookCall(
-      webhook.id, 
-      signal as Record<string, any>, 
-      'SELL',
-      'success',
-      `Sell order placed for ${orderParams.qty} ${signal.ticker}`
-    );
-    
-    return {
-      success: true,
-      message: `Sell order placed for ${orderParams.qty} ${signal.ticker}`,
-      data: order
-    };
   } catch (error) {
     console.error('Error processing exit signal:', error);
-    
-    // Log the webhook failure
-    await storage.logWebhookCall(
-      webhook.id, 
-      signal as Record<string, any>, 
-      'SELL',
-      'error',
-      `Error: ${error.message}`
-    );
-    
     return {
       success: false,
-      message: `Error placing sell order: ${error.message}`
+      message: `Error processing exit signal: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -457,59 +416,52 @@ async function processExitSignal(
 async function processCancelSignal(
   webhook: Webhook, 
   signal: CancelOrderSignal
-): Promise<{
-  success: boolean;
-  message: string;
-  data?: any;
-}> {
+): Promise<{ success: boolean, message: string, data?: any }> {
   try {
-    // Get the integration based on the webhook configuration
-    const integration = await getApiIntegrationByIdOrDefault(
+    // Get the Alpaca API instance using the webhook's configured integration or the user's default
+    const alpacaIntegration = await getApiIntegrationByIdOrDefault(
       webhook.userId,
-      webhook.configuration?.integrationId
+      webhook.configuration.integrationId
     );
     
-    if (!integration) {
+    if (!alpacaIntegration) {
       return {
         success: false,
-        message: 'No broker integration available'
+        message: 'No valid trading account found'
       };
     }
     
-    const alpaca = new AlpacaAPI(integration);
+    const alpaca = new AlpacaAPI(alpacaIntegration);
+    
+    // Validate required fields
+    if (!signal.cancel_order) {
+      return {
+        success: false,
+        message: 'Missing required field: cancel_order'
+      };
+    }
     
     // Cancel the order
-    const result = await alpaca.cancelOrder(signal.cancel_order);
-    
-    // Log the webhook call
-    await storage.logWebhookCall(
-      webhook.id, 
-      signal as Record<string, any>, 
-      'CANCEL',
-      'success',
-      `Order ${signal.cancel_order} cancelled`
-    );
-    
-    return {
-      success: true,
-      message: `Order ${signal.cancel_order} cancelled`,
-      data: result
-    };
+    try {
+      const cancelResult = await alpaca.cancelOrder(signal.cancel_order);
+      
+      return {
+        success: true,
+        message: `Successfully canceled order ${signal.cancel_order}`,
+        data: cancelResult
+      };
+    } catch (error) {
+      console.error('Error canceling order:', error);
+      return {
+        success: false,
+        message: `Error canceling order: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   } catch (error) {
     console.error('Error processing cancel signal:', error);
-    
-    // Log the webhook failure
-    await storage.logWebhookCall(
-      webhook.id, 
-      signal as Record<string, any>, 
-      'CANCEL',
-      'error',
-      `Error: ${error.message}`
-    );
-    
     return {
       success: false,
-      message: `Error cancelling order: ${error.message}`
+      message: `Error processing cancel signal: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
