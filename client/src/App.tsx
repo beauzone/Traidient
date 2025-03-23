@@ -110,6 +110,9 @@ function AppRoutes() {
       <Route path="/debug">
         <ProtectedRoute component={DebugPage} />
       </Route>
+      <Route path="/webhooks">
+        <ProtectedRoute component={Webhooks} />
+      </Route>
       <Route path="/">
         <Redirect to="/dashboard" />
       </Route>
