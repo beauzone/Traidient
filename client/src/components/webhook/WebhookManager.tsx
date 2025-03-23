@@ -18,6 +18,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/api";
+
+// TradingView server IPs for whitelist
+const TRADINGVIEW_IPS = ["52.89.214.238", "34.212.75.30"];
 import { Heading } from "@/components/ui/heading";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,9 +55,6 @@ export function WebhookManager() {
   const [tab, setTab] = useState("overview");
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [newIpAddress, setNewIpAddress] = useState("");
-  
-  // TradingView IP Addresses - obtained from documentation
-  const tradingViewIpAddresses = ["52.89.214.238", "34.212.75.30"];
   
   // State to track whether TradingView IPs are added
   const [useTradingViewIps, setUseTradingViewIps] = useState(false);
@@ -1196,6 +1196,19 @@ export function WebhookManager() {
                                 )}
                               />
                             )}
+                            
+                            <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mb-4">
+                              <div className="space-y-0.5">
+                                <Label>Use TradingView IPs</Label>
+                                <p className="text-sm text-muted-foreground">
+                                  Add TradingView's server IP addresses to the whitelist
+                                </p>
+                              </div>
+                              <Switch
+                                checked={useTradingViewIps}
+                                onCheckedChange={handleToggleTradingViewIps}
+                              />
+                            </div>
                             
                             <div>
                               <Label>IP Whitelist (Optional)</Label>
