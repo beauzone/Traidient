@@ -3140,5 +3140,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register webhook routes
+  app.use('/api/webhooks', webhookRoutes);
+  
+  // Process webhook triggers (public endpoint)
+  app.use('/api/webhook-triggers', webhookRoutes);
+
   return httpServer;
 }
