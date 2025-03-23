@@ -1,6 +1,7 @@
 /**
  * Utility functions for the server
  */
+
 import { storage } from './storage';
 import { ApiIntegration } from '@shared/schema';
 
@@ -13,38 +14,35 @@ import { ApiIntegration } from '@shared/schema';
  */
 export async function getApiIntegrationByIdOrDefault(
   userId: number,
-  integrationId?: number
+  integrationId?: number,
+  provider?: string
 ): Promise<ApiIntegration | undefined> {
-  try {
-    let integration: ApiIntegration | undefined;
-    
-    // If an integration ID is provided, try to get it
-    if (integrationId) {
-      integration = await storage.getApiIntegration(integrationId);
-      
-      // Make sure the integration belongs to the user
-      if (integration && integration.userId !== userId) {
-        console.warn(`User ${userId} tried to access integration ${integrationId} which belongs to user ${integration.userId}`);
-        integration = undefined;
-      }
-    }
-    
-    // If no integration was found or no ID was provided, try to get the default one
-    if (!integration) {
-      const integrations = await storage.getApiIntegrationsByUser(userId);
-      
-      // Find an Alpaca integration
-      integration = integrations.find(i => i.provider === 'alpaca');
-      
-      if (!integration && integrations.length > 0) {
-        // If no Alpaca integration, use the first available one
-        integration = integrations[0];
-      }
-    }
-    
-    return integration;
-  } catch (error) {
-    console.error('Error getting API integration:', error);
-    return undefined;
+  if (integrationId) {
+    return await storage.getApiIntegration(integrationId);
   }
+
+  // Try to get a provider-specific integration
+  if (provider) {
+    const integration = await storage.getApiIntegrationByProviderAndUser(userId, provider);
+    if (integration) {
+      return integration;
+    }
+  }
+
+  // Get all integrations and return the first active one
+  const integrations = await storage.getApiIntegrationsByUser(userId);
+  
+  // Filter for exchange/broker integrations if no specific provider requested
+  const activeIntegrations = integrations.filter(
+    i => i.isActive && (!provider || i.provider.toLowerCase() === provider.toLowerCase())
+  );
+  
+  // First try to find the primary integration
+  const primaryIntegration = activeIntegrations.find(i => i.isPrimary);
+  if (primaryIntegration) {
+    return primaryIntegration;
+  }
+  
+  // Otherwise return the first active integration
+  return activeIntegrations[0];
 }

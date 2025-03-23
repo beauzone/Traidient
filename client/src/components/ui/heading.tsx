@@ -1,28 +1,33 @@
-import React from 'react';
+import { cn } from "@/lib/utils";
 
 interface HeadingProps {
   title: string;
   description?: string;
-  actions?: React.ReactNode;
   className?: string;
+  actions?: React.ReactNode;
 }
 
-export function Heading({ 
-  title, 
-  description, 
-  actions,
-  className = "" 
+export function Heading({
+  title,
+  description,
+  className,
+  actions
 }: HeadingProps) {
   return (
-    <div className={`flex flex-col md:flex-row md:items-center md:justify-between mb-8 ${className}`}>
+    <div className={cn(
+      "flex items-center justify-between mb-4 gap-x-2",
+      className
+    )}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
         {description && (
-          <p className="mt-1 text-muted-foreground">{description}</p>
+          <p className="text-sm text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       {actions && (
-        <div className="mt-4 md:mt-0 space-x-2">
+        <div className="ml-auto flex items-center gap-x-2">
           {actions}
         </div>
       )}
