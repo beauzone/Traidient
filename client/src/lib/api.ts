@@ -26,6 +26,13 @@ export async function fetchData<T = any>(url: string): Promise<T> {
 }
 
 /**
+ * Alias for fetchData to match naming in components
+ */
+export async function getData<T = any>(url: string): Promise<T> {
+  return fetchData<T>(url);
+}
+
+/**
  * Post data to an API endpoint
  */
 export async function postData<T = any>(url: string, data: unknown): Promise<T> {

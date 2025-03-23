@@ -24,6 +24,7 @@ import Integrations from "@/pages/integrations";
 import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
 import DebugPage from "@/pages/debug";
+import Webhooks from "@/pages/webhooks";
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {

@@ -18,7 +18,8 @@ import {
   Menu,
   DollarSign,
   Bug,
-  BellRing
+  BellRing,
+  Webhook
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -41,6 +42,7 @@ const Sidebar = () => {
     { path: "/bot-builder", name: "Strategies", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
     { path: "/backtest", name: "Backtests", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
     { path: "/strategies", name: "Bots", icon: <Bot className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/webhooks", name: "TradingView Webhooks", icon: <Webhook className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
   const accountItems = [
