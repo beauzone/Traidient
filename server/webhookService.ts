@@ -109,11 +109,12 @@ export async function processWebhook(
     }
     
     // Verify signature if signature verification is enabled
-    if (signature && webhook.configuration?.securitySettings?.useSignatureVerification) {
+    const securitySettings = (webhook.configuration as any)?.securitySettings;
+    if (signature && securitySettings?.useSignatureVerification) {
       const isValidSignature = verifySignature(
         JSON.stringify(payload),
         signature,
-        webhook.configuration?.securitySettings?.signatureSecret || ''
+        securitySettings?.signatureSecret || ''
       );
       
       if (!isValidSignature) {
@@ -353,10 +354,10 @@ async function processExitSignal(
       // Close the current position
       const closeParams = {
         symbol: signal.ticker,
-        qty: position.qty,
-        side: position.side === 'long' ? 'sell' : 'buy',
-        type: 'market',
-        time_in_force: 'gtc',
+        qty: position.qty.toString(),
+        side: (position.side === 'long' ? 'sell' : 'buy') as 'buy' | 'sell',
+        type: 'market' as 'market',
+        time_in_force: 'gtc' as 'gtc',
       };
       
       await broker.placeOrder(closeParams);
@@ -365,10 +366,10 @@ async function processExitSignal(
       const newSide = position.side === 'long' ? 'sell' : 'buy';
       const openParams = {
         symbol: signal.ticker,
-        qty: signal.quantity || position.qty,
-        side: newSide,
-        type: 'market',
-        time_in_force: 'gtc',
+        qty: (signal.quantity || position.qty).toString(),
+        side: newSide as 'buy' | 'sell',
+        type: 'market' as 'market',
+        time_in_force: 'gtc' as 'gtc',
       };
       
       const order = await broker.placeOrder(openParams);

@@ -240,6 +240,43 @@ export class AlpacaAPI {
       throw error;
     }
   }
+  
+  /**
+   * Cancel an existing order by ID
+   * @param orderId The order ID to cancel
+   * @returns The canceled order data
+   */
+  async cancelOrder(orderId: string): Promise<any> {
+    try {
+      const response = await fetch(`${this.tradingBaseUrl}/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret,
+        }
+      });
+      
+      if (!response.ok) {
+        // For 404, the order may already be filled or canceled
+        if (response.status === 404) {
+          return { message: "Order not found or already canceled" };
+        }
+        
+        const errorData = await response.json();
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+      }
+      
+      // For successful cancellation, the response might be empty
+      if (response.status === 204) {
+        return { success: true, message: "Order canceled successfully" };
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error canceling Alpaca order:', error);
+      throw error;
+    }
+  }
 
   /**
    * Get historical market data for a symbol from Alpaca
