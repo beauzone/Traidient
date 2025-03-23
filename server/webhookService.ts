@@ -179,7 +179,7 @@ export async function processWebhook(
     // Update webhook call count
     await storage.updateWebhook(webhook.id, {
       callCount: (webhook.callCount || 0) + 1,
-      lastCalledAt: new Date().toISOString()
+      lastCalledAt: new Date()
     });
     
     return result;
@@ -337,7 +337,7 @@ async function processEntrySignal(
     // Prepare order parameters
     const params: any = {
       symbol: ticker,
-      qty: quantity,
+      qty: quantity.toString(),
       side: signal.action === 'BUY' ? 'buy' : 'sell',
       type: 'market',
       time_in_force: 'day'
@@ -380,12 +380,11 @@ async function processEntrySignal(
         if (signal.stop_loss) {
           await alpaca.placeOrder({
             symbol: ticker,
-            qty: quantity,
+            qty: quantity.toString(),
             side: signal.action === 'BUY' ? 'sell' : 'buy',
             type: 'stop',
             time_in_force: 'gtc',
-            stop_price: signal.stop_loss,
-            order_class: 'oco'
+            stop_price: signal.stop_loss.toString()
           });
         }
         
@@ -393,12 +392,11 @@ async function processEntrySignal(
         if (signal.take_profit) {
           await alpaca.placeOrder({
             symbol: ticker,
-            qty: quantity,
+            qty: quantity.toString(),
             side: signal.action === 'BUY' ? 'sell' : 'buy',
             type: 'limit',
             time_in_force: 'gtc',
-            limit_price: signal.take_profit,
-            order_class: 'oco'
+            limit_price: signal.take_profit.toString()
           });
         }
       } catch (error) {
