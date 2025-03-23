@@ -10,10 +10,11 @@ import { useAuth } from "@/hooks/useAuth";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
-import Strategies from "@/pages/strategies";
+import Strategies from "@/pages/strategies"; // Renamed from bot-builder to strategies
 import EditStrategy from "@/pages/edit-strategy";
-import BotBuilder from "@/pages/bot-builder";
+import Screeners from "@/pages/screeners"; // New screeners page
 import Backtest from "@/pages/backtest";
+import Bots from "@/pages/bots"; // New bots (deployment & automation) page
 import LiveTrading from "@/pages/live-trading";
 import MarketData from "@/pages/market-data";
 import MarketTest from "@/pages/market-test";
@@ -71,27 +72,54 @@ function AppRoutes() {
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />
       </Route>
+      
+      {/* Strategy Creation */}
       <Route path="/strategies">
         <ProtectedRoute component={Strategies} />
       </Route>
       <Route path="/strategies/:id">
         <ProtectedRoute component={EditStrategy} />
       </Route>
+      
+      {/* Keep bot-builder route for backward compatibility */}
       <Route path="/bot-builder">
-        <ProtectedRoute component={BotBuilder} />
+        <Redirect to="/strategies" />
       </Route>
+      
+      {/* Screeners */}
+      <Route path="/screeners">
+        <ProtectedRoute component={Screeners} />
+      </Route>
+      
+      {/* Backtesting */}
       <Route path="/backtest">
         <ProtectedRoute component={Backtest} />
       </Route>
+      
+      {/* Bots (Deployment & Automation) */}
+      <Route path="/bots">
+        <ProtectedRoute component={Bots} />
+      </Route>
+      
+      {/* Live Trading Monitor */}
       <Route path="/live-trading">
         <ProtectedRoute component={LiveTrading} />
       </Route>
+      
+      {/* Market Data */}
       <Route path="/market-data">
         <ProtectedRoute component={MarketData} />
       </Route>
       <Route path="/market-test">
         <ProtectedRoute component={MarketTest} />
       </Route>
+      
+      {/* Webhooks */}
+      <Route path="/webhooks">
+        <ProtectedRoute component={Webhooks} />
+      </Route>
+      
+      {/* Settings & Configuration */}
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
       </Route>
@@ -107,12 +135,12 @@ function AppRoutes() {
       <Route path="/broker-configuration">
         <ProtectedRoute component={BrokerConfiguration} />
       </Route>
+      
+      {/* Debug */}
       <Route path="/debug">
         <ProtectedRoute component={DebugPage} />
       </Route>
-      <Route path="/webhooks">
-        <ProtectedRoute component={Webhooks} />
-      </Route>
+      
       <Route path="/">
         <Redirect to="/dashboard" />
       </Route>
