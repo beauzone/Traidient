@@ -109,11 +109,11 @@ export async function processWebhook(
     }
     
     // Verify signature if signature verification is enabled
-    if (signature && webhook.configuration.useSignatureVerification) {
+    if (signature && webhook.configuration?.securitySettings?.useSignatureVerification) {
       const isValidSignature = verifySignature(
         JSON.stringify(payload),
         signature,
-        webhook.configuration.signatureSecret || ''
+        webhook.configuration?.securitySettings?.signatureSecret || ''
       );
       
       if (!isValidSignature) {
@@ -209,9 +209,10 @@ async function processEntrySignal(
     quantity = Math.max(quantity || 1, 1);
     
     // Place the order
-    const orderParams = {
+    // Create order parameters with correct typing
+    const orderParams: any = {
       symbol: signal.ticker,
-      qty: quantity,
+      qty: quantity.toString(), // Convert to string as required by Alpaca API
       side: signal.action === 'BUY' ? 'buy' : 'sell',
       type: 'market', // Default to market order
       time_in_force: 'gtc',
@@ -219,17 +220,17 @@ async function processEntrySignal(
     
     // Add stop loss if specified
     if (signal.stop_loss) {
-      orderParams['order_class'] = 'bracket';
-      orderParams['stop_loss'] = {
-        stop_price: signal.stop_loss
+      orderParams.order_class = 'bracket';
+      orderParams.stop_loss = {
+        stop_price: signal.stop_loss.toString()
       };
     }
     
     // Add take profit if specified
     if (signal.take_profit) {
-      orderParams['order_class'] = 'bracket';
-      orderParams['take_profit'] = {
-        limit_price: signal.take_profit
+      orderParams.order_class = 'bracket';
+      orderParams.take_profit = {
+        limit_price: signal.take_profit.toString()
       };
     }
     
@@ -305,9 +306,9 @@ async function processExitSignal(
       }
       
       // Place a market order to close the position
-      const orderParams = {
+      const orderParams: any = {
         symbol: signal.ticker,
-        qty: position.qty,
+        qty: position.qty.toString(),
         side: position.side === 'long' ? 'sell' : 'buy',
         type: 'market',
         time_in_force: 'gtc',
@@ -323,9 +324,9 @@ async function processExitSignal(
     } 
     // For SELL, sell the specified quantity
     else if (signal.action === 'SELL') {
-      const orderParams = {
+      const orderParams: any = {
         symbol: signal.ticker,
-        qty: signal.quantity || 1,
+        qty: (signal.quantity || 1).toString(),
         side: 'sell',
         type: 'market',
         time_in_force: 'gtc',

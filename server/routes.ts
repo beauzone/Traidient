@@ -2663,6 +2663,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Webhook routes
+  app.get('/api/webhooks', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const webhooks = await storage.getWebhooksByUser(userId);
+      res.json(webhooks);
+    } catch (error) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ message: "Failed to fetch webhooks" });
+    }
+  });
+
+  app.post('/api/webhooks', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const webhookData = insertWebhookSchema.parse({
+        ...req.body,
+        userId,
+        token: generateWebhookToken()
+      });
+      
+      const webhook = await storage.createWebhook(webhookData);
+      res.status(201).json(webhook);
+    } catch (error) {
+      console.error("Error creating webhook:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid webhook data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create webhook" });
+      }
+    }
+  });
+
+  app.get('/api/webhooks/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const webhook = await storage.getWebhook(id);
+      
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+      
+      // Check ownership
+      if (webhook.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized to access this webhook" });
+      }
+      
+      res.json(webhook);
+    } catch (error) {
+      console.error("Error fetching webhook:", error);
+      res.status(500).json({ message: "Failed to fetch webhook" });
+    }
+  });
+
+  app.put('/api/webhooks/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const webhook = await storage.getWebhook(id);
+      
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+      
+      // Check ownership
+      if (webhook.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized to update this webhook" });
+      }
+      
+      // Update webhook
+      const updatedWebhook = await storage.updateWebhook(id, req.body);
+      res.json(updatedWebhook);
+    } catch (error) {
+      console.error("Error updating webhook:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid webhook data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update webhook" });
+      }
+    }
+  });
+
+  app.delete('/api/webhooks/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const webhook = await storage.getWebhook(id);
+      
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+      
+      // Check ownership
+      if (webhook.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized to delete this webhook" });
+      }
+      
+      const success = await storage.deleteWebhook(id);
+      
+      if (success) {
+        res.json({ success: true, message: "Webhook deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete webhook" });
+      }
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ message: "Failed to delete webhook" });
+    }
+  });
+
+  // Public webhook endpoint (no auth required)
+  app.post('/api/webhook/:token', async (req: Request, res: Response) => {
+    try {
+      const token = req.params.token;
+      const payload = req.body;
+      const clientIp = req.ip || req.socket.remoteAddress || '';
+      const signature = req.headers['x-signature'] as string;
+      
+      const result = await processWebhook(token, payload, clientIp, signature);
+      
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error processing webhook:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Server error: ${error instanceof Error ? error.message : String(error)}` 
+      });
+    }
+  });
+
   // User notification settings routes
   app.get('/api/users/notification-settings', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
