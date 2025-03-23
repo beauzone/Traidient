@@ -52,6 +52,12 @@ export function WebhookManager() {
   const [tab, setTab] = useState("overview");
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [newIpAddress, setNewIpAddress] = useState("");
+  
+  // TradingView IP Addresses - obtained from documentation
+  const tradingViewIpAddresses = ["52.89.214.238", "34.212.75.30"];
+  
+  // State to track whether TradingView IPs are added
+  const [useTradingViewIps, setUseTradingViewIps] = useState(false);
 
   // Get webhooks
   const { data: webhooks = [], isLoading: isLoadingWebhooks } = useQuery<any[]>({
@@ -210,6 +216,45 @@ export function WebhookManager() {
     setCurrentWebhook(null);
     form.reset();
     setTab("create");
+  };
+
+  // Toggle TradingView IPs
+  const handleToggleTradingViewIps = (enabled: boolean) => {
+    setUseTradingViewIps(enabled);
+    
+    const currentIps = form.getValues("configuration.securitySettings.ipWhitelist") || [];
+    
+    if (enabled) {
+      // Add TradingView IPs if they're not already in the whitelist
+      const newIps = [...currentIps];
+      let changed = false;
+      
+      for (const ip of tradingViewIpAddresses) {
+        if (!newIps.includes(ip)) {
+          newIps.push(ip);
+          changed = true;
+        }
+      }
+      
+      if (changed) {
+        form.setValue("configuration.securitySettings.ipWhitelist", newIps);
+        toast({
+          title: "TradingView IPs Added",
+          description: "TradingView IP addresses have been added to the whitelist.",
+        });
+      }
+    } else {
+      // Remove TradingView IPs from the whitelist
+      const filteredIps = currentIps.filter(ip => !tradingViewIpAddresses.includes(ip));
+      
+      if (filteredIps.length !== currentIps.length) {
+        form.setValue("configuration.securitySettings.ipWhitelist", filteredIps);
+        toast({
+          title: "TradingView IPs Removed",
+          description: "TradingView IP addresses have been removed from the whitelist.",
+        });
+      }
+    }
   };
 
   // Add IP to whitelist
@@ -731,6 +776,19 @@ export function WebhookManager() {
                         )}
                       />
                     )}
+                    
+                    <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mb-4">
+                      <div className="space-y-0.5">
+                        <Label>Use TradingView IPs</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Add TradingView's server IP addresses to the whitelist
+                        </p>
+                      </div>
+                      <Switch
+                        checked={useTradingViewIps}
+                        onCheckedChange={handleToggleTradingViewIps}
+                      />
+                    </div>
                     
                     <div>
                       <Label>IP Whitelist (Optional)</Label>
