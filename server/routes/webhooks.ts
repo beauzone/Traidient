@@ -1,291 +1,163 @@
-/**
- * Webhook routes for handling webhook operations
- */
 import express, { Request, Response } from 'express';
 import { storage } from '../storage';
 import { processWebhook, generateWebhookToken } from '../webhookService';
-import { z } from 'zod';
 import { insertWebhookSchema } from '@shared/schema';
+import { z } from 'zod';
 
 const router = express.Router();
 
 // Middleware to ensure user is authenticated
 const ensureAuthenticated = (req: any, res: Response, next: Function) => {
   if (!req.user) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: 'Unauthorized: Authentication required' });
   }
   next();
 };
 
-// Get all webhooks for the authenticated user
+// Get all webhooks for current user
 router.get('/', ensureAuthenticated, async (req: any, res: Response) => {
   try {
     const webhooks = await storage.getWebhooksByUser(req.user.id);
-    
-    // Don't expose sensitive data like signature secrets
-    const safeWebhooks = webhooks.map(webhook => {
-      // Create a copy of the webhook
-      const safeWebhook = { ...webhook };
-      
-      // Remove sensitive data from the configuration
-      if (safeWebhook.configuration?.securitySettings?.signatureSecret) {
-        safeWebhook.configuration.securitySettings.signatureSecret = '•••••••••';
-      }
-      
-      return safeWebhook;
-    });
-    
-    res.json(safeWebhooks);
+    res.json(webhooks);
   } catch (error) {
     console.error('Error fetching webhooks:', error);
-    res.status(500).json({ message: 'Error fetching webhooks' });
+    res.status(500).json({ message: 'Error fetching webhooks', error: (error as Error).message });
   }
 });
 
 // Create a new webhook
 router.post('/', ensureAuthenticated, async (req: any, res: Response) => {
   try {
-    // Validate the request body
-    const webhookSchema = insertWebhookSchema.extend({
-      strategyId: z.number().optional(),
-      integrationId: z.number().optional(),
-      action: z.enum(['trade', 'cancel', 'status']),
-      configuration: z.object({
-        description: z.string().optional(),
-        securitySettings: z.object({
-          useSignature: z.boolean(),
-          signatureSecret: z.string().optional(),
-          ipWhitelist: z.array(z.string()).optional()
-        }),
-        allowShortSelling: z.boolean().optional(),
-        positionSizing: z.object({
-          type: z.enum(['fixed', 'percent', 'risk']),
-          value: z.number()
-        }).optional(),
-        integrationId: z.number().optional()
-      })
-    });
-    
-    const webhookData = webhookSchema.parse(req.body);
-    
-    // Generate a unique token for the webhook
-    const token = generateWebhookToken();
-    
-    // Create the webhook
-    const webhook = await storage.createWebhook({
-      name: webhookData.name,
+    // Validate request body
+    const validatedData = insertWebhookSchema.parse({
+      ...req.body,
       userId: req.user.id,
-      token,
-      strategyId: webhookData.strategyId,
-      action: webhookData.action,
-      isActive: true,
-      configuration: webhookData.configuration,
-      logs: [],
-      callCount: 0
+      token: generateWebhookToken(),
+      callCount: 0,
+      lastCalledAt: null
     });
-    
-    // Don't expose the token in the response for security
+
+    const webhook = await storage.createWebhook(validatedData);
     res.status(201).json(webhook);
   } catch (error) {
-    console.error('Error creating webhook:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: 'Invalid webhook data', errors: error.errors });
+      res.status(400).json({ message: 'Invalid webhook data', errors: error.errors });
+    } else {
+      console.error('Error creating webhook:', error);
+      res.status(500).json({ message: 'Error creating webhook', error: (error as Error).message });
     }
-    res.status(500).json({ message: 'Error creating webhook' });
   }
 });
 
 // Get a specific webhook by ID
 router.get('/:id', ensureAuthenticated, async (req: any, res: Response) => {
   try {
-    const webhookId = parseInt(req.params.id);
-    
-    if (isNaN(webhookId)) {
-      return res.status(400).json({ message: 'Invalid webhook ID' });
-    }
-    
-    const webhook = await storage.getWebhook(webhookId);
+    const webhook = await storage.getWebhook(Number(req.params.id));
     
     if (!webhook) {
       return res.status(404).json({ message: 'Webhook not found' });
     }
     
-    // Ensure the user owns the webhook
     if (webhook.userId !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-    
-    // Don't expose sensitive data
-    if (webhook.configuration?.securitySettings?.signatureSecret) {
-      webhook.configuration.securitySettings.signatureSecret = '•••••••••';
+      return res.status(403).json({ message: 'Unauthorized: You do not have access to this webhook' });
     }
     
     res.json(webhook);
   } catch (error) {
     console.error('Error fetching webhook:', error);
-    res.status(500).json({ message: 'Error fetching webhook' });
+    res.status(500).json({ message: 'Error fetching webhook', error: (error as Error).message });
   }
 });
 
 // Update a webhook
 router.put('/:id', ensureAuthenticated, async (req: any, res: Response) => {
   try {
-    const webhookId = parseInt(req.params.id);
+    const webhookId = Number(req.params.id);
+    const webhook = await storage.getWebhook(webhookId);
     
-    if (isNaN(webhookId)) {
-      return res.status(400).json({ message: 'Invalid webhook ID' });
-    }
-    
-    const existingWebhook = await storage.getWebhook(webhookId);
-    
-    if (!existingWebhook) {
+    if (!webhook) {
       return res.status(404).json({ message: 'Webhook not found' });
     }
     
-    // Ensure the user owns the webhook
-    if (existingWebhook.userId !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
+    if (webhook.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized: You do not have access to this webhook' });
     }
     
-    // Validate the request body
-    const updateWebhookSchema = z.object({
-      name: z.string().optional(),
-      action: z.enum(['trade', 'cancel', 'status']).optional(),
-      isActive: z.boolean().optional(),
-      configuration: z.object({
-        description: z.string().optional(),
-        securitySettings: z.object({
-          useSignature: z.boolean().optional(),
-          signatureSecret: z.string().optional(),
-          ipWhitelist: z.array(z.string()).optional()
-        }).optional(),
-        allowShortSelling: z.boolean().optional(),
-        positionSizing: z.object({
-          type: z.enum(['fixed', 'percent', 'risk']),
-          value: z.number()
-        }).optional(),
-        integrationId: z.number().optional()
-      }).optional()
-    });
+    // Don't allow changing the userId or token
+    const { userId, token, ...updateData } = req.body;
     
-    const updateData = updateWebhookSchema.parse(req.body);
-    
-    // Special handling for the signature secret - don't overwrite it if not provided
-    if (updateData.configuration?.securitySettings?.signatureSecret === '•••••••••') {
-      delete updateData.configuration.securitySettings.signatureSecret;
-    }
-    
-    // Update the webhook
     const updatedWebhook = await storage.updateWebhook(webhookId, updateData);
-    
-    if (!updatedWebhook) {
-      return res.status(500).json({ message: 'Error updating webhook' });
-    }
-    
-    // Don't expose sensitive data
-    if (updatedWebhook.configuration?.securitySettings?.signatureSecret) {
-      updatedWebhook.configuration.securitySettings.signatureSecret = '•••••••••';
-    }
-    
     res.json(updatedWebhook);
   } catch (error) {
     console.error('Error updating webhook:', error);
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: 'Invalid webhook data', errors: error.errors });
-    }
-    res.status(500).json({ message: 'Error updating webhook' });
+    res.status(500).json({ message: 'Error updating webhook', error: (error as Error).message });
   }
 });
 
 // Delete a webhook
 router.delete('/:id', ensureAuthenticated, async (req: any, res: Response) => {
   try {
-    const webhookId = parseInt(req.params.id);
-    
-    if (isNaN(webhookId)) {
-      return res.status(400).json({ message: 'Invalid webhook ID' });
-    }
-    
+    const webhookId = Number(req.params.id);
     const webhook = await storage.getWebhook(webhookId);
     
     if (!webhook) {
       return res.status(404).json({ message: 'Webhook not found' });
     }
     
-    // Ensure the user owns the webhook
     if (webhook.userId !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
+      return res.status(403).json({ message: 'Unauthorized: You do not have access to this webhook' });
     }
     
-    // Delete the webhook
-    const success = await storage.deleteWebhook(webhookId);
-    
-    if (!success) {
-      return res.status(500).json({ message: 'Error deleting webhook' });
-    }
-    
-    res.status(204).end();
+    await storage.deleteWebhook(webhookId);
+    res.status(204).send();
   } catch (error) {
     console.error('Error deleting webhook:', error);
-    res.status(500).json({ message: 'Error deleting webhook' });
+    res.status(500).json({ message: 'Error deleting webhook', error: (error as Error).message });
   }
 });
 
-// Get webhook logs
+// Get logs for a webhook
 router.get('/:id/logs', ensureAuthenticated, async (req: any, res: Response) => {
   try {
-    const webhookId = parseInt(req.params.id);
-    
-    if (isNaN(webhookId)) {
-      return res.status(400).json({ message: 'Invalid webhook ID' });
-    }
-    
+    const webhookId = Number(req.params.id);
     const webhook = await storage.getWebhook(webhookId);
     
     if (!webhook) {
       return res.status(404).json({ message: 'Webhook not found' });
     }
     
-    // Ensure the user owns the webhook
     if (webhook.userId !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
+      return res.status(403).json({ message: 'Unauthorized: You do not have access to this webhook' });
     }
     
-    // Return the logs
-    res.json(webhook.logs || []);
+    // This assumes the logs are stored in the webhook object
+    // You might want to fetch them separately if they're stored elsewhere
+    const logs = webhook.logs || [];
+    res.json(logs);
   } catch (error) {
     console.error('Error fetching webhook logs:', error);
-    res.status(500).json({ message: 'Error fetching webhook logs' });
+    res.status(500).json({ message: 'Error fetching webhook logs', error: (error as Error).message });
   }
 });
 
-// Process an incoming webhook (public endpoint)
+// Public endpoint for receiving webhook triggers
 router.post('/trigger/:token', async (req: Request, res: Response) => {
   try {
-    const token = req.params.token;
+    const { token } = req.params;
     const payload = req.body;
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const signature = req.headers['x-signature'] as string;
-    
-    if (!token) {
-      return res.status(400).json({ message: 'Missing webhook token' });
-    }
-    
-    if (!payload) {
-      return res.status(400).json({ message: 'Missing webhook payload' });
-    }
-    
-    // Process the webhook
+    const ip = req.ip || req.socket.remoteAddress || '';
+    const signature = req.headers['x-signature'] as string || '';
+
     const result = await processWebhook(token, payload, ip, signature);
     
-    if (!result.success) {
-      return res.status(400).json({ message: result.message });
+    if (result.success) {
+      return res.status(200).json({ message: 'Webhook processed successfully', result: result.data });
+    } else {
+      return res.status(400).json({ message: 'Failed to process webhook', error: result.error });
     }
-    
-    res.json({ success: true, message: result.message, data: result.data });
   } catch (error) {
     console.error('Error processing webhook:', error);
-    res.status(500).json({ message: 'Error processing webhook' });
+    res.status(500).json({ message: 'Error processing webhook', error: (error as Error).message });
   }
 });
 
