@@ -13,6 +13,7 @@ import { runBacktest } from './backtestService';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
+import webhookRoutes from './routes/webhooks';
 import { 
   insertUserSchema, 
   insertApiIntegrationSchema, 
@@ -1040,6 +1041,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Optimize strategy error:', error);
       res.status(500).json({ message: 'Error optimizing strategy' });
+    }
+  });
+
+  // WEBHOOK ROUTES
+  app.use('/api/webhooks', authMiddleware, webhookRoutes);
+
+  // Process external webhook requests (no auth middleware)
+  app.post('/api/external-webhook/:token', async (req: Request, res: Response) => {
+    try {
+      const token = req.params.token;
+      const signature = req.headers['x-signature'] as string;
+      const ip = req.ip || req.socket.remoteAddress || '';
+      
+      // Process the webhook
+      const result = await processWebhook(token, req.body, ip, signature);
+      
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Internal server error processing webhook',
+        error: String(error)
+      });
     }
   });
 
