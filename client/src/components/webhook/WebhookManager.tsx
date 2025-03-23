@@ -54,25 +54,25 @@ export function WebhookManager() {
   const [newIpAddress, setNewIpAddress] = useState("");
 
   // Get webhooks
-  const { data: webhooks, isLoading: isLoadingWebhooks } = useQuery({
+  const { data: webhooks = [], isLoading: isLoadingWebhooks } = useQuery<any[]>({
     queryKey: ["/api/webhooks"],
     staleTime: 60000
   });
 
   // Get strategies for linking
-  const { data: strategies } = useQuery({
+  const { data: strategies = [] } = useQuery<any[]>({
     queryKey: ["/api/strategies"],
     staleTime: 60000
   });
 
   // Get integrations for broker selection
-  const { data: integrations } = useQuery({
+  const { data: integrations = [] } = useQuery<any[]>({
     queryKey: ["/api/integrations"],
     staleTime: 60000
   });
 
   // Get webhook logs if a webhook is selected
-  const { data: webhookLogs, isLoading: isLoadingLogs } = useQuery({
+  const { data: webhookLogs = [], isLoading: isLoadingLogs } = useQuery<any[]>({
     queryKey: ["/api/webhooks", currentWebhook?.id, "logs"],
     enabled: !!currentWebhook?.id,
     staleTime: 10000

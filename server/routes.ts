@@ -3144,7 +3144,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/webhooks', webhookRoutes);
   
   // Process webhook triggers (public endpoint)
-  app.use('/api/webhook-triggers', webhookRoutes);
+  app.post('/api/webhook-triggers/:token', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const payload = req.body;
+      const ip = req.ip || req.socket.remoteAddress || '';
+      const signature = req.headers['x-signature'] as string || '';
+
+      const result = await processWebhook(token, payload, ip, signature);
+      
+      if (result.success) {
+        return res.status(200).json({ message: 'Webhook processed successfully', result: result.data });
+      } else {
+        return res.status(400).json({ message: 'Failed to process webhook', error: result.error });
+      }
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(500).json({ message: 'Error processing webhook', error: (error as Error).message });
+    }
+  });
 
   return httpServer;
 }
