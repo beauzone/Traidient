@@ -22,12 +22,16 @@ import {
   insertWatchlistSchema,
   insertAlertThresholdSchema,
   insertNotificationSchema,
+  insertWebhookSchema,
   type ApiIntegration,
   type AlertThreshold,
   type Notification,
   type User,
-  type InsertAlertThreshold
+  type InsertAlertThreshold,
+  type Webhook,
+  type InsertWebhook
 } from "@shared/schema";
+import { processWebhook, generateWebhookToken } from "./webhookService";
 import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAlerts, type EvaluationContext } from "./notificationService";
 import { sendVerificationCode, verifyPhoneNumber, isPhoneNumberVerified, sendAlertSMS } from "./twilio";
 import { z } from "zod";
