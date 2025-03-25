@@ -47,7 +47,7 @@ const Sidebar = () => {
     // Markets (renamed from Market Data)
     { path: "/markets", name: "Markets", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Screens (renamed from Screeners)
-    { path: "/screeners", name: "Screens", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/screens", name: "Screens", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Strategies - Where users define trading logic
     { path: "/strategies", name: "Strategies", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Bots - Deployment & Automation

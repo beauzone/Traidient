@@ -89,8 +89,11 @@ function AppRoutes() {
         <Redirect to="/strategies" />
       </Route>
       
-      {/* Screeners */}
+      {/* Screeners/Screens */}
       <Route path="/screeners">
+        <ProtectedRoute component={Screeners} />
+      </Route>
+      <Route path="/screens">
         <ProtectedRoute component={Screeners} />
       </Route>
       
