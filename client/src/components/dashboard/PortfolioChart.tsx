@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useState, useMemo } from "react";
 
 interface PortfolioChartProps {
@@ -53,6 +53,39 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
     
     return data.filter(item => new Date(item.date) >= startDate);
   }, [data, timeRange]);
+
+  // Calculate Y-axis domain to focus on the data variation
+  const yAxisDomain = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) {
+      return ['auto', 'auto'];
+    }
+    
+    // Find min and max values
+    const values = filteredData.map(d => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    
+    // Calculate the range
+    const range = max - min;
+    
+    // If the range is very small (less than 1% of the max), expand it
+    // to show variations more clearly
+    if (range < max * 0.01) {
+      const padding = max * 0.05; // 5% padding
+      return [min - padding, max + padding];
+    }
+    
+    // Otherwise, use a reasonable padding to focus on the data
+    // For shorter time periods, use tighter bounds to show daily moves
+    const paddingPercentage = timeRange === '1D' || timeRange === '1W' ? 0.01 : 0.05;
+    const padding = range * paddingPercentage;
+    
+    // Floor and ceiling to clean values
+    return [
+      Math.floor((min - padding) / 100) * 100, // Round down to nearest 100
+      Math.ceil((max + padding) / 100) * 100   // Round up to nearest 100
+    ];
+  }, [filteredData, timeRange]);
 
   // Helper to format dates on the X-axis based on selected time range
   const formatXAxis = (tickItem: string) => {
@@ -116,12 +149,12 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
         </div>
         <div className="h-72 px-2 pb-4">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
+            <LineChart
               data={filteredData}
               margin={{
                 top: 10,
                 right: 10,
-                left: 0,
+                left: 10,
                 bottom: 0,
               }}
             >
@@ -135,10 +168,12 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
                 interval={getTickInterval()}
               />
               <YAxis 
+                domain={yAxisDomain}
                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                 axisLine={{ stroke: '#334155' }}
                 tickLine={{ stroke: '#334155' }}
                 tickFormatter={(value) => `$${value.toLocaleString()}`}
+                width={80} // Give more space for the dollar formatting
               />
               <Tooltip 
                 formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Value']}
@@ -153,12 +188,19 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
                   color: '#E2E8F0'
                 }}
               />
-              <Bar
+              {/* Add a reference line at y=0 if needed */}
+              {yAxisDomain[0] < 0 && <ReferenceLine y={0} stroke="#666" />}
+              <Line
+                type="monotone"
                 dataKey="value"
-                fill="#3B82F6"
-                radius={[4, 4, 0, 0]} // Rounded top corners
+                stroke="#3B82F6"
+                strokeWidth={2}
+                dot={{ r: 3, fill: '#3B82F6', stroke: '#3B82F6' }}
+                activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
+                isAnimationActive={true}
+                animationDuration={500}
               />
-            </BarChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
