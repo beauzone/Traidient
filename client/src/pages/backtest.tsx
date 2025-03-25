@@ -497,6 +497,15 @@ def handle_data(context, data):
 
   return (
     <MainLayout title="Backtesting">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Backtesting</h1>
+          <p className="text-muted-foreground">
+            Test and refine trading strategies using historical market data
+          </p>
+        </div>
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Configuration Panel */}
         <Card className="md:col-span-1">
