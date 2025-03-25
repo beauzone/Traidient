@@ -373,7 +373,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNotificationsByUser(userId: number, options?: { limit?: number, offset?: number, isRead?: boolean }): Promise<Notification[]> {
-    // Start with base query
+    // Create base query
     let query = db.select().from(notifications).where(eq(notifications.userId, userId));
     
     // Add read filter if provided
@@ -381,19 +381,21 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(notifications.isRead, options.isRead));
     }
     
-    // Order by creation date, newest first
-    query = query.orderBy(desc(notifications.createdAt));
+    // Create properly ordered query
+    const orderedQuery = query.orderBy(desc(notifications.createdAt));
     
-    // Apply limit and offset
+    // Apply limit and offset if provided
+    let finalQuery = orderedQuery;
     if (options?.limit) {
-      query = query.limit(options.limit);
+      finalQuery = finalQuery.limit(options.limit);
     }
     
     if (options?.offset) {
-      query = query.offset(options.offset);
+      finalQuery = finalQuery.offset(options.offset);
     }
     
-    return await query;
+    // Execute the query
+    return await finalQuery;
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
