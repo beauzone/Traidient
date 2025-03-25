@@ -11,24 +11,24 @@ import { Button } from "@/components/ui/button";
 
 const Screeners = () => {
   return (
-    <MainLayout title="Screeners">
+    <MainLayout title="Screens">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Screeners</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Screens</h1>
           <p className="text-muted-foreground">
-            Create and manage screeners to identify trading opportunities
+            Create and manage screens to identify trading opportunities
           </p>
         </div>
         <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> Create Screener
+          <PlusCircle className="mr-2 h-4 w-4" /> Create Screen
         </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Placeholder for future screeners */}
+        {/* Placeholder for future screens */}
         <Card className="bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium">Create Your First Screener</CardTitle>
+            <CardTitle className="text-lg font-medium">Create Your First Screen</CardTitle>
             <CardDescription>
               Build custom filters to find trading opportunities
             </CardDescription>
@@ -37,7 +37,7 @@ const Screeners = () => {
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <Binoculars className="h-12 w-12 text-muted-foreground" />
               <p className="text-center text-sm text-muted-foreground">
-                Screeners help you scan the market for stocks that match specific criteria
+                Screens help you scan the market for stocks that match specific criteria
               </p>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" /> Get Started
@@ -46,11 +46,11 @@ const Screeners = () => {
           </CardContent>
         </Card>
 
-        {/* Example cards for popular screener types */}
+        {/* Example cards for popular screen types */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-medium">Momentum Scanner</CardTitle>
+              <CardTitle className="text-lg font-medium">Momentum Screen</CardTitle>
               <Filter className="h-4 w-4 text-muted-foreground" />
             </div>
             <CardDescription>

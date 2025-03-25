@@ -43,8 +43,8 @@ const Sidebar = () => {
     { path: "/dashboard", name: "Dashboard", icon: <LineChart className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // 1️⃣ Strategies - Where users define trading logic
     { path: "/strategies", name: "Strategies", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // 2️⃣ Screeners - As an optional standalone module
-    { path: "/screeners", name: "Screeners", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // 2️⃣ Screens - As an optional standalone module (renamed from Screeners)
+    { path: "/screeners", name: "Screens", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // 3️⃣ Backtesting - Where users validate and optimize strategies
     { path: "/backtest", name: "Backtesting", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // 4️⃣ Bots - Deployment & Automation
@@ -53,8 +53,8 @@ const Sidebar = () => {
     { path: "/webhooks", name: "TradingView Webhooks", icon: <Webhook className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // 5️⃣ Live Trading Monitor
     { path: "/live-trading", name: "Live Trading", icon: <MonitorPlay className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // Market Data stays as is (represents the data source)
-    { path: "/market-data", name: "Market Data", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Renamed from Market Data to Markets
+    { path: "/market-data", name: "Markets", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
   // Account and configuration items
