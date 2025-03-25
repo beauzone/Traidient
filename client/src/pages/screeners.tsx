@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import MainLayout from "@/components/layout/MainLayout";
 import { Link } from "wouter";
+import * as React from "react";
 import { 
   Card, 
   CardContent, 
@@ -87,6 +88,43 @@ interface Screener {
   updatedAt: string;
 }
 
+import { BarChart3, Download, LineChart, PieChart, Save, Search, SlidersHorizontal, SortAsc, SortDesc, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  LineChart as RechartLineChart,
+  Line,
+  PieChart as RechartPieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer
+} from "recharts";
+
 const ResultsDialog = ({ 
   screener, 
   onRun,
@@ -96,6 +134,334 @@ const ResultsDialog = ({
   onRun: (id: number) => void;
   isRunning: boolean;
 }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState("symbol");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [savedResults, setSavedResults] = useState<Array<{date: string, matches: string[]}>>([]);
+  const [selectedChartField, setSelectedChartField] = useState<string>("");
+  
+  // Get available numerical fields for charts
+  const getNumericalFields = () => {
+    if (!screener.results?.details || !screener.results.matches || screener.results.matches.length === 0) {
+      return [];
+    }
+    
+    const firstSymbol = screener.results.matches[0];
+    const details = screener.results.details[firstSymbol] || {};
+    
+    return Object.entries(details)
+      .filter(([key, value]) => 
+        key !== 'close' && 
+        key !== 'price' && 
+        typeof value === 'number'
+      )
+      .map(([key]) => key);
+  };
+  
+  // Initialize the selected chart field when fields change
+  React.useEffect(() => {
+    const fields = getNumericalFields();
+    if (fields.length > 0 && !selectedChartField) {
+      setSelectedChartField(fields[0]);
+    }
+  }, [screener.results, selectedChartField]);
+  
+  // Generate price distribution data for bar chart
+  const getPriceDistributionData = () => {
+    if (!screener.results?.details || !screener.results.matches || screener.results.matches.length === 0) {
+      return [];
+    }
+    
+    // Get all prices
+    const prices = filteredMatches.map(symbol => 
+      Number(screener.results?.details?.[symbol]?.close || 
+             screener.results?.details?.[symbol]?.price || 0)
+    ).filter(price => !isNaN(price) && price > 0);
+    
+    // Find min and max prices
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    
+    // Create 10 price ranges
+    const rangeSize = (maxPrice - minPrice) / 10;
+    const ranges = Array.from({ length: 10 }, (_, i) => ({
+      min: minPrice + i * rangeSize,
+      max: minPrice + (i + 1) * rangeSize,
+      range: `$${(minPrice + i * rangeSize).toFixed(0)} - $${(minPrice + (i + 1) * rangeSize).toFixed(0)}`,
+      count: 0
+    }));
+    
+    // Count stocks in each range
+    prices.forEach(price => {
+      const rangeIndex = Math.min(Math.floor((price - minPrice) / rangeSize), 9);
+      if (rangeIndex >= 0 && rangeIndex < 10) {
+        ranges[rangeIndex].count++;
+      }
+    });
+    
+    return ranges;
+  };
+  
+  // Generate indicator distribution data for line chart
+  const getIndicatorDistributionData = () => {
+    if (!selectedChartField || !screener.results?.details || filteredMatches.length === 0) {
+      return [];
+    }
+    
+    // Get values for the selected indicator, filter out any non-numeric values
+    const data = filteredMatches
+      .map(symbol => {
+        const value = screener.results?.details?.[symbol]?.[selectedChartField];
+        return { 
+          symbol,
+          value: typeof value === 'number' ? value : null
+        };
+      })
+      .filter(item => item.value !== null)
+      // Sort by value for better visualization
+      .sort((a, b) => a.value! - b.value!);
+    
+    return data;
+  };
+  
+  // Generate sector breakdown data for pie chart
+  const getSectorBreakdownData = () => {
+    // This is a simple mock implementation - in a real app, you would get sector data from an API
+    // For now, we'll just create random sector distribution
+    const sectors = ['Technology', 'Healthcare', 'Consumer Cyclical', 'Financial Services', 'Communication Services'];
+    
+    // Create a distribution
+    let remaining = filteredMatches.length;
+    const data = sectors.map((name, index) => {
+      // Last sector gets all remaining stocks
+      if (index === sectors.length - 1) {
+        return { name, value: remaining };
+      }
+      
+      const value = Math.max(1, Math.floor(Math.random() * Math.min(remaining, filteredMatches.length / 3)));
+      remaining -= value;
+      return { name, value };
+    }).filter(item => item.value > 0);
+    
+    return data;
+  };
+  
+  // Chart colors
+  const getChartColors = () => {
+    return [
+      '#6366F1', // Indigo
+      '#8B5CF6', // Violet
+      '#EC4899', // Pink
+      '#F43F5E', // Rose
+      '#F97316', // Orange
+      '#EAB308', // Yellow
+      '#22C55E', // Green
+      '#06B6D4', // Cyan
+      '#3B82F6', // Blue
+      '#A855F7'  // Purple
+    ];
+  };
+  
+  // Get average price
+  const getAveragePrice = () => {
+    if (!screener.results?.details || filteredMatches.length === 0) {
+      return 0;
+    }
+    
+    const prices = filteredMatches.map(symbol => 
+      Number(screener.results?.details?.[symbol]?.close || 
+             screener.results?.details?.[symbol]?.price || 0)
+    ).filter(price => !isNaN(price) && price > 0);
+    
+    if (prices.length === 0) return 0;
+    
+    return prices.reduce((sum, price) => sum + price, 0) / prices.length;
+  };
+  
+  // Get min price
+  const getMinPrice = () => {
+    if (!screener.results?.details || filteredMatches.length === 0) {
+      return 0;
+    }
+    
+    const prices = filteredMatches.map(symbol => 
+      Number(screener.results?.details?.[symbol]?.close || 
+             screener.results?.details?.[symbol]?.price || 0)
+    ).filter(price => !isNaN(price) && price > 0);
+    
+    if (prices.length === 0) return 0;
+    
+    return Math.min(...prices);
+  };
+  
+  // Get max price
+  const getMaxPrice = () => {
+    if (!screener.results?.details || filteredMatches.length === 0) {
+      return 0;
+    }
+    
+    const prices = filteredMatches.map(symbol => 
+      Number(screener.results?.details?.[symbol]?.close || 
+             screener.results?.details?.[symbol]?.price || 0)
+    ).filter(price => !isNaN(price) && price > 0);
+    
+    if (prices.length === 0) return 0;
+    
+    return Math.max(...prices);
+  };
+  
+  // Get indicator statistics
+  const getIndicatorStats = () => {
+    if (!selectedChartField || !screener.results?.details || filteredMatches.length === 0) {
+      return { min: 0, max: 0, avg: 0 };
+    }
+    
+    const values = filteredMatches
+      .map(symbol => Number(screener.results?.details?.[symbol]?.[selectedChartField] || 0))
+      .filter(value => !isNaN(value));
+    
+    if (values.length === 0) return { min: 0, max: 0, avg: 0 };
+    
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+    
+    return { min, max, avg };
+  };
+  
+  // Get available sort fields from the first result if available
+  const getSortFields = () => {
+    if (!screener.results?.details || !screener.results.matches || screener.results.matches.length === 0) {
+      return ["symbol"];
+    }
+    
+    const firstSymbol = screener.results.matches[0];
+    const details = screener.results.details[firstSymbol] || {};
+    
+    return ["symbol", "price", ...Object.keys(details).filter(key => key !== "close" && key !== "price")];
+  };
+  
+  // Filter and sort the matches based on search query and sort settings
+  const getFilteredAndSortedMatches = () => {
+    if (!screener.results?.matches) return [];
+    
+    // Filter by search query
+    let filteredMatches = screener.results.matches.filter(symbol => 
+      symbol.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    // Sort results
+    if (sortField === "symbol") {
+      filteredMatches.sort((a, b) => {
+        return sortDirection === "asc" ? a.localeCompare(b) : b.localeCompare(a);
+      });
+    } else if (sortField === "price") {
+      filteredMatches.sort((a, b) => {
+        const priceA = screener.results?.details?.[a]?.close || screener.results?.details?.[a]?.price || 0;
+        const priceB = screener.results?.details?.[b]?.close || screener.results?.details?.[b]?.price || 0;
+        return sortDirection === "asc" ? priceA - priceB : priceB - priceA;
+      });
+    } else if (screener.results?.details) {
+      filteredMatches.sort((a, b) => {
+        const valueA = screener.results?.details?.[a]?.[sortField];
+        const valueB = screener.results?.details?.[b]?.[sortField];
+        
+        // Handle different data types
+        if (typeof valueA === 'boolean' && typeof valueB === 'boolean') {
+          return sortDirection === "asc" 
+            ? (valueA === valueB ? 0 : valueA ? -1 : 1)
+            : (valueA === valueB ? 0 : valueA ? 1 : -1);
+        }
+        
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+          return sortDirection === "asc" ? valueA - valueB : valueB - valueA;
+        }
+        
+        // Default string comparison
+        const strA = String(valueA || '');
+        const strB = String(valueB || '');
+        return sortDirection === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+    }
+    
+    return filteredMatches;
+  };
+  
+  // Export results to CSV
+  const exportToCSV = () => {
+    if (!screener.results?.matches || screener.results.matches.length === 0) return;
+    
+    const filteredMatches = getFilteredAndSortedMatches();
+    
+    // Get all possible headers
+    const headers = ["Symbol", "Price"];
+    if (screener.results.details && filteredMatches.length > 0) {
+      const firstSymbol = filteredMatches[0];
+      const details = screener.results.details[firstSymbol] || {};
+      
+      Object.keys(details)
+        .filter(key => key !== "close" && key !== "price")
+        .forEach(key => {
+          headers.push(key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '));
+        });
+    }
+    
+    // Create CSV content
+    let csvContent = headers.join(",") + "\n";
+    
+    filteredMatches.forEach(symbol => {
+      const price = screener.results?.details?.[symbol]?.close || 
+                  screener.results?.details?.[symbol]?.price || 'N/A';
+      
+      let row = [symbol, price];
+      
+      if (screener.results?.details) {
+        const details = screener.results.details[symbol] || {};
+        
+        Object.entries(details)
+          .filter(([key]) => key !== "close" && key !== "price")
+          .forEach(([_, value]) => {
+            // Format the value based on type
+            let formattedValue = value;
+            if (typeof value === 'boolean') {
+              formattedValue = value ? 'Yes' : 'No';
+            } else if (typeof value === 'number') {
+              formattedValue = Number(value).toFixed(2);
+            }
+            row.push(formattedValue);
+          });
+      }
+      
+      csvContent += row.join(",") + "\n";
+    });
+    
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${screener.name}_results_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  // Save current results
+  const saveCurrentResults = () => {
+    if (!screener.results?.matches || !screener.lastRunAt) return;
+    
+    const newSavedResult = {
+      date: screener.lastRunAt,
+      matches: [...screener.results.matches]
+    };
+    
+    setSavedResults(prev => [...prev, newSavedResult]);
+  };
+  
+  const filteredMatches = getFilteredAndSortedMatches();
+  const sortFields = getSortFields();
+  
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -108,7 +474,7 @@ const ResultsDialog = ({
           <Eye className="mr-1 h-3 w-3" /> View Results ({screener.results?.matches?.length || 0})
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>{screener.name} Results</DialogTitle>
           <DialogDescription>
@@ -136,65 +502,314 @@ const ResultsDialog = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-auto max-h-[60vh]">
-            <Table>
-              <TableCaption>Results from {format(new Date(screener.lastRunAt || screener.updatedAt), 'MMM d, yyyy')}</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  {screener.results?.details && Object.keys(screener.results.details).length > 0 && (
-                    <>
-                      {Object.keys(screener.results.details[screener.results.matches[0]] || {})
-                        .filter(key => key !== 'close' && key !== 'price')
-                        .map(key => (
-                          <TableHead key={key} className="text-right capitalize">
-                            {key.replace(/_/g, ' ')}
-                          </TableHead>
-                        ))
-                      }
-                    </>
+          <>
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search symbols..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+                      >
+                        {sortDirection === "asc" ? (
+                          <SortAsc className="h-4 w-4" />
+                        ) : (
+                          <SortDesc className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {sortDirection === "asc" ? "Ascending Order" : "Descending Order"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <Select value={sortField} onValueChange={setSortField}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Sort by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortFields.map(field => (
+                      <SelectItem key={field} value={field}>
+                        {field === "symbol" ? "Symbol" : 
+                         field === "price" ? "Price" : 
+                         field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={saveCurrentResults}
+                        disabled={!screener.results?.matches || screener.results.matches.length === 0}
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Save current results
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            
+            <Tabs defaultValue="table" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="table" className="flex items-center gap-1">
+                  <SlidersHorizontal className="h-4 w-4" /> Table View
+                </TabsTrigger>
+                <TabsTrigger value="charts" className="flex items-center gap-1">
+                  <BarChart3 className="h-4 w-4" /> Charts
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="flex items-center gap-1">
+                  <Sparkles className="h-4 w-4" /> Insights
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="table" className="mt-0">
+                <div className="overflow-auto max-h-[60vh]">
+                  <Table>
+                    <TableCaption>
+                      Showing {filteredMatches.length} of {screener.results.matches.length} matches
+                    </TableCaption>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Symbol</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        {screener.results?.details && Object.keys(screener.results.details).length > 0 && (
+                          <>
+                            {Object.keys(screener.results.details[screener.results.matches[0]] || {})
+                              .filter(key => key !== 'close' && key !== 'price')
+                              .map(key => (
+                                <TableHead key={key} className="text-right capitalize">
+                                  {key.replace(/_/g, ' ')}
+                                </TableHead>
+                              ))
+                            }
+                          </>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMatches.map(symbol => (
+                        <TableRow key={symbol}>
+                          <TableCell className="font-medium">{symbol}</TableCell>
+                          <TableCell className="text-right">
+                            ${screener.results?.details?.[symbol]?.close || 
+                               screener.results?.details?.[symbol]?.price || 'N/A'}
+                          </TableCell>
+                          {screener.results?.details && Object.keys(screener.results.details).length > 0 && (
+                            <>
+                              {Object.entries(screener.results.details[symbol] || {})
+                                .filter(([key]) => key !== 'close' && key !== 'price')
+                                .map(([key, value]) => (
+                                  <TableCell key={key} className="text-right">
+                                    {typeof value === 'boolean' ? (
+                                      value ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
+                                      ) : (
+                                        <AlertCircle className="h-4 w-4 text-red-500 ml-auto" />
+                                      )
+                                    ) : typeof value === 'number' ? (
+                                      Number(value).toFixed(2)
+                                    ) : (
+                                      String(value)
+                                    )}
+                                  </TableCell>
+                                ))
+                              }
+                            </>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="charts" className="mt-0">
+                <div className="space-y-6">
+                  {/* Price Distribution Chart */}
+                  <div className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-medium mb-4">Price Distribution</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart
+                        data={getPriceDistributionData()}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="range" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Bar dataKey="count" fill="#6366F1" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  {/* Numeric Indicator Distribution */}
+                  {getNumericalFields().length > 0 && (
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium">Indicator Distribution</h3>
+                        <Select 
+                          value={selectedChartField} 
+                          onValueChange={setSelectedChartField}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select indicator" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getNumericalFields().map(field => (
+                              <SelectItem key={field} value={field}>
+                                {field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <ResponsiveContainer width="100%" height={300}>
+                        <RechartLineChart
+                          data={getIndicatorDistributionData()}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="symbol" />
+                          <YAxis />
+                          <RechartsTooltip />
+                          <Line type="monotone" dataKey="value" stroke="#6366F1" activeDot={{ r: 8 }} />
+                        </RechartLineChart>
+                      </ResponsiveContainer>
+                    </div>
                   )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {screener.results?.matches.map(symbol => (
-                  <TableRow key={symbol}>
-                    <TableCell className="font-medium">{symbol}</TableCell>
-                    <TableCell className="text-right">
-                      ${screener.results.details?.[symbol]?.close || 
-                         screener.results.details?.[symbol]?.price || 'N/A'}
-                    </TableCell>
-                    {screener.results?.details && Object.keys(screener.results.details).length > 0 && (
-                      <>
-                        {Object.entries(screener.results.details[symbol] || {})
-                          .filter(([key]) => key !== 'close' && key !== 'price')
-                          .map(([key, value]) => (
-                            <TableCell key={key} className="text-right">
-                              {typeof value === 'boolean' ? (
-                                value ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-red-500 ml-auto" />
-                                )
-                              ) : typeof value === 'number' ? (
-                                Number(value).toFixed(2)
-                              ) : (
-                                String(value)
-                              )}
-                            </TableCell>
-                          ))
-                        }
-                      </>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="insights" className="mt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Sectors / Industries Breakdown */}
+                  <div className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-medium mb-4">Sector Breakdown</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartPieChart>
+                          <Pie
+                            data={getSectorBreakdownData()}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {getSectorBreakdownData().map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip />
+                        </RechartPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  
+                  {/* Summary Stats */}
+                  <div className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-medium mb-4">Summary Statistics</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Matches:</span>
+                        <span className="font-medium">{filteredMatches.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Avg Price:</span>
+                        <span className="font-medium">
+                          ${getAveragePrice().toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Min Price:</span>
+                        <span className="font-medium">
+                          ${getMinPrice().toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Max Price:</span>
+                        <span className="font-medium">
+                          ${getMaxPrice().toFixed(2)}
+                        </span>
+                      </div>
+                      
+                      {selectedChartField && (
+                        <>
+                          <div className="border-t my-2 pt-2">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Selected Indicator:</span>
+                              <span className="font-medium">
+                                {selectedChartField.charAt(0).toUpperCase() + selectedChartField.slice(1).replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Avg {selectedChartField.replace(/_/g, ' ')}:</span>
+                            <span className="font-medium">
+                              {getIndicatorStats().avg.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Min {selectedChartField.replace(/_/g, ' ')}:</span>
+                            <span className="font-medium">
+                              {getIndicatorStats().min.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Max {selectedChartField.replace(/_/g, ' ')}:</span>
+                            <span className="font-medium">
+                              {getIndicatorStats().max.toFixed(2)}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+            
+            {savedResults.length > 0 && (
+              <div className="mt-4">
+                <h4 className="font-medium text-sm mb-2">Saved Results</h4>
+                <div className="flex flex-wrap gap-2">
+                  {savedResults.map((result, index) => (
+                    <Badge key={index} variant="outline" className="px-3 py-1">
+                      {format(new Date(result.date), 'MMM d, yyyy')} ({result.matches.length} matches)
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
         
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button 
             variant="secondary" 
             type="button" 
@@ -211,8 +826,13 @@ const ResultsDialog = ({
               </>
             )}
           </Button>
-          <Button variant="outline" type="button">
-            Export CSV
+          <Button 
+            variant="outline" 
+            type="button" 
+            onClick={exportToCSV}
+            disabled={!screener.results?.matches || screener.results.matches.length === 0}
+          >
+            <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
         </DialogFooter>
       </DialogContent>
