@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateStrategy, explainStrategy, optimizeStrategy } from "./openai";
+import { generateStrategy, explainStrategy, optimizeStrategy, generateScreen, explainScreen } from "./openai";
 import { AlpacaAPI } from "./alpaca";
 import { YahooFinanceAPI } from "./yahoo";
 import PolygonAPI from "./polygon";
