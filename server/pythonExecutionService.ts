@@ -49,8 +49,14 @@ export async function initPythonEnvironment(): Promise<void> {
     
     console.log(`Python ${pythonResult.version} detected`);
     
-    // Check/Install required libraries
-    await checkAndInstallLibraries();
+    try {
+      // Check/Install required libraries
+      await checkAndInstallLibraries();
+    } catch (error) {
+      console.error('Error checking/installing Python libraries:', error);
+      // Continue execution even if libraries can't be installed
+      // The application will attempt to use what's available
+    }
     
     console.log('Python environment initialized successfully');
   } catch (error) {
