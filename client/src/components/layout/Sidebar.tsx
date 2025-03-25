@@ -38,23 +38,24 @@ const Sidebar = () => {
     setIsMobileMenuOpen(false);
   };
 
-  // Main navigation items based on the new structure
+  // Main navigation items based on the new structure and requested order
   const navItems = [
+    // Dashboard always comes first
     { path: "/dashboard", name: "Dashboard", icon: <LineChart className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // 1️⃣ Strategies - Where users define trading logic
-    { path: "/strategies", name: "Strategies", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // 2️⃣ Screens - As an optional standalone module (renamed from Screeners)
-    { path: "/screeners", name: "Screens", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // 3️⃣ Backtesting - Where users validate and optimize strategies
-    { path: "/backtest", name: "Backtesting", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // 4️⃣ Bots - Deployment & Automation
-    { path: "/bots", name: "Bots", icon: <Bot className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // Put webhooks under bots as a submenu item (we'll implement this in the future)
-    { path: "/webhooks", name: "TradingView Webhooks", icon: <Webhook className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // 5️⃣ Live Trading Monitor
+    // Live Trading Monitor
     { path: "/live-trading", name: "Live Trading", icon: <MonitorPlay className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // Renamed from Market Data to Markets
+    // Markets (renamed from Market Data)
     { path: "/market-data", name: "Markets", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Screens (renamed from Screeners)
+    { path: "/screeners", name: "Screens", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Strategies - Where users define trading logic
+    { path: "/strategies", name: "Strategies", icon: <Wand2 className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Bots - Deployment & Automation
+    { path: "/bots", name: "Bots", icon: <Bot className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Backtesting - Where users validate and optimize strategies
+    { path: "/backtest", name: "Backtesting", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // TradingView Webhooks as the last item
+    { path: "/webhooks", name: "TradingView Webhooks", icon: <Webhook className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
   // Account and configuration items
