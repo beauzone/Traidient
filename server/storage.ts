@@ -215,6 +215,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteStrategy(id: number): Promise<boolean> {
+    // Begin transaction to ensure all related data is deleted
+    // First delete any backtests associated with the strategy
+    await db.delete(backtests).where(eq(backtests.strategyId, id));
+    
+    // Delete any deployments associated with the strategy
+    await db.delete(deployments).where(eq(deployments.strategyId, id));
+    
+    // Finally delete the strategy itself
     const result = await db.delete(strategies).where(eq(strategies.id, id));
     return result.count > 0;
   }

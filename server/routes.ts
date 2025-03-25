@@ -978,11 +978,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Forbidden: Not your strategy' });
       }
       
-      await storage.deleteStrategy(id);
-      res.status(204).send();
+      // Get related data for logging purposes
+      const relatedBacktests = await storage.getBacktestsByStrategy(id);
+      const relatedDeployments = await storage.getDeploymentsByStrategy(id);
+      
+      // Log what will be deleted
+      console.log(`Deleting strategy ${id} with ${relatedBacktests.length} backtests and ${relatedDeployments.length} deployments`);
+      
+      // Delete strategy and related data
+      const result = await storage.deleteStrategy(id);
+      
+      if (result) {
+        console.log(`Successfully deleted strategy ${id} and all related data`);
+        res.status(204).send();
+      } else {
+        console.error(`Failed to delete strategy ${id}`);
+        res.status(500).json({ message: 'Error deleting strategy - operation returned false' });
+      }
     } catch (error) {
       console.error('Delete strategy error:', error);
-      res.status(500).json({ message: 'Error deleting strategy' });
+      // Provide a more helpful error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ 
+        message: 'Error deleting strategy',
+        details: errorMessage
+      });
     }
   });
 
