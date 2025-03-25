@@ -18,7 +18,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogTrigger
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -38,11 +39,26 @@ import {
   Pencil,
   Copy,
   Trash,
-  Loader2 
+  Loader2,
+  Eye,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Timer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { 
+  Table, 
+  TableBody, 
+  TableCaption, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 interface Screener {
   id: number;
@@ -61,13 +77,127 @@ interface Screener {
   };
   results?: {
     matches: string[];
+    details?: Record<string, any>;
     lastRun: string;
     executionTime: number;
+    error?: string;
   };
   lastRunAt?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+const ResultsDialog = ({ screener }: { screener: Screener }) => {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-xs" 
+          disabled={!screener.results?.matches || screener.results.matches.length === 0}
+        >
+          <Eye className="mr-1 h-3 w-3" /> View Results ({screener.results?.matches?.length || 0})
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{screener.name} Results</DialogTitle>
+          <DialogDescription>
+            Screening results from {screener.lastRunAt ? format(new Date(screener.lastRunAt), 'PPpp') : 'N/A'}
+            {screener.results?.executionTime ? 
+              ` (completed in ${screener.results.executionTime.toFixed(2)}s)` : 
+              ''
+            }
+          </DialogDescription>
+        </DialogHeader>
+        
+        {screener.results?.error ? (
+          <div className="bg-destructive/10 p-4 rounded-md flex gap-2 items-start">
+            <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+            <div>
+              <h4 className="font-medium text-destructive">Error running screen</h4>
+              <p className="text-sm text-muted-foreground">{screener.results.error}</p>
+            </div>
+          </div>
+        ) : screener.results?.matches?.length === 0 ? (
+          <div className="text-center py-8">
+            <h3 className="font-medium text-xl">No matches found</h3>
+            <p className="text-muted-foreground mt-2">
+              Try adjusting the screener parameters or running it again later.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-auto max-h-[60vh]">
+            <Table>
+              <TableCaption>Results from {format(new Date(screener.lastRunAt || screener.updatedAt), 'MMM d, yyyy')}</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  {screener.results?.details && Object.keys(screener.results.details).length > 0 && (
+                    <>
+                      {Object.keys(screener.results.details[screener.results.matches[0]] || {})
+                        .filter(key => key !== 'close' && key !== 'price')
+                        .map(key => (
+                          <TableHead key={key} className="text-right capitalize">
+                            {key.replace(/_/g, ' ')}
+                          </TableHead>
+                        ))
+                      }
+                    </>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {screener.results?.matches.map(symbol => (
+                  <TableRow key={symbol}>
+                    <TableCell className="font-medium">{symbol}</TableCell>
+                    <TableCell className="text-right">
+                      ${screener.results.details?.[symbol]?.close || 
+                         screener.results.details?.[symbol]?.price || 'N/A'}
+                    </TableCell>
+                    {screener.results?.details && Object.keys(screener.results.details).length > 0 && (
+                      <>
+                        {Object.entries(screener.results.details[symbol] || {})
+                          .filter(([key]) => key !== 'close' && key !== 'price')
+                          .map(([key, value]) => (
+                            <TableCell key={key} className="text-right">
+                              {typeof value === 'boolean' ? (
+                                value ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-red-500 ml-auto" />
+                                )
+                              ) : typeof value === 'number' ? (
+                                Number(value).toFixed(2)
+                              ) : (
+                                String(value)
+                              )}
+                            </TableCell>
+                          ))
+                        }
+                      </>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        
+        <DialogFooter>
+          <Button variant="secondary" type="button">
+            <Play className="mr-2 h-4 w-4" /> Run Again
+          </Button>
+          <Button variant="outline" type="button">
+            Export CSV
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const ScreenerCard = ({ 
   screener, 
@@ -134,7 +264,16 @@ const ScreenerCard = ({
           {screener.results?.matches && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Matches:</span>
-              <span>{screener.results.matches.length} stocks</span>
+              <span>
+                {screener.results.matches.length > 0 ? (
+                  <span className="text-green-600 dark:text-green-500 font-medium flex items-center">
+                    {screener.results.matches.length} found
+                    <CheckCircle2 className="ml-1 h-3 w-3" />
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">None found</span>
+                )}
+              </span>
             </div>
           )}
           <div className="flex justify-between text-sm">
@@ -144,14 +283,20 @@ const ScreenerCard = ({
           {screener.lastRunAt && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Last run:</span>
-              <span>{format(new Date(screener.lastRunAt), 'MMM d, yyyy')}</span>
+              <span title={format(new Date(screener.lastRunAt), 'PPpp')}>
+                <span className="flex items-center">
+                  <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
+                  {formatDistanceToNow(new Date(screener.lastRunAt), { addSuffix: true })}
+                </span>
+              </span>
             </div>
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end pt-0">
+      <CardFooter className="flex justify-between pt-3">
+        <ResultsDialog screener={screener} />
         <Button 
-          variant="outline" 
+          variant="default" 
           size="sm" 
           className="text-xs"
           onClick={() => onRun(screener.id)}
