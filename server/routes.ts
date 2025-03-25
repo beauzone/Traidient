@@ -1976,6 +1976,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Error fetching sector performance' });
     }
   });
+  
+  // Portfolio history endpoint
+  app.get('/api/trading/portfolio/history', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { period = '1M', timeframe = '1D', accountId } = req.query;
+      
+      // Try to get API integration for trading
+      try {
+        let alpacaAPI;
+        // If accountId is provided, get that specific integration
+        if (accountId) {
+          try {
+            const integration = await storage.getApiIntegration(parseInt(accountId as string, 10));
+            if (integration && integration.provider === 'alpaca') {
+              alpacaAPI = new AlpacaAPI(integration);
+              console.log(`Using specific Alpaca API integration (ID: ${accountId}) for portfolio history`);
+            } else {
+              throw new Error(`No valid Alpaca integration found for ID: ${accountId}`);
+            }
+          } catch (err) {
+            console.log(`Error getting specific integration: ${err.message}`);
+            throw err;
+          }
+        } else {
+          // Otherwise get the default one for the user
+          try {
+            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            console.log("Using user's default Alpaca API integration for portfolio history");
+          } catch (err) {
+            console.log("No user-specific Alpaca integration found, using environment variables for portfolio history");
+            alpacaAPI = new AlpacaAPI();
+          }
+        }
+        
+        // Get portfolio history from Alpaca
+        const historyData = await alpacaAPI.getPortfolioHistory(
+          period as string, 
+          timeframe as string
+        );
+        
+        console.log(`Retrieved portfolio history with ${historyData.timestamp.length} data points`);
+        
+        // Format the response for the frontend
+        res.json({
+          period,
+          timeframe,
+          timestamp: historyData.timestamp,
+          equity: historyData.equity,
+          profitLoss: historyData.profitLoss,
+          profitLossPct: historyData.profitLossPct,
+          baseValue: historyData.baseValue,
+          dataSource: "alpaca"
+        });
+      } catch (error) {
+        console.error('Error fetching portfolio history from Alpaca:', error);
+        res.status(500).json({ 
+          error: 'Failed to retrieve portfolio history',
+          message: error.message,
+          dataSource: "error"
+        });
+      }
+    } catch (error) {
+      console.error('Error in portfolio history API:', error);
+      res.status(500).json({ error: 'Failed to process portfolio history request' });
+    }
+  });
 
   // TRADING ROUTES
   app.get('/api/trading/orders', authMiddleware, async (req: AuthRequest, res: Response) => {

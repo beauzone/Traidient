@@ -64,60 +64,39 @@ const Dashboard = () => {
     },
   });
 
-  // Portfolio history data from account data
-  // Use the account data to determine portfolio value
+  // Portfolio history data from Alpaca API
+  const { data: portfolioHistoryData, isLoading: isLoadingPortfolioHistory } = useQuery({
+    queryKey: ['/api/trading/portfolio/history', selectedAccount],
+    queryFn: async () => {
+      const endpoint = selectedAccount && selectedAccount !== "all" 
+        ? `/api/trading/portfolio/history?accountId=${selectedAccount}&period=3M&timeframe=1D` 
+        : '/api/trading/portfolio/history?period=3M&timeframe=1D';
+      return fetchData(endpoint);
+    },
+  });
+
+  // Convert portfolio history data to chart format
   const [portfolioData, setPortfolioData] = useState<{date: string, value: number}[]>([]);
 
-  // Update portfolio data when account data changes - using useEffect with stable dependencies
+  // Update portfolio data when API data changes
   useEffect(() => {
-    // Skip if no account data is available
-    if (!accountData || !Array.isArray(accountData) || accountData.length === 0) {
+    // Skip if no portfolio history data is available
+    if (!portfolioHistoryData || !portfolioHistoryData.timestamp || !portfolioHistoryData.equity) {
       return;
     }
 
-    // Get the selected account data
-    let currentAccountData: any = null;
-    let currentValue = 0;
-    
     try {
-      if (selectedAccount === "all") {
-        // Calculate total equity across all accounts
-        currentValue = accountData.reduce((sum, acc) => sum + (acc.equity || acc.balance || 0), 0);
-      } else {
-        // Find specific account
-        currentAccountData = accountData.find((acc) => acc.id.toString() === selectedAccount);
-        
-        // If not found, use first account
-        if (!currentAccountData && accountData.length > 0) {
-          currentAccountData = accountData[0];
-        }
-        
-        currentValue = currentAccountData ? (currentAccountData.equity || currentAccountData.balance || 0) : 0;
-      }
-      
-      // Generate historical data (using stable value for history)
-      const today = new Date();
-      const data = [];
-      
-      for (let i = 90; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(today.getDate() - i);
-        
-        // Add slight variations to simulate portfolio growth
-        const dailyVariation = 1 + (Math.sin(i / 10) * 0.05);
-        const adjustedValue = currentValue * dailyVariation;
-        
-        data.push({
-          date: date.toISOString().split('T')[0],
-          value: Math.round(adjustedValue * 100) / 100,
-        });
-      }
+      // Map API data to chart format
+      const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
+        date: new Date(timestamp).toISOString().split('T')[0],
+        value: portfolioHistoryData.equity[index],
+      }));
       
       setPortfolioData(data);
     } catch (err) {
-      console.error("Error generating portfolio data:", err);
+      console.error("Error processing portfolio history data:", err);
     }
-  }, [accountData, selectedAccount]);
+  }, [portfolioHistoryData]);
 
   // Define position type
   interface Position {

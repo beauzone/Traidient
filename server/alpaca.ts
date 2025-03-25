@@ -464,6 +464,56 @@ export class AlpacaAPI {
   }
 
   /**
+   * Get portfolio history for an account
+   * @param period Time period to fetch (1D, 1W, 1M, 3M, 1Y, ALL)
+   * @param timeframe Resolution of the data (1D, 1H, 15Min, etc.)
+   * @returns Portfolio history data
+   */
+  async getPortfolioHistory(period: string = '1M', timeframe: string = '1D'): Promise<{
+    timestamp: string[];
+    equity: number[];
+    profitLoss: number[];
+    profitLossPct: number[];
+    baseValue: number;
+  }> {
+    try {
+      // Convert period to Alpaca's format
+      let alpacaPeriod = period;
+      if (period === '1Y') {
+        alpacaPeriod = '1A';
+      } else if (period === 'ALL') {
+        alpacaPeriod = 'all';
+      }
+      
+      const response = await fetch(`${this.tradingBaseUrl}/account/portfolio/history?period=${alpacaPeriod}&timeframe=${timeframe}`, {
+        method: 'GET',
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Alpaca API portfolio history error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Retrieved portfolio history from Alpaca for period: ${period}, timeframe: ${timeframe}`);
+      
+      return {
+        timestamp: data.timestamp.map((ts: number) => new Date(ts * 1000).toISOString()),
+        equity: data.equity,
+        profitLoss: data.profit_loss || [],
+        profitLossPct: data.profit_loss_pct || [],
+        baseValue: data.base_value
+      };
+    } catch (error) {
+      console.error('Error fetching portfolio history from Alpaca:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Run a backtest using real historical market data
    * @param strategyCode The trading strategy code to execute
    * @param params The backtest parameters
