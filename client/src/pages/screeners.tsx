@@ -142,7 +142,7 @@ const ResultsDialog = ({
   
   // Get available numerical fields for charts - memoized value
   const numericalFields = React.useMemo(() => {
-    if (!screener.results?.details || !screener.results.matches || screener.results.matches.length === 0) {
+    if (!screener.results?.details || !screener.results?.matches || screener.results.matches.length === 0) {
       return [];
     }
     
@@ -587,7 +587,7 @@ const ResultsDialog = ({
                 <div className="overflow-auto max-h-[60vh]">
                   <Table>
                     <TableCaption>
-                      Showing {filteredMatches.length} of {screener.results.matches.length} matches
+                      Showing {filteredMatches.length} of {screener.results?.matches?.length || 0} matches
                     </TableCaption>
                     <TableHeader>
                       <TableRow>
@@ -907,9 +907,9 @@ const ScreenerCard = ({
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Matches:</span>
               <span>
-                {screener.results.matches.length > 0 ? (
+                {screener.results?.matches?.length > 0 ? (
                   <span className="text-green-600 dark:text-green-500 font-medium flex items-center">
-                    {screener.results.matches.length} found
+                    {screener.results?.matches?.length || 0} found
                     <CheckCircle2 className="ml-1 h-3 w-3" />
                   </span>
                 ) : (
