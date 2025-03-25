@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
-import { fetchData, updateData } from "@/lib/api";
+import { fetchData, updateData, postData } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import MainLayout from "@/components/layout/MainLayout";
 import { useToast } from "@/hooks/use-toast";

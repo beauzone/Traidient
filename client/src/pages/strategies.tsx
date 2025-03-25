@@ -188,7 +188,7 @@ const StrategiesPage = () => {
             </select>
           </div>
           
-          <Button onClick={() => navigate("/bot-builder")}>
+          <Button onClick={() => navigate("/strategies/new")}>
             <Plus className="mr-2 h-4 w-4" />
             New Strategy
           </Button>
@@ -209,7 +209,7 @@ const StrategiesPage = () => {
                 ? "Try adjusting your search or filters"
                 : "Get started by creating your first trading strategy"}
             </p>
-            <Button className="mt-6" onClick={() => navigate("/bot-builder")}>
+            <Button className="mt-6" onClick={() => navigate("/strategies/new")}>
               <Plus className="mr-2 h-4 w-4" />
               Create Strategy
             </Button>

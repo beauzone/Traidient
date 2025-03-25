@@ -74,11 +74,14 @@ function AppRoutes() {
       </Route>
       
       {/* Strategy Creation */}
-      <Route path="/strategies">
-        <ProtectedRoute component={Strategies} />
+      <Route path="/strategies/new">
+        <ProtectedRoute component={EditStrategy} />
       </Route>
       <Route path="/strategies/:id">
         <ProtectedRoute component={EditStrategy} />
+      </Route>
+      <Route path="/strategies">
+        <ProtectedRoute component={Strategies} />
       </Route>
       
       {/* Keep bot-builder route for backward compatibility */}
