@@ -100,6 +100,7 @@ const EditStrategy = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("basic");
   const [assetInput, setAssetInput] = useState("");
+  const isNewStrategy = params.id === "new";
   
   // Format the strategy content if it's an object
   const formatStrategy = (content: any) => {
@@ -116,6 +117,7 @@ const EditStrategy = () => {
   const { data: strategy, isLoading, isError } = useQuery({
     queryKey: ['/api/strategies', parseInt(params.id)],
     queryFn: () => fetchData<Strategy>(`/api/strategies/${params.id}`),
+    enabled: !isNewStrategy, // Only fetch when editing existing strategy
   });
 
   const form = useForm<StrategyFormValues>({
@@ -184,6 +186,25 @@ const EditStrategy = () => {
     }
   }, [strategy, form]);
 
+  const createStrategy = useMutation({
+    mutationFn: (data: StrategyFormValues) => postData('/api/strategies', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
+      toast({
+        title: "Strategy created",
+        description: "Your strategy has been created successfully.",
+      });
+      navigate("/strategies");
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to create strategy",
+        description: error instanceof Error ? error.message : "An error occurred.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const updateStrategy = useMutation({
     mutationFn: (data: StrategyFormValues) => updateData(`/api/strategies/${params.id}`, data),
     onSuccess: () => {
@@ -204,7 +225,19 @@ const EditStrategy = () => {
   });
 
   const onSubmit = (values: StrategyFormValues) => {
-    updateStrategy.mutate(values);
+    if (isNewStrategy) {
+      // Set default type value if not already set
+      if (!values.type) {
+        values.type = "Custom";
+      }
+      // Set default source type if not already set
+      if (!values.source.type) {
+        values.source.type = "code";
+      }
+      createStrategy.mutate(values);
+    } else {
+      updateStrategy.mutate(values);
+    }
   };
 
   const addAsset = () => {
@@ -225,7 +258,7 @@ const EditStrategy = () => {
     );
   };
 
-  if (isLoading) {
+  if (isLoading && !isNewStrategy) {
     return (
       <MainLayout title="Edit Strategy">
         <div className="flex justify-center items-center h-[70vh]">
@@ -235,7 +268,7 @@ const EditStrategy = () => {
     );
   }
 
-  if (isError) {
+  if (isError && !isNewStrategy) {
     return (
       <MainLayout title="Edit Strategy">
         <Card>
@@ -257,7 +290,7 @@ const EditStrategy = () => {
   }
 
   return (
-    <MainLayout title="Edit Strategy">
+    <MainLayout title={isNewStrategy ? "Create Strategy" : "Edit Strategy"}>
       <div className="mb-6 flex items-center">
         <Button variant="outline" size="sm" onClick={() => navigate("/strategies")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -267,7 +300,7 @@ const EditStrategy = () => {
       
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Edit Strategy</CardTitle>
+          <CardTitle>{isNewStrategy ? "Create New Strategy" : "Edit Strategy"}</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -611,12 +644,12 @@ const EditStrategy = () => {
                     </Button>
                     <Button 
                       type="submit" 
-                      disabled={updateStrategy.isPending}
+                      disabled={isNewStrategy ? createStrategy.isPending : updateStrategy.isPending}
                     >
-                      {updateStrategy.isPending && (
+                      {(isNewStrategy ? createStrategy.isPending : updateStrategy.isPending) && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Update Strategy
+                      {isNewStrategy ? "Create Strategy" : "Update Strategy"}
                     </Button>
                   </div>
                 </TabsContent>
