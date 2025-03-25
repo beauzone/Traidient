@@ -140,8 +140,8 @@ const ResultsDialog = ({
   const [savedResults, setSavedResults] = useState<Array<{date: string, matches: string[]}>>([]);
   const [selectedChartField, setSelectedChartField] = useState<string>("");
   
-  // Get available numerical fields for charts
-  const getNumericalFields = () => {
+  // Get available numerical fields for charts - memoized value
+  const numericalFields = React.useMemo(() => {
     if (!screener.results?.details || !screener.results.matches || screener.results.matches.length === 0) {
       return [];
     }
@@ -156,15 +156,14 @@ const ResultsDialog = ({
         typeof value === 'number'
       )
       .map(([key]) => key);
-  };
+  }, [screener.results]);
   
   // Initialize the selected chart field when fields change
-  React.useEffect(() => {
-    const fields = getNumericalFields();
-    if (fields.length > 0 && !selectedChartField) {
-      setSelectedChartField(fields[0]);
+  useEffect(() => {
+    if (numericalFields.length > 0 && !selectedChartField) {
+      setSelectedChartField(numericalFields[0]);
     }
-  }, [screener.results, selectedChartField]);
+  }, [numericalFields, selectedChartField]);
   
   // Generate price distribution data for bar chart
   const getPriceDistributionData = () => {
@@ -665,7 +664,7 @@ const ResultsDialog = ({
                   </div>
                   
                   {/* Numeric Indicator Distribution */}
-                  {getNumericalFields().length > 0 && (
+                  {numericalFields.length > 0 && (
                     <div className="p-4 border rounded-lg">
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-medium">Indicator Distribution</h3>
@@ -677,7 +676,7 @@ const ResultsDialog = ({
                             <SelectValue placeholder="Select indicator" />
                           </SelectTrigger>
                           <SelectContent>
-                            {getNumericalFields().map(field => (
+                            {numericalFields.map(field => (
                               <SelectItem key={field} value={field}>
                                 {field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ')}
                               </SelectItem>
