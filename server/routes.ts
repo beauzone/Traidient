@@ -2782,6 +2782,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Screener endpoints
+  app.get('/api/screeners', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      const screeners = await storage.getScreenersByUser(userId);
+      return res.status(200).json(screeners);
+    } catch (error) {
+      console.error('Error getting screeners:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  app.get('/api/screeners/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const screener = await storage.getScreener(id);
+      
+      if (!screener) {
+        return res.status(404).json({ message: 'Screener not found' });
+      }
+      
+      // Check if the screener belongs to the requesting user
+      if (screener.userId !== req.user?.id) {
+        return res.status(403).json({ message: 'You do not have permission to access this screener' });
+      }
+      
+      return res.status(200).json(screener);
+    } catch (error) {
+      console.error('Error getting screener:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  app.post('/api/screeners', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const screenerData = req.body;
+      
+      // Validate required fields
+      if (!screenerData.name || !screenerData.description || !screenerData.type || !screenerData.source || !screenerData.configuration) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      
+      // Add the userId to the screener data
+      const newScreener = await storage.createScreener({
+        ...screenerData,
+        userId
+      });
+      
+      return res.status(201).json(newScreener);
+    } catch (error) {
+      console.error('Error creating screener:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  app.put('/api/screeners/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Get the existing screener
+      const existingScreener = await storage.getScreener(id);
+      
+      if (!existingScreener) {
+        return res.status(404).json({ message: 'Screener not found' });
+      }
+      
+      // Check if the screener belongs to the requesting user
+      if (existingScreener.userId !== userId) {
+        return res.status(403).json({ message: 'You do not have permission to update this screener' });
+      }
+      
+      // Update the screener with the new data
+      const updatedScreener = await storage.updateScreener(id, req.body);
+      
+      return res.status(200).json(updatedScreener);
+    } catch (error) {
+      console.error('Error updating screener:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  app.delete('/api/screeners/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Get the existing screener
+      const existingScreener = await storage.getScreener(id);
+      
+      if (!existingScreener) {
+        return res.status(404).json({ message: 'Screener not found' });
+      }
+      
+      // Check if the screener belongs to the requesting user
+      if (existingScreener.userId !== userId) {
+        return res.status(403).json({ message: 'You do not have permission to delete this screener' });
+      }
+      
+      // Delete the screener
+      const success = await storage.deleteScreener(id);
+      
+      if (success) {
+        return res.status(200).json({ message: 'Screener deleted successfully' });
+      } else {
+        return res.status(500).json({ message: 'Failed to delete screener' });
+      }
+    } catch (error) {
+      console.error('Error deleting screener:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  app.post('/api/screeners/:id/run', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Get the existing screener
+      const existingScreener = await storage.getScreener(id);
+      
+      if (!existingScreener) {
+        return res.status(404).json({ message: 'Screener not found' });
+      }
+      
+      // Check if the screener belongs to the requesting user
+      if (existingScreener.userId !== userId) {
+        return res.status(403).json({ message: 'You do not have permission to run this screener' });
+      }
+      
+      // Run the screener
+      const result = await storage.runScreener(id);
+      
+      if (result) {
+        return res.status(200).json(result);
+      } else {
+        return res.status(500).json({ message: 'Failed to run screener' });
+      }
+    } catch (error) {
+      console.error('Error running screener:', error);
+      return res.status(500).json({ message: 'Internal server error', error: (error as Error).message });
+    }
+  });
+
   // Webhook routes are handled by the webhookRoutes router (registered above)
 
   // POST /api/webhooks is handled by the webhookRoutes router
