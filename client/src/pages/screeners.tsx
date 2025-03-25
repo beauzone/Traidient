@@ -45,10 +45,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Timer
+  Timer,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { 
   Table, 
@@ -1075,13 +1077,20 @@ const Screeners = () => {
   } = useMutation({
     mutationFn: async (id: number) => {
       const token = localStorage.getItem('token');
-      return fetch(`/api/screeners/${id}`, {
+      const response = await fetch(`/api/screeners/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : '',
         },
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to delete screen: ${response.status}`);
+      }
+      
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/screeners'] });
@@ -1110,18 +1119,23 @@ const Screeners = () => {
       // Get the token from localStorage
       const token = localStorage.getItem('token');
       
-      return fetch(`/api/screeners/${id}/run`, {
+      const response = await fetch(`/api/screeners/${id}/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : '',
         },
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to run screener');
-        return res.json();
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to run screener: ${response.status}`);
+      }
+      
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Screener run successfully:", data);
       queryClient.invalidateQueries({ queryKey: ['/api/screeners'] });
       toast({
         title: "Screen executed",
@@ -1138,22 +1152,26 @@ const Screeners = () => {
     }
   });
 
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newScreenerData, setNewScreenerData] = useState({
+    name: "New Screen",
+    description: "My custom stock screen",
+    type: "python" as const,
+    source: {
+      type: "code" as const,
+      content: "# Python code to screen stocks\nimport numpy as np\n\ndef screen_stocks(data_dict):\n    \"\"\"Screen stocks based on criteria\"\"\"\n    matches = []\n    details = {}\n    \n    for symbol, df in data_dict.items():\n        # Skip if we don't have enough data\n        if len(df) < 20:\n            continue\n            \n        # Example criteria - stocks above their 20-day moving average\n        df['ma20'] = df['Close'].rolling(window=20).mean()\n        latest = df.iloc[-1]\n        \n        if latest['Close'] > latest['ma20']:\n            matches.append(symbol)\n            details[symbol] = {\n                'price': latest['Close'],\n                'ma20': latest['ma20'],\n                'above_ma': True,\n                'pct_above': ((latest['Close'] / latest['ma20']) - 1) * 100\n            }\n            \n    return {\n        'matches': matches,\n        'details': details\n    }"
+    },
+    configuration: {
+      assets: ["SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "AMZN", "META"],
+      parameters: {}
+    }
+  });
+  
   const handleCreateScreen = () => {
-    // Create a new empty screen
-    const newScreener = {
-      name: "New Screen",
-      description: "My custom stock screen",
-      type: "python",
-      source: {
-        type: "code",
-        content: "# Python code to screen stocks\nimport numpy as np\n\ndef screen_stocks(data_dict):\n    \"\"\"Screen stocks based on criteria\"\"\"\n    matches = []\n    \n    for symbol, df in data_dict.items():\n        # Skip if we don't have enough data\n        if len(df) < 20:\n            continue\n            \n        # Example criteria - stocks above their 20-day moving average\n        df['ma20'] = df['Close'].rolling(window=20).mean()\n        latest = df.iloc[-1]\n        \n        if latest['Close'] > latest['ma20']:\n            matches.append(symbol)\n            \n    return {\n        'matches': matches,\n        'details': {}\n    }"
-      },
-      configuration: {
-        assets: ["SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "AMZN", "META"],
-        parameters: {}
-      }
-    };
-    
+    setIsCreateDialogOpen(true);
+  };
+  
+  const submitCreateScreen = () => {
     // Send mutation request to create new screen
     fetch('/api/screeners', {
       method: 'POST',
@@ -1161,7 +1179,7 @@ const Screeners = () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
-      body: JSON.stringify(newScreener)
+      body: JSON.stringify(newScreenerData)
     })
     .then(response => {
       if (!response.ok) throw new Error('Failed to create screen');
@@ -1174,6 +1192,7 @@ const Screeners = () => {
         title: "Screen Created",
         description: "New screen has been created successfully.",
       });
+      setIsCreateDialogOpen(false);
     })
     .catch(error => {
       console.error("Error creating screen:", error);
@@ -1375,6 +1394,121 @@ const Screeners = () => {
         onConfirm={confirmDelete}
         isDeleting={isDeleting}
       />
+      
+      {/* Create Screen Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Screen</DialogTitle>
+            <DialogDescription>
+              Define your custom stock screening strategy
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="screenName" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="screenName"
+                value={newScreenerData.name}
+                onChange={(e) => setNewScreenerData(prev => ({...prev, name: e.target.value}))}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="screenDescription" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="screenDescription"
+                value={newScreenerData.description}
+                onChange={(e) => setNewScreenerData(prev => ({...prev, description: e.target.value}))}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right mt-2">
+                Assets to Screen
+              </Label>
+              <div className="col-span-3 flex flex-wrap gap-2">
+                {newScreenerData.configuration.assets.map((asset, index) => (
+                  <Badge key={index} className="px-2 py-1">
+                    {asset}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-4 w-4 p-0 ml-1"
+                      onClick={() => {
+                        setNewScreenerData(prev => ({
+                          ...prev,
+                          configuration: {
+                            ...prev.configuration,
+                            assets: prev.configuration.assets.filter((_, i) => i !== index)
+                          }
+                        }));
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                ))}
+                <Input 
+                  placeholder="Add asset (e.g., AAPL)"
+                  className="w-32"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value) {
+                      e.preventDefault();
+                      const newAsset = e.currentTarget.value.toUpperCase();
+                      setNewScreenerData(prev => ({
+                        ...prev,
+                        configuration: {
+                          ...prev.configuration,
+                          assets: [...prev.configuration.assets, newAsset]
+                        }
+                      }));
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="screenCode" className="text-right mt-2">
+                Python Screen Code
+              </Label>
+              <div className="col-span-3 border rounded-md overflow-hidden">
+                <textarea
+                  id="screenCode"
+                  value={newScreenerData.source.content}
+                  onChange={(e) => setNewScreenerData(prev => ({
+                    ...prev,
+                    source: {
+                      ...prev.source,
+                      content: e.target.value
+                    }
+                  }))}
+                  className="w-full h-96 p-2 font-mono text-sm focus:outline-none"
+                  spellCheck={false}
+                ></textarea>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitCreateScreen}>
+              Create Screen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
