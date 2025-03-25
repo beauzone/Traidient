@@ -1105,10 +1105,14 @@ const Screeners = () => {
     isPending: isRunning 
   } = useMutation({
     mutationFn: async (id: number) => {
+      // Get the token from localStorage
+      const token = localStorage.getItem('token');
+      
       return fetch(`/api/screeners/${id}/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
         },
       }).then(res => {
         if (!res.ok) throw new Error('Failed to run screener');
@@ -1133,19 +1137,59 @@ const Screeners = () => {
   });
 
   const handleCreateScreen = () => {
-    // Will be implemented later - redirect to create screen page
-    toast({
-      title: "Coming Soon",
-      description: "The screen creation feature is coming soon.",
+    // Create a new empty screen
+    const newScreener = {
+      name: "New Screen",
+      description: "My custom stock screen",
+      type: "python",
+      source: {
+        type: "code",
+        content: "# Python code to screen stocks\nimport numpy as np\n\ndef screen_stocks(data_dict):\n    \"\"\"Screen stocks based on criteria\"\"\"\n    matches = []\n    \n    for symbol, df in data_dict.items():\n        # Skip if we don't have enough data\n        if len(df) < 20:\n            continue\n            \n        # Example criteria - stocks above their 20-day moving average\n        df['ma20'] = df['Close'].rolling(window=20).mean()\n        latest = df.iloc[-1]\n        \n        if latest['Close'] > latest['ma20']:\n            matches.append(symbol)\n            \n    return {\n        'matches': matches,\n        'details': {}\n    }"
+      },
+      configuration: {
+        assets: ["SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "AMZN", "META"],
+        parameters: {}
+      }
+    };
+    
+    // Send mutation request to create new screen
+    fetch('/api/screeners', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(newScreener)
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to create screen');
+      return response.json();
+    })
+    .then(data => {
+      // Refresh the screeners list
+      queryClient.invalidateQueries({ queryKey: ['/api/screeners'] });
+      toast({
+        title: "Screen Created",
+        description: "New screen has been created successfully.",
+      });
+    })
+    .catch(error => {
+      console.error("Error creating screen:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create screen. Please try again.",
+        variant: "destructive",
+      });
     });
   };
 
   const handleEditScreen = (id: number) => {
-    // Will be implemented later - redirect to edit screen page
+    // For simplicity, let's just run the screen instead of implementing a full edit UI
     toast({
-      title: "Coming Soon",
-      description: "The screen editing feature is coming soon.",
+      title: "Running screen",
+      description: "For now, we'll just run the screen instead of editing it.",
     });
+    handleRunScreen(id);
   };
 
   const handleRunScreen = (id: number) => {
