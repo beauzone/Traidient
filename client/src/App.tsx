@@ -113,6 +113,9 @@ function AppRoutes() {
       <Route path="/market-data">
         <ProtectedRoute component={MarketData} />
       </Route>
+      <Route path="/markets">
+        <ProtectedRoute component={MarketData} />
+      </Route>
       <Route path="/market-test">
         <ProtectedRoute component={MarketTest} />
       </Route>

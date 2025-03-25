@@ -45,7 +45,7 @@ const Sidebar = () => {
     // Live Trading Monitor
     { path: "/live-trading", name: "Live Trading", icon: <MonitorPlay className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Markets (renamed from Market Data)
-    { path: "/market-data", name: "Markets", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    { path: "/markets", name: "Markets", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Screens (renamed from Screeners)
     { path: "/screeners", name: "Screens", icon: <Binoculars className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Strategies - Where users define trading logic
