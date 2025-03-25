@@ -25,7 +25,10 @@ import {
   InsertNotification,
   webhooks,
   Webhook,
-  InsertWebhook
+  InsertWebhook,
+  screeners,
+  Screener,
+  InsertScreener
 } from "@shared/schema";
 
 export interface IStorage {
@@ -536,6 +539,117 @@ export class DatabaseStorage implements IStorage {
       callCount,
       lastCalledAt: new Date()
     });
+  }
+
+  // Screener methods
+  async getScreener(id: number): Promise<Screener | undefined> {
+    const result = await db.select().from(screeners).where(eq(screeners.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getScreenersByUser(userId: number): Promise<Screener[]> {
+    return await db.select().from(screeners).where(eq(screeners.userId, userId));
+  }
+
+  async createScreener(screener: InsertScreener): Promise<Screener> {
+    const now = new Date();
+    const [newScreener] = await db.insert(screeners).values({
+      ...screener,
+      results: {},
+      createdAt: now,
+      updatedAt: now,
+      lastRunAt: null
+    }).returning();
+    return newScreener;
+  }
+
+  async updateScreener(id: number, screenerData: Partial<Screener>): Promise<Screener | undefined> {
+    const now = new Date();
+    const [updatedScreener] = await db.update(screeners)
+      .set({
+        ...screenerData,
+        updatedAt: now
+      })
+      .where(eq(screeners.id, id))
+      .returning();
+    return updatedScreener;
+  }
+
+  async deleteScreener(id: number): Promise<boolean> {
+    const result = await db.delete(screeners).where(eq(screeners.id, id));
+    return result.count > 0;
+  }
+
+  async runScreener(id: number): Promise<Screener | undefined> {
+    // Get the screener
+    const screener = await this.getScreener(id);
+    if (!screener) {
+      return undefined;
+    }
+
+    try {
+      // This is a placeholder for the actual screener execution
+      // In a real implementation, we would:
+      // 1. Execute Python code for Python screeners or JavaScript code for JS screeners
+      // 2. Fetch market data for the specified universe
+      // 3. Apply the screening criteria
+      // 4. Update the screener with results
+      
+      const now = new Date();
+      const mockResults = {
+        lastRun: now.toISOString(),
+        matchedSymbols: ['AAPL', 'MSFT', 'GOOGL'], // Just placeholder data
+        metrics: [
+          {
+            symbol: 'AAPL',
+            price: 175.34,
+            change: 2.34,
+            volume: 35000000
+          },
+          {
+            symbol: 'MSFT',
+            price: 345.67,
+            change: -1.23,
+            volume: 28000000
+          },
+          {
+            symbol: 'GOOGL',
+            price: 145.21,
+            change: 0.54,
+            volume: 18000000
+          }
+        ]
+      };
+      
+      // Update the screener with the results
+      const [updatedScreener] = await db.update(screeners)
+        .set({
+          results: mockResults,
+          lastRunAt: now,
+          updatedAt: now
+        })
+        .where(eq(screeners.id, id))
+        .returning();
+      
+      return updatedScreener;
+    } catch (error) {
+      // In case of error, update the screener with the error message
+      const now = new Date();
+      const [updatedScreener] = await db.update(screeners)
+        .set({
+          results: {
+            ...screener.results,
+            error: error instanceof Error ? error.message : String(error),
+            lastRun: now.toISOString()
+          },
+          lastRunAt: now,
+          updatedAt: now
+        })
+        .where(eq(screeners.id, id))
+        .returning();
+      
+      return updatedScreener;
+    }
   }
 }
 
