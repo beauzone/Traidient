@@ -63,13 +63,27 @@ export function useMarketData() {
             console.log('WebSocket authentication successful');
             setConnected(true);
             
-            // Re-subscribe to previously subscribed symbols
-            if (subscribedSymbols.length > 0) {
-              socket.send(JSON.stringify({
-                type: 'subscribe',
-                symbols: subscribedSymbols
-              }));
-            }
+            // Always ensure SPY is included for market status updates
+            const ensureDefaultSymbols = () => {
+              // Include SPY for market status by default
+              const symbolsToSubscribe = ['SPY'];
+              
+              // Add any previously subscribed symbols, avoiding duplicates
+              subscribedSymbols.forEach(symbol => {
+                if (!symbolsToSubscribe.includes(symbol)) {
+                  symbolsToSubscribe.push(symbol);
+                }
+              });
+              
+              return symbolsToSubscribe;
+            };
+            
+            // Subscribe to symbols
+            const symbolsToSubscribe = ensureDefaultSymbols();
+            socket.send(JSON.stringify({
+              type: 'subscribe',
+              symbols: symbolsToSubscribe
+            }));
             break;
             
           case 'auth_error':
@@ -162,9 +176,15 @@ export function useMarketData() {
       return;
     }
     
+    // Create a list of symbols that includes 'SPY' for market status if not already included
+    const symbolsToSubscribe = [...symbols];
+    if (!symbolsToSubscribe.includes('SPY')) {
+      symbolsToSubscribe.push('SPY');
+    }
+    
     socketRef.current.send(JSON.stringify({
       type: 'subscribe',
-      symbols
+      symbols: symbolsToSubscribe
     }));
   }, [connected]);
 
@@ -174,10 +194,16 @@ export function useMarketData() {
       return;
     }
     
-    socketRef.current.send(JSON.stringify({
-      type: 'unsubscribe',
-      symbols
-    }));
+    // Ensure we don't unsubscribe from SPY, which we need for market status updates
+    const symbolsToUnsubscribe = symbols.filter(s => s !== 'SPY');
+    
+    // Only send the unsubscribe request if there are symbols to unsubscribe from
+    if (symbolsToUnsubscribe.length > 0) {
+      socketRef.current.send(JSON.stringify({
+        type: 'unsubscribe',
+        symbols: symbolsToUnsubscribe
+      }));
+    }
   }, [connected]);
 
   return {

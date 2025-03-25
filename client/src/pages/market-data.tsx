@@ -37,7 +37,8 @@ const MarketDataPage = () => {
   };
 
   // Extract watchlist symbols for real-time quotes
-  const watchlistSymbols = watchlist.map(item => item.symbol);
+  // Also include common market index symbols to ensure we get market status updates
+  const watchlistSymbols = [...watchlist.map(item => item.symbol), 'SPY'];
 
   return (
     <MainLayout title="Markets">
