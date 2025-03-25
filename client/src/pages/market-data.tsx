@@ -40,7 +40,15 @@ const MarketDataPage = () => {
   const watchlistSymbols = watchlist.map(item => item.symbol);
 
   return (
-    <MainLayout title="Market Data">
+    <MainLayout title="Markets">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Markets</h1>
+          <p className="text-muted-foreground">
+            Analyze market data and track individual assets
+          </p>
+        </div>
+      </div>
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="md:col-span-1">
