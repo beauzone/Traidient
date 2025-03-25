@@ -1074,10 +1074,12 @@ const Screeners = () => {
     isPending: isDeleting 
   } = useMutation({
     mutationFn: async (id: number) => {
+      const token = localStorage.getItem('token');
       return fetch(`/api/screeners/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
         },
       });
     },
