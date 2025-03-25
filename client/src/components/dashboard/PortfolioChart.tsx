@@ -61,7 +61,7 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
     }
     
     // Find min and max values
-    const values = filteredData.map(d => d.value);
+    const values = filteredData.map(d => Number(d.value)); // Ensure values are numbers
     const min = Math.min(...values);
     const max = Math.max(...values);
     
@@ -189,7 +189,10 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
                 }}
               />
               {/* Add a reference line at y=0 if needed */}
-              {yAxisDomain[0] < 0 && <ReferenceLine y={0} stroke="#666" />}
+              {Array.isArray(yAxisDomain) && 
+               typeof yAxisDomain[0] === 'number' && 
+               yAxisDomain[0] < 0 && 
+               <ReferenceLine y={0} stroke="#666" />}
               <Line
                 type="monotone"
                 dataKey="value"
