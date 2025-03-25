@@ -34,7 +34,13 @@ const AssetAllocation = ({ data }: AssetAllocationProps) => {
   }, [data]);
 
   // Calculate the total of all values
-  const total = chartData.reduce((sum, item) => sum + item.value, 0);
+  const total = chartData.reduce((sum, item) => sum + (item?.value || 0), 0);
+  
+  // Log for debugging
+  useEffect(() => {
+    console.log("AssetAllocation chart data:", chartData);
+    console.log("Asset allocation total:", total);
+  }, [chartData, total]);
 
   return (
     <Card className="h-full">

@@ -53,37 +53,54 @@ interface Position {
   exitDate?: string;
 }
 
-const PositionsTable = () => {
+interface PositionsTableProps {
+  passedPositions?: Position[];
+  isLoading?: boolean;
+}
+
+const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: PositionsTableProps = {}) => {
   const { selectedAccount } = useAccountContext();
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [positionStatus, setPositionStatus] = useState<"open" | "closed" | "all">("open");
-
-  // Fetch positions data
-  const { data: positions = [], isLoading } = useQuery({
-    queryKey: ['/api/trading/positions', selectedAccount, positionStatus],
-    queryFn: () => {
-      // Build the endpoint with appropriate query parameters
-      let endpoint = '/api/trading/positions';
-      const params = new URLSearchParams();
-      
-      // Add accountId parameter if specified
-      if (selectedAccount && selectedAccount !== "all") {
-        params.append('accountId', selectedAccount);
-      }
-      
-      // Add status parameter based on filter
-      params.append('status', positionStatus);
-      
-      // Add query parameters to endpoint
-      if (params.toString()) {
-        endpoint += `?${params.toString()}`;
-      }
-      
-      return fetchData<Position[]>(endpoint);
-    },
-    refetchInterval: 15000, // Refresh every 15 seconds
-  });
+  
+  // Use passed loading state or query loading state
+  let positions: Position[] = [];
+  let isLoading = passedIsLoading;
+  
+  // If positions are passed directly, use them instead of querying
+  if (passedPositions) {
+    positions = passedPositions;
+  } else {
+    // Fetch positions data if not passed directly
+    const { data: fetchedPositions = [], isLoading: queryIsLoading } = useQuery({
+      queryKey: ['/api/trading/positions', selectedAccount, positionStatus],
+      queryFn: () => {
+        // Build the endpoint with appropriate query parameters
+        let endpoint = '/api/trading/positions';
+        const params = new URLSearchParams();
+        
+        // Add accountId parameter if specified
+        if (selectedAccount && selectedAccount !== "all") {
+          params.append('accountId', selectedAccount);
+        }
+        
+        // Add status parameter based on filter
+        params.append('status', positionStatus);
+        
+        // Add query parameters to endpoint
+        if (params.toString()) {
+          endpoint += `?${params.toString()}`;
+        }
+        
+        return fetchData<Position[]>(endpoint);
+      },
+      refetchInterval: 15000, // Refresh every 15 seconds
+    });
+    
+    positions = fetchedPositions;
+    isLoading = isLoading !== undefined ? isLoading : queryIsLoading;
+  }
 
   // Filter positions based on search and position status
   const filteredPositions = positions.filter((position) => {

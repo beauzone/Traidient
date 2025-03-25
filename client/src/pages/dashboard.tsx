@@ -396,7 +396,10 @@ const Dashboard = () => {
           </div>
 
           {/* Portfolio Positions */}
-          <PositionsTable />
+          <PositionsTable 
+            passedPositions={filteredPositions} 
+            isLoading={isLoadingPositions}
+          />
         </>
       )}
       
