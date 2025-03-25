@@ -100,7 +100,8 @@ const EditStrategy = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("basic");
   const [assetInput, setAssetInput] = useState("");
-  const isNewStrategy = params.id === "new";
+  // Check if we're creating a new strategy
+  const isNewStrategy = !params.id || params.id === "new";
   
   // Format the strategy content if it's an object
   const formatStrategy = (content: any) => {
@@ -115,9 +116,9 @@ const EditStrategy = () => {
 
   // Fetch strategy data
   const { data: strategy, isLoading, isError } = useQuery({
-    queryKey: ['/api/strategies', parseInt(params.id)],
+    queryKey: ['/api/strategies', params.id ? parseInt(params.id) : undefined],
     queryFn: () => fetchData<Strategy>(`/api/strategies/${params.id}`),
-    enabled: !isNewStrategy, // Only fetch when editing existing strategy
+    enabled: !isNewStrategy && !!params.id, // Only fetch when editing existing strategy and we have an ID
   });
 
   const form = useForm<StrategyFormValues>({
