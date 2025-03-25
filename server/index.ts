@@ -37,6 +37,17 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize Python environment for screeners
+  try {
+    const { initPythonEnvironment } = await import('./pythonExecutionService');
+    log('Initializing Python environment for screeners...');
+    await initPythonEnvironment();
+    log('Python environment initialized successfully');
+  } catch (error) {
+    log(`Warning: Failed to initialize Python environment: ${error instanceof Error ? error.message : String(error)}`);
+    log('Stock screeners requiring Python may not work properly');
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
