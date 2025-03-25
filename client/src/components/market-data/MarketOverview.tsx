@@ -127,25 +127,26 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
         <h2 className="text-2xl font-bold">Market Overview</h2>
         <div className="flex items-center space-x-3">
           <Badge 
-            variant={marketStatus?.isMarketOpen ? "default" : "outline"}
-            className={`flex items-center space-x-1 ${marketStatus?.isMarketOpen ? 'bg-green-500/20 text-green-500 hover:bg-green-500/20' : 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20'}`}
+            variant={marketStatus?.isMarketOpen ? "default" : "secondary"}
+            className="flex items-center space-x-1"
           >
             <Clock className="h-3 w-3" />
             <span>{marketStatus?.isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
           </Badge>
           
-          <Badge 
-            variant="outline"
-            className="flex items-center space-x-1 bg-blue-500/20 text-blue-500"
-          >
-            <Database className="h-3 w-3" />
-            <span>Data: {
+          <span className="text-xs flex items-center">
+            <Database className="h-3 w-3 mr-1" />
+            Data Source: {
               marketStatus?.dataSource === 'yahoo' ? 'Yahoo Finance' : 
               marketStatus?.dataSource === 'alpaca' ? 'Alpaca API' : 
-              marketStatus?.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
-              marketStatus?.dataSource || 'Unknown Source'
-            }</span>
-          </Badge>
+              marketStatus?.dataSource === 'market-simulation' ? 'Market Simulation' :
+              marketStatus?.dataSource === 'polygon' ? 'Polygon.io' :
+              marketStatus?.dataSource === 'tiingo' ? 'Tiingo API' :
+              marketStatus?.dataSource === 'alphavantage' ? 'Alpha Vantage' :
+              marketStatus?.dataSource === 'reference-data-fallback' ? 'Reference Data' :
+              marketStatus?.dataSource || 'Unknown'
+            }
+          </span>
         </div>
       </div>
       
