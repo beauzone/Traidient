@@ -51,6 +51,14 @@ export interface IStorage {
   updateStrategy(id: number, strategy: Partial<Strategy>): Promise<Strategy | undefined>;
   deleteStrategy(id: number): Promise<boolean>;
   
+  // Screeners
+  getScreener(id: number): Promise<Screener | undefined>;
+  getScreenersByUser(userId: number): Promise<Screener[]>;
+  createScreener(screener: InsertScreener): Promise<Screener>;
+  updateScreener(id: number, screener: Partial<Screener>): Promise<Screener | undefined>;
+  deleteScreener(id: number): Promise<boolean>;
+  runScreener(id: number): Promise<Screener | undefined>;
+  
   // Webhooks
   getWebhook(id: number): Promise<Webhook | undefined>;
   getWebhookByToken(token: string): Promise<Webhook | undefined>;

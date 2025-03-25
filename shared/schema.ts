@@ -473,3 +473,57 @@ export const insertWebhookSchema = createInsertSchema(webhooks).pick({
 
 export type Webhook = typeof webhooks.$inferSelect;
 export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
+
+// Stock Screeners
+export const screeners = pgTable("screeners", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'python', 'javascript', 'visual-builder', 'ai-generated'
+  
+  source: jsonb("source").$type<{
+    type: 'code' | 'visual-builder' | 'natural-language';
+    content: string; // Python/JavaScript code or visual builder config
+    language: 'python' | 'javascript';
+  }>().notNull(),
+  
+  configuration: jsonb("configuration").$type<{
+    universe: string[]; // List of stocks to screen, or 'SP500', 'NASDAQ', etc.
+    parameters: Record<string, any>; // Configurable parameters
+    schedule?: {
+      isActive: boolean;
+      frequency: 'daily' | 'weekly' | 'monthly';
+      runAt: string; // Time of day to run
+      dayOfWeek?: number; // 0-6 for weekly
+      dayOfMonth?: number; // 1-31 for monthly
+    };
+  }>().notNull(),
+  
+  results: jsonb("results").$type<{
+    lastRun?: string;
+    matchedSymbols?: string[];
+    error?: string;
+    metrics?: Record<string, any>[];
+    performance?: {
+      hitRate?: number;
+      avgReturn?: number;
+    };
+  }>().notNull().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastRunAt: timestamp("last_run_at"),
+});
+
+export const insertScreenerSchema = createInsertSchema(screeners).pick({
+  userId: true,
+  name: true,
+  description: true,
+  type: true,
+  source: true,
+  configuration: true,
+});
+
+export type Screener = typeof screeners.$inferSelect;
+export type InsertScreener = z.infer<typeof insertScreenerSchema>;
