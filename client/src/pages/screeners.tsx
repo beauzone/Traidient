@@ -87,7 +87,15 @@ interface Screener {
   updatedAt: string;
 }
 
-const ResultsDialog = ({ screener }: { screener: Screener }) => {
+const ResultsDialog = ({ 
+  screener, 
+  onRun,
+  isRunning 
+}: { 
+  screener: Screener; 
+  onRun: (id: number) => void;
+  isRunning: boolean;
+}) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -187,8 +195,21 @@ const ResultsDialog = ({ screener }: { screener: Screener }) => {
         )}
         
         <DialogFooter>
-          <Button variant="secondary" type="button">
-            <Play className="mr-2 h-4 w-4" /> Run Again
+          <Button 
+            variant="secondary" 
+            type="button" 
+            onClick={() => onRun(screener.id)}
+            disabled={isRunning}
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" /> Run Again
+              </>
+            )}
           </Button>
           <Button variant="outline" type="button">
             Export CSV
@@ -203,12 +224,14 @@ const ScreenerCard = ({
   screener, 
   onEdit, 
   onRun, 
-  onDelete 
+  onDelete,
+  isRunning 
 }: { 
   screener: Screener; 
   onEdit: (id: number) => void;
   onRun: (id: number) => void;
   onDelete: (id: number) => void;
+  isRunning: boolean;
 }) => {
   return (
     <Card>
@@ -294,7 +317,11 @@ const ScreenerCard = ({
         </div>
       </CardContent>
       <CardFooter className="flex justify-between pt-3">
-        <ResultsDialog screener={screener} />
+        <ResultsDialog 
+          screener={screener} 
+          onRun={onRun} 
+          isRunning={isRunning} 
+        />
         <Button 
           variant="default" 
           size="sm" 
@@ -667,6 +694,7 @@ const Screeners = () => {
                 onEdit={handleEditScreen}
                 onRun={handleRunScreen}
                 onDelete={handleDeleteClick}
+                isRunning={isRunning}
               />
             ))}
           </>
