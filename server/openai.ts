@@ -125,3 +125,68 @@ export async function optimizeStrategy(
     throw new Error("Failed to optimize strategy with OpenAI: " + (error as Error).message);
   }
 }
+
+export async function generateScreen(prompt: string): Promise<{
+  screen: string;
+  explanation: string;
+  configuration: any;
+}> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: 
+            "You are an expert at creating stock screeners using Python. Your task is to convert a natural language description into " +
+            "a structured Python-based stock screener with clear filtering rules. The screener should use libraries like pandas, pandas_ta, numpy, and yfinance " +
+            "to load and analyze stock data. Return a JSON object containing: screen (Python code implementation), explanation (plain language), " +
+            "and configuration (symbols to analyze and other settings for running the screener). The Python code should follow the format of our " +
+            "existing screeners that include functions for loading data, calculating indicators, and screening stocks based on criteria."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0].message.content ?? '{}';
+    const result = JSON.parse(content);
+    
+    return {
+      screen: result.screen || '',
+      explanation: result.explanation || '',
+      configuration: result.configuration || {}
+    };
+  } catch (error) {
+    console.error("Error generating screen:", error);
+    throw new Error("Failed to generate screen with OpenAI: " + (error as Error).message);
+  }
+}
+
+export async function explainScreen(screenCode: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: 
+            "You are an expert at explaining stock screeners in simple terms. Take the provided Python stock screener code " +
+            "and explain how it works in plain, non-technical language that a beginner investor could understand."
+        },
+        {
+          role: "user",
+          content: screenCode
+        }
+      ]
+    });
+
+    return response.choices[0].message.content ?? "No explanation provided";
+  } catch (error) {
+    console.error("Error explaining screen:", error);
+    throw new Error("Failed to explain screen with OpenAI: " + (error as Error).message);
+  }
+}

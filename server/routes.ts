@@ -1064,6 +1064,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Screen Builder API routes
+  app.post('/api/screen-builder/generate', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { prompt } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ message: 'Prompt is required' });
+      }
+      
+      const result = await generateScreen(prompt);
+      res.json(result);
+    } catch (error) {
+      console.error('Generate screen error:', error);
+      res.status(500).json({ 
+        message: `Failed to generate screen: ${error instanceof Error ? error.message : String(error)}`
+      });
+    }
+  });
+  
+  app.post('/api/screen-builder/explain', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json({ message: 'Code is required' });
+      }
+      
+      const explanation = await explainScreen(code);
+      res.json({ explanation });
+    } catch (error) {
+      console.error('Explain screen error:', error);
+      res.status(500).json({ 
+        message: `Failed to explain screen: ${error instanceof Error ? error.message : String(error)}`
+      });
+    }
+  });
+
   // WEBHOOK ROUTES - Removed duplicate route registration, using the one at the end of the file
 
   // Process external webhook requests (no auth middleware)
