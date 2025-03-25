@@ -1,279 +1,331 @@
-import { useState } from "react";
-import { useNavigate } from "wouter";
-import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState } from 'react';
+import { useLocation } from "wouter";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, Save } from "lucide-react";
-import { postData } from "@/lib/api";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info, Save, Loader2 } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 import { MultiSelect } from "@/components/ui/multi-select";
-import ScreenCodeEditor from "./ScreenCodeEditor";
+import { ScreenCodeEditor } from './ScreenCodeEditor';
 
 interface ScreenFormProps {
-  initialScreen?: {
-    screen: string;
-    explanation: string;
-    configuration: any;
-  };
+  screenCode: string;
+  explanation: string;
+  configuration: any;
+  defaultName: string;
+  defaultDescription: string;
+  isNew: boolean;
+  id?: number;
 }
 
-const formSchema = z.object({
-  name: z.string().min(3, {
-    message: "Name must be at least 3 characters.",
-  }),
-  description: z.string().min(5, {
-    message: "Description must be at least 5 characters.",
-  }),
-  type: z.string().default("custom"),
-  universe: z.array(z.string()).min(1, {
-    message: "Select at least one asset to include in the screen.",
-  }),
-  code: z.string().min(10, {
-    message: "Code must be at least 10 characters.",
-  }),
-  language: z.enum(["python", "javascript"]).default("python"),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-const defaultStocks = [
-  "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", 
-  "JPM", "BAC", "WMT", "PG", "JNJ", "UNH", "HD", "V", "MA",
-  "DIS", "NFLX", "INTC", "AMD", "CSCO", "ADBE", "CRM", "PYPL"
+// Common stock symbols that can be used for screeners
+const COMMON_STOCKS = [
+  { label: 'AAPL', value: 'AAPL' },
+  { label: 'MSFT', value: 'MSFT' },
+  { label: 'GOOGL', value: 'GOOGL' },
+  { label: 'AMZN', value: 'AMZN' },
+  { label: 'META', value: 'META' },
+  { label: 'TSLA', value: 'TSLA' },
+  { label: 'NVDA', value: 'NVDA' },
+  { label: 'JPM', value: 'JPM' },
+  { label: 'V', value: 'V' },
+  { label: 'JNJ', value: 'JNJ' },
+  { label: 'WMT', value: 'WMT' },
+  { label: 'MA', value: 'MA' },
+  { label: 'PG', value: 'PG' },
+  { label: 'HD', value: 'HD' },
+  { label: 'BAC', value: 'BAC' },
+  { label: 'DIS', value: 'DIS' },
+  { label: 'ADBE', value: 'ADBE' },
+  { label: 'CRM', value: 'CRM' },
+  { label: 'NFLX', value: 'NFLX' },
+  { label: 'INTC', value: 'INTC' },
 ];
 
-const ScreenForm = ({ initialScreen }: ScreenFormProps) => {
-  const [code, setCode] = useState(initialScreen?.screen || "");
-  const navigate = useNavigate();
+// Stock indices for broader market coverage
+const STOCK_INDICES = [
+  { label: 'SPY (S&P 500)', value: 'SPY' },
+  { label: 'QQQ (Nasdaq 100)', value: 'QQQ' },
+  { label: 'DIA (Dow Jones)', value: 'DIA' },
+  { label: 'IWM (Russell 2000)', value: 'IWM' },
+  { label: 'VTI (Total Market)', value: 'VTI' },
+];
+
+// Sample sectors for screening
+const SECTOR_ETFS = [
+  { label: 'XLF (Financials)', value: 'XLF' },
+  { label: 'XLK (Technology)', value: 'XLK' },
+  { label: 'XLE (Energy)', value: 'XLE' },
+  { label: 'XLV (Healthcare)', value: 'XLV' },
+  { label: 'XLY (Consumer Discretionary)', value: 'XLY' },
+  { label: 'XLP (Consumer Staples)', value: 'XLP' },
+  { label: 'XLI (Industrials)', value: 'XLI' },
+  { label: 'XLB (Materials)', value: 'XLB' },
+  { label: 'XLU (Utilities)', value: 'XLU' },
+  { label: 'XLRE (Real Estate)', value: 'XLRE' },
+];
+
+// Combine all options into one array
+const ALL_SYMBOLS = [
+  ...COMMON_STOCKS,
+  ...STOCK_INDICES,
+  ...SECTOR_ETFS,
+];
+
+export const ScreenForm: React.FC<ScreenFormProps> = ({
+  screenCode,
+  explanation,
+  configuration,
+  defaultName,
+  defaultDescription,
+  isNew,
+  id
+}) => {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [name, setName] = useState(defaultName);
+  const [description, setDescription] = useState(defaultDescription);
+  const [code, setCode] = useState(screenCode);
+  const [activeTab, setActiveTab] = useState('code');
+  const [saving, setSaving] = useState(false);
+  
+  // Extract assets from configuration or use a default
+  const configAssets = configuration?.assets || [];
+  const [assets, setAssets] = useState<string[]>(configAssets);
 
-  // Parse potential stocks from configuration
-  const configuredStocks = initialScreen?.configuration?.universe || 
-                          initialScreen?.configuration?.assets || 
-                          defaultStocks;
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please provide a name for your screen.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: initialScreen?.configuration?.name || "My Custom Screen",
-      description: initialScreen?.explanation || "",
-      type: "custom",
-      universe: configuredStocks,
-      code: initialScreen?.screen || "",
-      language: "python",
-    },
-  });
+    if (!code.trim()) {
+      toast({
+        title: "Code Required",
+        description: "Screen code cannot be empty.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const saveScreener = useMutation({
-    mutationFn: (data: FormValues) => {
-      // Prepare data structure that matches our API
-      const screenerData = {
-        name: data.name,
-        description: data.description,
-        type: data.type,
-        configuration: {
-          universe: data.universe,
-          parameters: {},
-        },
+    setSaving(true);
+    
+    try {
+      const screenData = {
+        name,
+        description,
+        type: 'python',
         source: {
-          type: "code",
-          content: data.code,
-          language: data.language
-        }
+          type: 'code',
+          content: code,
+          language: 'python'
+        },
+        assets,
       };
       
-      return postData('/api/screeners', screenerData);
-    },
-    onSuccess: () => {
+      let response;
+      if (isNew) {
+        response = await apiRequest('/api/screeners', {
+          method: 'POST',
+          data: screenData
+        });
+      } else {
+        response = await apiRequest(`/api/screeners/${id}`, {
+          method: 'PUT',
+          data: screenData
+        });
+      }
+      
       toast({
-        title: "Screen saved",
-        description: "Your screen has been successfully saved",
+        title: "Success",
+        description: isNew ? "Screen created successfully." : "Screen updated successfully.",
       });
-      // Navigate to the screens page after saving
+      
       navigate("/screens");
-    },
-    onError: (error: any) => {
-      console.error("Error saving screen:", error);
+    } catch (error) {
+      console.error("Failed to save screen:", error);
       toast({
-        title: "Save failed",
-        description: error?.response?.data?.message || "Failed to save screen",
+        title: "Error",
+        description: "Failed to save the screen. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExplainScreen = async () => {
+    if (!code.trim()) {
+      toast({
+        title: "Code Required",
+        description: "There's no code to explain.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const result = await apiRequest('/api/screen-builder/explain', {
+        method: 'POST',
+        data: { code }
+      });
+      
+      // Create a new screen with the explained code
+      setActiveTab('explanation');
+    } catch (error) {
+      console.error("Failed to explain screen:", error);
+      toast({
+        title: "Explanation Failed",
+        description: "There was an error explaining the screen code. Please try again.",
         variant: "destructive",
       });
     }
-  });
-
-  const handleSubmit = (values: FormValues) => {
-    // Update the code field with the latest code from the editor
-    values.code = code;
-    saveScreener.mutate(values);
-  };
-
-  const handleCodeChange = (newCode: string) => {
-    setCode(newCode);
-    form.setValue("code", newCode);
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Save Your Stock Screen</CardTitle>
-        <CardDescription>
-          Review and customize your screen before saving it
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Screen Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter a name for your screen" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      A descriptive name to identify your screen
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Screen Details</CardTitle>
+              <CardDescription>
+                Provide basic information about your stock screening strategy
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="My Stock Screener"
+                />
+              </div>
               
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Screen Type</FormLabel>
-                    <FormControl>
-                      <Input value="custom" disabled {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      The type of screen (custom is default)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Describe what this screen is looking for..." 
-                      className="min-h-[80px]"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    A detailed description of what the screen does and how it works
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="A brief description of what this screen does and when to use it."
+                  rows={3}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Assets</Label>
+                <MultiSelect
+                  options={ALL_SYMBOLS}
+                  selected={assets}
+                  onChange={setAssets}
+                  placeholder="Select assets to screen"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Select the assets you want to include in your screen. You can also enter custom symbols.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Explanation</CardTitle>
+              <CardDescription>
+                Understanding how your screen works
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {explanation ? (
+                <div className="prose prose-sm max-w-none">
+                  <p>{explanation}</p>
+                </div>
+              ) : (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>No Explanation Available</AlertTitle>
+                  <AlertDescription>
+                    For AI-generated screens, an explanation is automatically provided. 
+                    For custom screens, you can request an explanation by clicking the button below.
+                  </AlertDescription>
+                </Alert>
               )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="universe"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Universe of Assets</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      selected={field.value}
-                      setSelected={(values) => field.onChange(values)}
-                      options={defaultStocks.map(stock => ({
-                        value: stock,
-                        label: stock
-                      }))}
-                      placeholder="Select stocks to include in your screen"
-                      creatable
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    The stocks that will be considered by this screen
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+              
+              {!explanation && (
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={handleExplainScreen}
+                >
+                  Generate Explanation
+                </Button>
               )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="language"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Language</FormLabel>
-                  <FormControl>
-                    <Input value="python" disabled {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    The programming language used for this screen
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="code"
-              render={() => (
-                <FormItem>
-                  <FormLabel>Screen Code</FormLabel>
-                  <FormControl>
-                    <div className="min-h-[400px] border rounded-md">
-                      <ScreenCodeEditor 
-                        initialCode={code} 
-                        onChange={handleCodeChange} 
-                      />
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    The Python code that implements your screen
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <CardFooter className="px-0 pt-4">
-              <Button 
-                type="submit" 
-                className="ml-auto"
-                disabled={saveScreener.isPending}
-              >
-                {saveScreener.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" /> Save Screen
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div>
+          <Card className="h-full flex flex-col">
+            <CardHeader>
+              <CardTitle>Screen Implementation</CardTitle>
+              <CardDescription>
+                Python code for your stock screen
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                <TabsList>
+                  <TabsTrigger value="code">Python Code</TabsTrigger>
+                  <TabsTrigger value="explanation">Explanation</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="code" className="flex-grow">
+                  <ScreenCodeEditor 
+                    code={code}
+                    onChange={setCode}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="explanation">
+                  <div className="prose prose-sm max-w-none p-4 bg-secondary/50 rounded-md">
+                    <p>{explanation || "No explanation available. Click 'Generate Explanation' to analyze this screen."}</p>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      
+      <div className="flex justify-end">
+        <Button type="button" onClick={() => navigate("/screens")} variant="outline" className="mr-2">
+          Cancel
+        </Button>
+        <Button type="button" onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Screen
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 };
-
-export default ScreenForm;
