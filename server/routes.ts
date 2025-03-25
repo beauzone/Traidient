@@ -1063,7 +1063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Error optimizing strategy' });
     }
   });
-
+  
   // Screen Builder API routes
   app.post('/api/screen-builder/generate', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
@@ -1077,7 +1077,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const result = await generateScreen(prompt);
-      res.json(result);
+      
+      // Format the response in the expected structure
+      res.json({
+        screenCode: result.screen,
+        explanation: result.explanation,
+        name: `Generated Screen - ${new Date().toLocaleDateString()}`,
+        description: prompt.length > 100 ? `${prompt.substring(0, 100)}...` : prompt,
+        configuration: {
+          ...result.configuration,
+          assets: result.configuration?.assets || []
+        }
+      });
     } catch (error) {
       console.error('Generate screen error:', error);
       res.status(500).json({ 
@@ -1107,7 +1118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WEBHOOK ROUTES - Removed duplicate route registration, using the one at the end of the file
+  // WEBHOOK ROUTES
 
   // Process external webhook requests (no auth middleware)
   app.post('/api/external-webhook/:token', async (req: Request, res: Response) => {
