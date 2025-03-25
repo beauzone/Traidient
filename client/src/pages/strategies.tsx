@@ -163,6 +163,14 @@ const StrategiesPage = () => {
   return (
     <MainLayout title="Strategies">
       <div className="flex flex-col space-y-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Strategies</h1>
+            <p className="text-muted-foreground">
+              Create and manage trading strategies for your portfolio
+            </p>
+          </div>
+        </div>
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2 w-full max-w-md">
             <div className="relative w-full">
