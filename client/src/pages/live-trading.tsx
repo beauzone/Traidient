@@ -69,6 +69,14 @@ const LiveTradingPage = () => {
 
   return (
     <MainLayout title="Live Trading">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Live Trading</h1>
+          <p className="text-muted-foreground">
+            Monitor and manage your active trading strategies
+          </p>
+        </div>
+      </div>
       <div className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-4 w-full max-w-md">
