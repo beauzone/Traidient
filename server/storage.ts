@@ -581,60 +581,71 @@ export class DatabaseStorage implements IStorage {
   }
 
   async runScreener(id: number): Promise<Screener | undefined> {
-    // Get the screener
-    const screener = await this.getScreener(id);
-    if (!screener) {
-      return undefined;
-    }
-
     try {
-      // This is a placeholder for the actual screener execution
-      // In a real implementation, we would:
-      // 1. Execute Python code for Python screeners or JavaScript code for JS screeners
-      // 2. Fetch market data for the specified universe
-      // 3. Apply the screening criteria
-      // 4. Update the screener with results
+      // Get the screener
+      const screener = await this.getScreener(id);
+      if (!screener) {
+        return undefined;
+      }
       
-      const now = new Date();
-      const mockResults = {
-        lastRun: now.toISOString(),
-        matchedSymbols: ['AAPL', 'MSFT', 'GOOGL'], // Just placeholder data
-        metrics: [
-          {
-            symbol: 'AAPL',
-            price: 175.34,
-            change: 2.34,
-            volume: 35000000
-          },
-          {
-            symbol: 'MSFT',
-            price: 345.67,
-            change: -1.23,
-            volume: 28000000
-          },
-          {
-            symbol: 'GOOGL',
-            price: 145.21,
-            change: 0.54,
-            volume: 18000000
-          }
-        ]
-      };
+      // Import the Python execution service dynamically
+      const { executeScreener } = await import('./pythonExecutionService');
+      
+      // Execute the screener
+      const result = await executeScreener(screener);
       
       // Update the screener with the results
-      const [updatedScreener] = await db.update(screeners)
-        .set({
-          results: mockResults,
-          lastRunAt: now,
-          updatedAt: now
-        })
-        .where(eq(screeners.id, id))
-        .returning();
-      
-      return updatedScreener;
+      const now = new Date();
+      if (result && result.success) {
+        // Format the results
+        const screenResults = {
+          matches: result.matches || [],
+          lastRun: now.toISOString(),
+          executionTime: result.execution_time || 0,
+          details: result.details || {}
+        };
+        
+        // Update in database
+        const [updatedScreener] = await db.update(screeners)
+          .set({
+            results: screenResults,
+            lastRunAt: now,
+            updatedAt: now
+          })
+          .where(eq(screeners.id, id))
+          .returning();
+        
+        return updatedScreener;
+      } else {
+        // Format error results
+        const errorResults = {
+          matches: [],
+          lastRun: now.toISOString(),
+          executionTime: 0,
+          error: result?.error || 'Unknown error during execution'
+        };
+        
+        // Update in database with error
+        const [updatedScreener] = await db.update(screeners)
+          .set({
+            results: errorResults,
+            lastRunAt: now,
+            updatedAt: now
+          })
+          .where(eq(screeners.id, id))
+          .returning();
+        
+        return updatedScreener;
+      }
     } catch (error) {
+      console.error(`Error running screener ${id}:`, error);
+      
       // In case of error, update the screener with the error message
       const now = new Date();
+      const screener = await this.getScreener(id);
+      
+      if (!screener) return undefined;
+      
       const [updatedScreener] = await db.update(screeners)
         .set({
           results: {
