@@ -75,7 +75,7 @@ interface Screener {
     content: string;
   };
   configuration: {
-    assets: string[];
+    assets?: string[]; // Made optional since screens now search through stock universe automatically
     parameters: Record<string, any>;
   };
   results?: {
@@ -1227,7 +1227,7 @@ const Screeners = () => {
   };
 
   const handleDeleteClick = (id: number) => {
-    const screener = screeners?.find((s: Screener) => s.id === id);
+    const screener = Array.isArray(screeners) ? screeners.find((s: Screener) => s.id === id) : undefined;
     if (screener) {
       setScreenToDelete({id, name: screener.name});
       setIsDeleteDialogOpen(true);
@@ -1295,7 +1295,7 @@ const Screeners = () => {
           Array(3).fill(0).map((_, index) => (
             <SkeletonCard key={index} />
           ))
-        ) : screeners?.length === 0 ? (
+        ) : !Array.isArray(screeners) || screeners.length === 0 ? (
           // Show empty state if no screeners exist
           <>
             <EmptyStateCard onClick={handleCreateScreen} />
@@ -1380,7 +1380,7 @@ const Screeners = () => {
         ) : (
           // Show actual screeners
           <>
-            {screeners.map((screener: Screener) => (
+            {Array.isArray(screeners) && screeners.map((screener: Screener) => (
               <ScreenerCard 
                 key={screener.id} 
                 screener={screener} 
