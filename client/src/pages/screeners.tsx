@@ -1456,7 +1456,7 @@ const Screeners = () => {
                       content: e.target.value
                     }
                   }))}
-                  className="w-full h-96 p-2 font-mono text-sm focus:outline-none"
+                  className="w-full h-96 p-2 font-mono text-sm focus:outline-none bg-slate-900 text-slate-50 dark:bg-slate-950 dark:text-slate-50"
                   spellCheck={false}
                 ></textarea>
               </div>
