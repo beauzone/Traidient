@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Save, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import { MultiSelect } from "@/components/ui/multi-select";
 import { ScreenCodeEditor } from './ScreenCodeEditor';
 
 interface ScreenFormProps {
@@ -23,59 +22,7 @@ interface ScreenFormProps {
   id?: number;
 }
 
-// Common stock symbols that can be used for screeners
-const COMMON_STOCKS = [
-  { label: 'AAPL', value: 'AAPL' },
-  { label: 'MSFT', value: 'MSFT' },
-  { label: 'GOOGL', value: 'GOOGL' },
-  { label: 'AMZN', value: 'AMZN' },
-  { label: 'META', value: 'META' },
-  { label: 'TSLA', value: 'TSLA' },
-  { label: 'NVDA', value: 'NVDA' },
-  { label: 'JPM', value: 'JPM' },
-  { label: 'V', value: 'V' },
-  { label: 'JNJ', value: 'JNJ' },
-  { label: 'WMT', value: 'WMT' },
-  { label: 'MA', value: 'MA' },
-  { label: 'PG', value: 'PG' },
-  { label: 'HD', value: 'HD' },
-  { label: 'BAC', value: 'BAC' },
-  { label: 'DIS', value: 'DIS' },
-  { label: 'ADBE', value: 'ADBE' },
-  { label: 'CRM', value: 'CRM' },
-  { label: 'NFLX', value: 'NFLX' },
-  { label: 'INTC', value: 'INTC' },
-];
-
-// Stock indices for broader market coverage
-const STOCK_INDICES = [
-  { label: 'SPY (S&P 500)', value: 'SPY' },
-  { label: 'QQQ (Nasdaq 100)', value: 'QQQ' },
-  { label: 'DIA (Dow Jones)', value: 'DIA' },
-  { label: 'IWM (Russell 2000)', value: 'IWM' },
-  { label: 'VTI (Total Market)', value: 'VTI' },
-];
-
-// Sample sectors for screening
-const SECTOR_ETFS = [
-  { label: 'XLF (Financials)', value: 'XLF' },
-  { label: 'XLK (Technology)', value: 'XLK' },
-  { label: 'XLE (Energy)', value: 'XLE' },
-  { label: 'XLV (Healthcare)', value: 'XLV' },
-  { label: 'XLY (Consumer Discretionary)', value: 'XLY' },
-  { label: 'XLP (Consumer Staples)', value: 'XLP' },
-  { label: 'XLI (Industrials)', value: 'XLI' },
-  { label: 'XLB (Materials)', value: 'XLB' },
-  { label: 'XLU (Utilities)', value: 'XLU' },
-  { label: 'XLRE (Real Estate)', value: 'XLRE' },
-];
-
-// Combine all options into one array
-const ALL_SYMBOLS = [
-  ...COMMON_STOCKS,
-  ...STOCK_INDICES,
-  ...SECTOR_ETFS,
-];
+// All stock lists/universes have been removed - universe is defined in the code itself
 
 export const ScreenForm: React.FC<ScreenFormProps> = ({
   screenCode,
