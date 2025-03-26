@@ -255,6 +255,9 @@ def calculate_technical_indicators(dataframes):
         # Calculate EMA manually
         result_df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
         
+        # Volume Moving Average
+        result_df['Volume_SMA_20'] = df['Volume'].rolling(window=20).mean()
+        
         # Volatility indicators - ATR calculation
         high_low = df['High'] - df['Low']
         high_close = abs(df['High'] - df['Close'].shift())
@@ -439,7 +442,7 @@ def detect_cup_and_handle(df, window=63):
 def screen_stocks(data_dict, screen_type='momentum'):
     """
     Screen stocks based on selected strategy type
-    Available strategies: 'momentum', 'technical', 'trend_following', 'williams'
+    Available strategies: 'momentum', 'technical', 'trend_following', 'williams', 'canslim', 'cup_handle'
     
     Default strategy includes:
     - Price above 20-day moving average
@@ -559,6 +562,100 @@ def screen_stocks(data_dict, screen_type='momentum'):
                     }
             except Exception as e:
                 print(f"Error screening {symbol} with Williams %R strategy: {str(e)}")
+    
+    # CANSLIM-Inspired Strategy - Based on William O'Neil's growth stock strategy
+    elif screen_type == 'canslim':
+        for symbol, df in data_dict.items():
+            if df.empty or len(df) < 100:  # Need more data for this strategy
+                continue
+                
+            try:
+                # Current Earnings & Annual Earnings Growth - We need to estimate these from price/volume data
+                # In a real implementation, we would use fundamental data (earnings reports) for this
+                
+                # Price/volume action - Relative strength, Accumulation, and Market direction components
+                
+                # Get most recent data
+                latest = df.iloc[-1]
+                
+                # Calculating price change over past 3 months (Relative Strength)
+                if len(df) > 90:
+                    price_3mo_ago = df.iloc[-90]['Close'] if len(df) >= 90 else df.iloc[0]['Close']
+                    price_change_3mo = (latest['Close'] / price_3mo_ago - 1) * 100
+                else:
+                    price_change_3mo = 0
+                
+                # Institutional Sponsorship - Using volume as a proxy for accumulation/distribution
+                # Positive volume trend suggests institutional buying
+                vol_trend_positive = latest['Volume'] > latest['Volume_SMA_20']
+                
+                # Market Direction - Check if stock is in uptrend
+                uptrend = latest['Close'] > latest['SMA_50'] > latest['SMA_200']
+                
+                # Technical strength - Price near 52-week (yearly) high
+                near_high = False
+                if 'MAX_12MO' in latest and not pd.isna(latest['MAX_12MO']):
+                    near_high = latest['Close'] > 0.85 * latest['MAX_12MO']
+                
+                # Check for breakout - Price crossing above resistance on high volume
+                breakout = False
+                if len(df) > 20:
+                    recent_high = df['High'].iloc[-20:-1].max()
+                    volume_surge = latest['Volume'] > 1.5 * latest['Volume_SMA_20']
+                    breakout = latest['Close'] > recent_high and volume_surge
+                
+                # Combined CANSLIM criteria
+                # In a real implementation, we would include earnings growth metrics
+                strong_rs = price_change_3mo > 15  # Relative Strength
+                
+                if (strong_rs or breakout) and uptrend and vol_trend_positive and near_high:
+                    matches.append(symbol)
+                    details[symbol] = {
+                        'close': round(latest['Close'], 2),
+                        'price_change_3mo': round(price_change_3mo, 2),
+                        'near_52wk_high': near_high,
+                        'uptrend': uptrend,
+                        'breakout': breakout
+                    }
+            except Exception as e:
+                print(f"Error screening {symbol} with CANSLIM strategy: {str(e)}")
+    
+    # Cup and Handle Pattern Strategy - Uses our custom pattern detection
+    elif screen_type == 'cup_handle':
+        for symbol, df in data_dict.items():
+            if df.empty or len(df) < 80:  # Need sufficient data for pattern detection
+                continue
+                
+            try:
+                # Get pattern detection results from our calculated column
+                handle_detected = df['CUP_HANDLE'].iloc[-20:].any()  # Check if pattern detected in last 20 bars
+                
+                # Only consider stocks that are in an overall uptrend
+                latest = df.iloc[-1]
+                uptrend = latest['Close'] > latest['SMA_50']
+                
+                # Additional volume confirmation - increasing volume on breakout
+                increasing_volume = False
+                if len(df) > 5:
+                    volume_trend = df['Volume'].iloc[-5:].mean() > df['Volume'].iloc[-20:-5].mean()
+                    increasing_volume = volume_trend
+                
+                # Combined criteria
+                if handle_detected and uptrend and increasing_volume:
+                    # Find exact pattern location for reporting
+                    pattern_idx = df.index[df['CUP_HANDLE'].iloc[-20:]]
+                    pattern_dates = [str(idx.date()) for idx in pattern_idx]
+                    
+                    matches.append(symbol)
+                    details[symbol] = {
+                        'close': round(latest['Close'], 2),
+                        'pattern_detected': True,
+                        'pattern_dates': pattern_dates if pattern_dates else 'Recent',
+                        'uptrend': uptrend,
+                        'volume_trend': increasing_volume
+                    }
+            except Exception as e:
+                print(f"Error screening {symbol} with Cup and Handle pattern strategy: {str(e)}")
     
     # Basic default screen if strategy not recognized
     else:
