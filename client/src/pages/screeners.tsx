@@ -902,8 +902,8 @@ const ScreenerCard = ({
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Assets:</span>
-            <span>{screener.configuration.assets.length} symbols</span>
+            <span className="text-muted-foreground">Universe:</span>
+            <span>All US Stocks</span>
           </div>
           {screener.results?.matches && (
             <div className="flex justify-between text-sm">
@@ -1159,10 +1159,10 @@ const Screeners = () => {
     type: "python" as const,
     source: {
       type: "code" as const,
-      content: "# Python code to screen stocks\nimport numpy as np\n\ndef screen_stocks(data_dict):\n    \"\"\"Screen stocks based on criteria\"\"\"\n    matches = []\n    details = {}\n    \n    for symbol, df in data_dict.items():\n        # Skip if we don't have enough data\n        if len(df) < 20:\n            continue\n            \n        # Example criteria - stocks above their 20-day moving average\n        df['ma20'] = df['Close'].rolling(window=20).mean()\n        latest = df.iloc[-1]\n        \n        if latest['Close'] > latest['ma20']:\n            matches.append(symbol)\n            details[symbol] = {\n                'price': latest['Close'],\n                'ma20': latest['ma20'],\n                'above_ma': True,\n                'pct_above': ((latest['Close'] / latest['ma20']) - 1) * 100\n            }\n            \n    return {\n        'matches': matches,\n        'details': details\n    }"
+      content: "# Python code to screen stocks\nimport numpy as np\nimport pandas as pd\n\ndef screen_stocks(data_dict):\n    \"\"\"Screen stocks based on criteria\"\"\"\n    matches = []\n    details = {}\n    \n    # Screen through all provided stocks (typically major US exchanges)\n    for symbol, df in data_dict.items():\n        # Skip if we don't have enough data\n        if len(df) < 20:\n            continue\n            \n        # Example criteria - stocks above their 20-day moving average\n        df['ma20'] = df['Close'].rolling(window=20).mean()\n        latest = df.iloc[-1]\n        \n        if latest['Close'] > latest['ma20']:\n            matches.append(symbol)\n            details[symbol] = {\n                'price': latest['Close'],\n                'ma20': latest['ma20'],\n                'above_ma': True,\n                'pct_above': ((latest['Close'] / latest['ma20']) - 1) * 100\n            }\n            \n    return {\n        'matches': matches,\n        'details': details\n    }"
     },
     configuration: {
-      assets: ["SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "AMZN", "META"],
+      // Assets field removed - screens now search through stock universe automatically
       parameters: {}
     }
   });
@@ -1172,6 +1172,15 @@ const Screeners = () => {
   };
   
   const submitCreateScreen = () => {
+    // Prepare the data for submission - ensure we don't include assets array
+    const dataToSubmit = {
+      ...newScreenerData,
+      configuration: {
+        // Ensure we only send parameters, no assets
+        parameters: newScreenerData.configuration.parameters
+      }
+    };
+    
     // Send mutation request to create new screen
     fetch('/api/screeners', {
       method: 'POST',
@@ -1179,7 +1188,7 @@ const Screeners = () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
-      body: JSON.stringify(newScreenerData)
+      body: JSON.stringify(dataToSubmit)
     })
     .then(response => {
       if (!response.ok) throw new Error('Failed to create screen');
@@ -1430,52 +1439,7 @@ const Screeners = () => {
               />
             </div>
             
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right mt-2">
-                Assets to Screen
-              </Label>
-              <div className="col-span-3 flex flex-wrap gap-2">
-                {newScreenerData.configuration.assets.map((asset, index) => (
-                  <Badge key={index} className="px-2 py-1">
-                    {asset}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-4 w-4 p-0 ml-1"
-                      onClick={() => {
-                        setNewScreenerData(prev => ({
-                          ...prev,
-                          configuration: {
-                            ...prev.configuration,
-                            assets: prev.configuration.assets.filter((_, i) => i !== index)
-                          }
-                        }));
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                ))}
-                <Input 
-                  placeholder="Add asset (e.g., AAPL)"
-                  className="w-32"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.currentTarget.value) {
-                      e.preventDefault();
-                      const newAsset = e.currentTarget.value.toUpperCase();
-                      setNewScreenerData(prev => ({
-                        ...prev,
-                        configuration: {
-                          ...prev.configuration,
-                          assets: [...prev.configuration.assets, newAsset]
-                        }
-                      }));
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-              </div>
-            </div>
+            {/* Assets to Screen section removed - screeners now search through stock universe automatically */}
             
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="screenCode" className="text-right mt-2">
