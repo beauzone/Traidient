@@ -397,16 +397,29 @@ if __name__ == "__main__":
         # Load configuration
         config = ${JSON.stringify(screener.configuration)}
         
-        # Load ticker data
+        # Default stock universes for screening
+        # Since a stock screener should work with a large universe of stocks,
+        # we'll use default lists if no specific assets are provided.
+        SP500_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH", "XOM", 
+                         "JPM", "JNJ", "V", "PG", "MA", "HD", "AVGO", "CVX", "MRK", "LLY", "ABBV", "PEP", 
+                         "COST", "BAC", "KO", "TMO", "CSCO", "MCD", "ACN", "ABT", "CRM", "WMT", "PFE", "DHR"]
+        
+        # Define the top stocks by market cap as a default universe
+        TOP_STOCKS = SP500_SYMBOLS[:20]  # Use first 20 stocks from S&P 500 for testing
+        
+        # Use assets if specified, otherwise default to predefined universe
         symbols = config.get('assets', [])
         if not symbols:
-            print(json.dumps({
-                'success': False,
-                'error': 'No symbols specified',
-                'matches': []
-            }))
-            sys.exit(1)
-        
+            print("No specific assets provided, using default stock universe.")
+            # Choose the universe based on the description or content of the screener
+            # For example, if the description contains "S&P 500", use the S&P 500 symbols
+            description = "${screener.description || ''}".lower()
+            if "s&p" in description or "s&p 500" in description or "sp500" in description:
+                symbols = SP500_SYMBOLS
+            else:
+                # Use top stocks by default for faster execution
+                symbols = TOP_STOCKS
+                
         # Load market data
         data_dict = load_market_data(symbols)
         

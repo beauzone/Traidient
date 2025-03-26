@@ -128,8 +128,8 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
           type: 'code',
           content: code,
           language: 'python'
-        },
-        assets,
+        }
+        // assets field removed - universe should be defined in the code itself
       };
       
       let response;
@@ -224,18 +224,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label>Assets</Label>
-                <MultiSelect
-                  options={ALL_SYMBOLS}
-                  selected={assets}
-                  onChange={setAssets}
-                  placeholder="Select assets to screen"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Select the assets you want to include in your screen. You can also enter custom symbols.
-                </p>
-              </div>
+              {/* Assets selection removed - universe should be defined in the code itself */}
             </CardContent>
           </Card>
           
