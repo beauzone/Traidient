@@ -57,7 +57,7 @@ export const ScreenNaturalLanguageInput: React.FC<ScreenNaturalLanguageInputProp
           explanation: result.explanation || '',
           defaultName: result.name || 'My Generated Screen',
           defaultDescription: result.description || '',
-          configuration: result.configuration || { assets: [] }
+          configuration: result.configuration || {}
         });
       } else {
         throw new Error("Invalid response from the server");

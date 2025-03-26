@@ -94,9 +94,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
   const [activeTab, setActiveTab] = useState('code');
   const [saving, setSaving] = useState(false);
   
-  // Extract assets from configuration or use a default
-  const configAssets = configuration?.assets || [];
-  const [assets, setAssets] = useState<string[]>(configAssets);
+  // Assets selection has been removed - universe is defined in the code itself
 
   const handleSave = async () => {
     if (!name.trim()) {
