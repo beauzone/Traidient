@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import MainLayout from "@/components/layout/MainLayout";
 import { Link } from "wouter";
 import * as React from "react";
+import { ScreenerNav } from '@/components/ScreenerNav';
 import { 
   Card, 
   CardContent, 
@@ -1260,6 +1261,8 @@ const Screeners = () => {
           </Button>
         </div>
         
+        <ScreenerNav />
+        
         <Card className="bg-card border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive">Error Loading Screens</CardTitle>
@@ -1288,6 +1291,8 @@ const Screeners = () => {
           <PlusCircle className="mr-2 h-4 w-4" /> Create Screen
         </Button>
       </div>
+      
+      <ScreenerNav />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (

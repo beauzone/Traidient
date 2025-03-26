@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
 
 /**
- * A hook that sets the document title
- * @param title The title to set for the page
- * @param suffix An optional suffix to append to the title (e.g. " | My App")
+ * Custom hook for setting document title
+ * @param title The title to set
+ * @param suffix Optional suffix to append to the title (e.g. "- App Name")
  */
-export function useTitle(title: string, suffix: string = ' | TradingAI') {
+export function useTitle(title: string, suffix: string = '') {
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = title + suffix;
-    
+    document.title = suffix ? `${title} ${suffix}` : title;
+
+    // Clean up when unmounting
     return () => {
       document.title = previousTitle;
     };
   }, [title, suffix]);
 }
+
+export default useTitle;
