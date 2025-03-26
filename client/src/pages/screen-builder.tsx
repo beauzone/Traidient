@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScreenNaturalLanguageInput } from '@/components/screen-builder/ScreenNaturalLanguageInput';
 import { ScreenForm } from '@/components/screen-builder/ScreenForm';
+import MainLayout from "@/components/layout/MainLayout";
+import { ScreenerNav } from '@/components/ScreenerNav';
+import { PageHeader } from '@/components/PageHeader';
 
 const ScreenBuilder: React.FC = () => {
   const [activeTab, setActiveTab] = useState("natural-language");
@@ -25,10 +28,13 @@ const ScreenBuilder: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Screen Builder</h1>
-      </div>
+    <MainLayout title="Screen Builder">
+      <PageHeader
+        title="Screen Builder"
+        description="Create custom stock screens using AI assistance"
+      />
+      
+      <ScreenerNav />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -55,7 +61,7 @@ const ScreenBuilder: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+    </MainLayout>
   );
 };
 
