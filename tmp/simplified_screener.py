@@ -1,7 +1,7 @@
 """
-Comprehensive Stock Screener with Advanced Technical Indicators
-- Uses standard Python libraries instead of pandas_ta
-- Implements advanced technical analysis functionality
+Simplified Stock Screener with Standard Library Indicators
+- Implements key technical analysis functionality
+- Only uses standard Python libraries and installed packages
 - Supports multiple screening strategies
 """
 import pandas as pd
@@ -146,80 +146,9 @@ def calculate_technical_indicators(dataframes):
     
     return results
 
-def detect_cup_and_handle(df, lookback=90):
-    """Detect cup and handle pattern in price data
-    Simplified implementation focused on curvature detection
-    """
-    if len(df) < lookback:
-        return False, {}
-    
-    try:
-        # Get closing prices for the lookback period
-        close_prices = df['Close'].values[-lookback:]
-        
-        # Smooth prices to reduce noise
-        window_size = 5
-        smoothed_prices = np.convolve(close_prices, np.ones(window_size)/window_size, mode='valid')
-        
-        # Find price peaks and troughs
-        peaks, _ = signal.find_peaks(smoothed_prices)
-        troughs, _ = signal.find_peaks(-smoothed_prices)
-        
-        if len(peaks) < 2 or len(troughs) < 1:
-            return False, {}
-        
-        # Cup pattern: Left peak -> trough -> right peak
-        left_peaks = peaks[peaks < troughs[-1]]
-        right_peaks = peaks[peaks > troughs[-1]]
-        
-        if len(left_peaks) == 0 or len(right_peaks) == 0:
-            return False, {}
-        
-        left_peak_idx = left_peaks[-1]
-        trough_idx = troughs[-1]
-        right_peak_idx = right_peaks[0]
-        
-        # Check if the pattern forms a cup (U-shape)
-        left_height = smoothed_prices[left_peak_idx] - smoothed_prices[trough_idx]
-        right_height = smoothed_prices[right_peak_idx] - smoothed_prices[trough_idx]
-        
-        # Cup criteria: Similar heights on both sides, sufficient depth
-        cup_ratio = min(left_height, right_height) / max(left_height, right_height)
-        cup_depth = min(left_height, right_height) / smoothed_prices[trough_idx]
-        
-        is_cup = (cup_ratio > 0.6) and (cup_depth > 0.05) and (right_peak_idx - left_peak_idx > 15)
-        
-        # Look for handle formation (smaller decline after right peak)
-        handle_detected = False
-        handle_depth = 0
-        if is_cup and len(smoothed_prices) > right_peak_idx + 5:
-            handle_section = smoothed_prices[right_peak_idx:]
-            if len(handle_section) > 5:
-                handle_min = np.min(handle_section)
-                handle_depth = (smoothed_prices[right_peak_idx] - handle_min) / smoothed_prices[right_peak_idx]
-                
-                # Handle should be smaller than cup and not too shallow
-                handle_detected = (handle_depth < cup_depth) and (handle_depth > 0.02)
-        
-        pattern_detected = is_cup and handle_detected
-        
-        details = {
-            'cup_detected': is_cup,
-            'handle_detected': handle_detected,
-            'cup_depth': cup_depth,
-            'handle_depth': handle_depth,
-            'cup_ratio': cup_ratio
-        }
-        
-        return pattern_detected, details
-    
-    except Exception as e:
-        print(f"Error detecting cup and handle pattern: {str(e)}")
-        return False, {}
-
 def screen_stocks(data_dict, screen_type='momentum'):
     """Screen stocks based on selected strategy type
-    Available strategies: 'momentum', 'technical', 'trend_following', 'custom', 'williams', 'cup_handle'
+    Available strategies: 'momentum', 'technical', 'trend_following', 'williams'
     """
     results = {}
     matches = []
@@ -351,63 +280,6 @@ def screen_stocks(data_dict, screen_type='momentum'):
             except Exception as e:
                 print(f"Error screening {symbol} with Williams strategy: {str(e)}")
     
-    # Cup and Handle Pattern Screen
-    elif screen_type == 'cup_handle':
-        for symbol, df in data_dict.items():
-            if df.empty or len(df) < 90:
-                continue
-                
-            try:
-                # Detect cup and handle pattern
-                pattern_detected, pattern_details = detect_cup_and_handle(df)
-                
-                # Additional confirmation filters
-                if pattern_detected:
-                    latest = df.iloc[-1]
-                    
-                    # Confirm with other indicators
-                    uptrend = latest['Close'] > latest['SMA_50']
-                    healthy_volume = latest['Volume'] > latest['Volume_SMA_20'] * 0.8
-                    
-                    if uptrend and healthy_volume:
-                        matches.append(symbol)
-                        details[symbol] = {
-                            'close': round(latest['Close'], 2),
-                            'cup_depth': round(pattern_details['cup_depth'], 4),
-                            'handle_depth': round(pattern_details['handle_depth'], 4),
-                            'volume_ratio': round(latest['Volume'] / latest['Volume_SMA_20'], 2)
-                        }
-            except Exception as e:
-                print(f"Error screening {symbol} for cup and handle: {str(e)}")
-    
-    # Custom Screen (multipurpose)
-    elif screen_type == 'custom':
-        for symbol, df in data_dict.items():
-            if df.empty or len(df) < 50:
-                continue
-                
-            try:
-                # Get most recent data points
-                latest = df.iloc[-1]
-                
-                # Example custom criteria - modify as needed
-                price_above_ema = latest['Close'] > latest['EMA_26']
-                volume_spike = latest['Volume'] > latest['Volume_SMA_20'] * 1.5
-                bullish_stoch = latest['%K'] > latest['%D'] and latest['%K'] < 80
-                
-                # All criteria must be met
-                if price_above_ema and volume_spike and bullish_stoch:
-                    matches.append(symbol)
-                    details[symbol] = {
-                        'close': round(latest['Close'], 2),
-                        'ema_26': round(latest['EMA_26'], 2),
-                        'volume_ratio': round(latest['Volume'] / latest['Volume_SMA_20'], 2),
-                        'stoch_k': round(latest['%K'], 2),
-                        'stoch_d': round(latest['%D'], 2)
-                    }
-            except Exception as e:
-                print(f"Error screening {symbol} with custom strategy: {str(e)}")
-    
     print(f"Found {len(matches)} matches out of {len(data_dict)} stocks")
     
     return {
@@ -421,24 +293,20 @@ if __name__ == "__main__":
     # Test with a list of popular stocks
     test_symbols = [
         "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "JPM", "V", "JNJ", "PG",
-        "XOM", "BAC", "WMT", "UNH", "MA", "HD", "CVX", "LLY", "MRK", "KO",
-        "PEP", "AVGO", "PFE", "COST", "ABBV", "TMO", "ORCL", "ACN", "META", "MCD"
+        "XOM", "BAC", "WMT", "UNH", "MA", "HD", "CVX", "LLY", "MRK", "KO"
     ]
-    print(f"Testing with {len(test_symbols)} symbols: {test_symbols}")
+    print(f"Testing with {len(test_symbols)} symbols: {', '.join(test_symbols)}")
     
-    # Load market data with more history (3 months)
+    # Load market data with more history
     data_dict = load_market_data(test_symbols, period='6mo', interval='1d')
     
     # Calculate technical indicators
     data_with_indicators = calculate_technical_indicators(data_dict)
     
     # Test multiple screening strategies
-    all_results = {}
-    
-    for strategy in ['momentum', 'technical', 'trend_following', 'williams', 'cup_handle', 'custom']:
+    for strategy in ['momentum', 'technical', 'trend_following', 'williams']:
         print(f"\nTesting {strategy} strategy:")
         strategy_results = screen_stocks(data_with_indicators, screen_type=strategy)
-        all_results[strategy] = strategy_results
         
         # Print results
         print(f"Matches ({len(strategy_results['matches'])}):")
