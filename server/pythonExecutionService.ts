@@ -213,8 +213,10 @@ POLYGON_API_KEY = os.environ.get('POLYGON_API_KEY', '')
 
   // Helper functions
   const helperFunctions = `
-def load_market_data(symbols, period='1y', interval='1d'):
+def load_market_data(symbols, period='3mo', interval='1d'):
     """Load market data for multiple symbols using yfinance"""
+    print(f"Loading data for {len(symbols)} symbols with period {period}, interval {interval}...")
+    
     data = {}
     if isinstance(symbols, str):
         symbols = [symbols]
@@ -222,12 +224,16 @@ def load_market_data(symbols, period='1y', interval='1d'):
     for symbol in symbols:
         try:
             ticker = yf.Ticker(symbol)
-            df = ticker.history(period=period, interval=interval)
-            if not df.empty:
-                data[symbol] = df
+            history = ticker.history(period=period, interval=interval)
+            if not history.empty:
+                data[symbol] = history
+                print(f"Loaded data for {symbol}: {len(history)} bars")
+            else:
+                print(f"No data available for {symbol}")
         except Exception as e:
-            print(f"Error loading data for {symbol}: {e}")
+            print(f"Error loading data for {symbol}: {str(e)}")
     
+    print(f"Successfully loaded data for {len(data)} symbols")
     return data
 
 def calculate_technical_indicators(dataframes):
@@ -296,6 +302,55 @@ def calculate_technical_indicators(dataframes):
         result_df['OBV'] = obv
         result_df['Volume_SMA_20'] = df['Volume'].rolling(window=20).mean()
         result_df['Volume_Change'] = df['Volume'].pct_change()
+        
+        # ADX and Directional Indicators
+        try:
+            # Calculate True Range first
+            high_low = df['High'] - df['Low']
+            high_prev_close = abs(df['High'] - df['Close'].shift(1))
+            low_prev_close = abs(df['Low'] - df['Close'].shift(1))
+            tr = pd.concat([high_low, high_prev_close, low_prev_close], axis=1).max(axis=1)
+            
+            # Calculate +DM and -DM
+            pos_dm = df['High'].diff()
+            neg_dm = df['Low'].diff().multiply(-1)
+            pos_dm = pos_dm.where((pos_dm > neg_dm) & (pos_dm > 0), 0)
+            neg_dm = neg_dm.where((neg_dm > pos_dm) & (neg_dm > 0), 0)
+            
+            # Smoothed TR, +DM, and -DM using Wilder's smoothing
+            period = 14
+            tr_smoothed = tr.copy()
+            pos_dm_smoothed = pos_dm.copy()
+            neg_dm_smoothed = neg_dm.copy()
+            
+            for i in range(1, len(df)):
+                tr_smoothed.iloc[i] = tr_smoothed.iloc[i-1] - (tr_smoothed.iloc[i-1] / period) + tr.iloc[i]
+                pos_dm_smoothed.iloc[i] = pos_dm_smoothed.iloc[i-1] - (pos_dm_smoothed.iloc[i-1] / period) + pos_dm.iloc[i]
+                neg_dm_smoothed.iloc[i] = neg_dm_smoothed.iloc[i-1] - (neg_dm_smoothed.iloc[i-1] / period) + neg_dm.iloc[i]
+            
+            # Calculate +DI and -DI
+            pos_di = 100 * pos_dm_smoothed / tr_smoothed
+            neg_di = 100 * neg_dm_smoothed / tr_smoothed
+            
+            # Calculate DX
+            dx = 100 * abs(pos_di - neg_di) / (pos_di + neg_di)
+            
+            # Calculate ADX with smoothing
+            adx = pd.Series(index=df.index, data=np.nan)
+            adx.iloc[period*2-1] = dx.iloc[period:period*2].mean()  # First ADX value
+            
+            for i in range(period*2, len(df)):
+                adx.iloc[i] = (adx.iloc[i-1] * (period-1) + dx.iloc[i]) / period
+            
+            # Store ADX and DI indicators
+            result_df['PLUS_DI'] = pos_di
+            result_df['MINUS_DI'] = neg_di
+            result_df['ADX'] = adx
+        except Exception as e:
+            print(f"Error calculating ADX indicators: {e}")
+            result_df['PLUS_DI'] = float('nan')
+            result_df['MINUS_DI'] = float('nan')
+            result_df['ADX'] = float('nan')
         
         # Weekly MACD for longer-term trend analysis
         try:
@@ -381,41 +436,153 @@ def detect_cup_and_handle(df, window=63):
     // This would be enhanced in a real implementation to use AI to generate the code
     screenCode = `
 # Generated screen based on description: ${screener.description}
-def screen_stocks(data_dict):
+def screen_stocks(data_dict, screen_type='momentum'):
     """
-    Screen stocks based on the following criteria:
-    - Price above 20-day moving average
-    - RSI between 30 and 70
-    - Positive momentum (MACD histogram > 0)
-    """
-    results = {}
-    matches = []
+    Screen stocks based on selected strategy type
+    Available strategies: 'momentum', 'technical', 'trend_following', 'williams'
     
-    for symbol, df in data_dict.items():
-        if df.empty or len(df) < 50:
-            continue
-            
-        # Get the latest data point
-        latest = df.iloc[-1]
-        
-        # Basic screening criteria
-        above_sma = latest['Close'] > latest['SMA_20']
-        healthy_rsi = 30 < latest['RSI'] < 70
-        positive_momentum = latest['MACD_Hist'] > 0
-        
-        # Combine criteria
-        if above_sma and healthy_rsi and positive_momentum:
-            matches.append(symbol)
-            results[symbol] = {
-                'close': latest['Close'],
-                'sma_20': latest['SMA_20'],
-                'rsi': latest['RSI'],
-                'macd_hist': latest['MACD_Hist'],
-            }
+    Default strategy includes:
+    - Price above 20-day moving average
+    - RSI between 30 and 70 (not overbought or oversold)
+    - Positive momentum (MACD histogram > 0)
+    - Volume above 20-day average
+    """
+    matches = []
+    details = {}
+    
+    print(f"Running {screen_type} screen on {len(data_dict)} stocks")
+    
+    # Default screen type if not specified
+    if not screen_type:
+        screen_type = 'momentum'
+    
+    # Momentum Strategy Screen (default)
+    if screen_type == 'momentum':
+        for symbol, df in data_dict.items():
+            if df.empty or len(df) < 50:
+                continue
+                
+            try:
+                # Get most recent data point
+                latest = df.iloc[-1]
+                
+                # Screen criteria
+                price_above_sma20 = latest['Close'] > latest['SMA_20']
+                healthy_rsi = 30 < latest['RSI'] < 70
+                positive_macd = latest['MACD_Hist'] > 0
+                volume_above_avg = latest['Volume'] > latest['Volume_SMA_20']
+                
+                # All criteria must be met
+                if price_above_sma20 and healthy_rsi and positive_macd and volume_above_avg:
+                    matches.append(symbol)
+                    details[symbol] = {
+                        'close': round(latest['Close'], 2),
+                        'sma_20': round(latest['SMA_20'], 2),
+                        'rsi': round(latest['RSI'], 2),
+                        'macd_hist': round(latest['MACD_Hist'], 4),
+                        'volume_ratio': round(latest['Volume'] / latest['Volume_SMA_20'], 2)
+                    }
+            except Exception as e:
+                print(f"Error screening {symbol} with momentum strategy: {str(e)}")
+    
+    # Trend Following Strategy using ADX and Directional Indicators
+    elif screen_type == 'trend_following':
+        for symbol, df in data_dict.items():
+            if df.empty or len(df) < 50:
+                continue
+                
+            try:
+                # Get most recent data point
+                latest = df.iloc[-1]
+                
+                # Screen criteria
+                strong_trend = latest['ADX'] > 25  # ADX > 25 indicates a strong trend
+                uptrend = latest['PLUS_DI'] > latest['MINUS_DI']  # +DI > -DI indicates uptrend
+                price_above_sma50 = latest['Close'] > latest['SMA_50']  # Price above longer-term MA
+                
+                # Weekly trend confirmation if available
+                weekly_uptrend = True
+                if 'WEEKLY_MACD_HIST' in latest and not pd.isna(latest['WEEKLY_MACD_HIST']):
+                    weekly_uptrend = latest['WEEKLY_MACD_HIST'] > 0
+                
+                # All criteria must be met
+                if strong_trend and uptrend and price_above_sma50 and weekly_uptrend:
+                    matches.append(symbol)
+                    details[symbol] = {
+                        'close': round(latest['Close'], 2),
+                        'adx': round(latest['ADX'], 2),
+                        'plus_di': round(latest['PLUS_DI'], 2),
+                        'minus_di': round(latest['MINUS_DI'], 2),
+                        'sma_50': round(latest['SMA_50'], 2)
+                    }
+                    if 'WEEKLY_MACD_HIST' in latest and not pd.isna(latest['WEEKLY_MACD_HIST']):
+                        details[symbol]['weekly_macd'] = round(latest['WEEKLY_MACD_HIST'], 4)
+            except Exception as e:
+                print(f"Error screening {symbol} with trend following strategy: {str(e)}")
+    
+    # Williams %R Strategy - Identifies oversold and overbought conditions
+    elif screen_type == 'williams':
+        for symbol, df in data_dict.items():
+            if df.empty or len(df) < 50:
+                continue
+                
+            try:
+                # Calculate Williams %R manually if not already in dataframe
+                if 'WILLIAMS_R' not in df.columns:
+                    # Williams %R is typically calculated over 14 periods
+                    period = 14
+                    highest_high = df['High'].rolling(period).max()
+                    lowest_low = df['Low'].rolling(period).min()
+                    williams_r = -100 * (highest_high - df['Close']) / (highest_high - lowest_low)
+                    df['WILLIAMS_R'] = williams_r
+                
+                # Get most recent data point
+                latest = df.iloc[-1]
+                previous = df.iloc[-2]
+                
+                # Screen for bullish reversal from oversold
+                oversold_level = -80
+                was_oversold = previous['WILLIAMS_R'] < oversold_level
+                reversing_up = latest['WILLIAMS_R'] > previous['WILLIAMS_R']
+                
+                # Confirm with trend
+                above_sma = latest['Close'] > latest['SMA_20']
+                
+                # All criteria must be met
+                if was_oversold and reversing_up and above_sma:
+                    matches.append(symbol)
+                    details[symbol] = {
+                        'close': round(latest['Close'], 2),
+                        'williams_r': round(latest['WILLIAMS_R'], 2),
+                        'prev_williams_r': round(previous['WILLIAMS_R'], 2),
+                        'sma_20': round(latest['SMA_20'], 2)
+                    }
+            except Exception as e:
+                print(f"Error screening {symbol} with Williams %R strategy: {str(e)}")
+    
+    # Basic default screen if strategy not recognized
+    else:
+        for symbol, df in data_dict.items():
+            if df.empty or len(df) < 20:
+                continue
+                
+            try:
+                # Basic criteria - price above 20-day moving average
+                latest = df.iloc[-1]
+                if latest['Close'] > latest['SMA_20']:
+                    matches.append(symbol)
+                    details[symbol] = {
+                        'close': round(latest['Close'], 2),
+                        'sma_20': round(latest['SMA_20'], 2)
+                    }
+            except Exception as e:
+                print(f"Error screening {symbol} with basic strategy: {str(e)}")
+    
+    print(f"Found {len(matches)} matches out of {len(data_dict)} stocks")
     
     return {
         'matches': matches,
-        'details': results
+        'details': details
     }
 `;
   }
