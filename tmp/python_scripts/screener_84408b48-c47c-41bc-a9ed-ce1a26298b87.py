@@ -1,197 +1,4 @@
-/**
- * Python Execution Service
- * 
- * This service provides functionality to execute Python code for screeners,
- * with support for common financial analysis libraries.
- */
-import { spawn } from 'child_process';
-import { promises as fs } from 'fs';
-import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import { Screener } from '@shared/schema';
 
-// Ensure this directory exists
-const TEMP_SCRIPT_DIR = './tmp/python_scripts';
-
-// Libraries that should be available for Python screeners
-// Note: Removed TA-Lib due to installation complexities, using pandas_ta instead
-const REQUIRED_LIBRARIES = [
-  'pandas',
-  'numpy',
-  'scipy',
-  'matplotlib',
-  'pandas_ta', // Extended TA functionality integrated with pandas
-  'scikit-learn', // For ML-based screening
-  'statsmodels', // For statistical analysis
-  'yfinance', // For easy data access
-  'mplfinance', // For financial chart visualization
-  'plotly', // For interactive charts
-  'alpaca-trade-api' // Alpaca API for market data
-];
-
-/**
- * Initialize the Python execution environment
- * This should be called at application startup
- */
-export async function initPythonEnvironment(): Promise<void> {
-  try {
-    // Ensure temp script directory exists
-    await fs.mkdir(TEMP_SCRIPT_DIR, { recursive: true });
-    
-    // Check Python installation
-    const pythonResult = await checkPythonInstallation();
-    
-    if (!pythonResult.installed) {
-      console.error('Python is not installed or not in PATH');
-      return;
-    }
-    
-    console.log(`Python ${pythonResult.version} detected`);
-    
-    try {
-      // Check/Install required libraries
-      await checkAndInstallLibraries();
-    } catch (error) {
-      console.error('Error checking/installing Python libraries:', error);
-      // Continue execution even if libraries can't be installed
-      // The application will attempt to use what's available
-    }
-    
-    console.log('Python environment initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize Python environment:', error);
-  }
-}
-
-/**
- * Check if Python is installed and get version
- */
-async function checkPythonInstallation(): Promise<{ installed: boolean, version: string }> {
-  try {
-    return new Promise((resolve) => {
-      const pythonProcess = spawn('python3', ['--version']);
-      
-      let versionOutput = '';
-      pythonProcess.stdout.on('data', (data) => {
-        versionOutput += data.toString();
-      });
-      
-      pythonProcess.stderr.on('data', (data) => {
-        versionOutput += data.toString();
-      });
-      
-      pythonProcess.on('close', (code) => {
-        if (code === 0 && versionOutput.includes('Python')) {
-          const versionMatch = versionOutput.match(/Python\s+(\d+\.\d+\.\d+)/);
-          const version = versionMatch ? versionMatch[1] : 'unknown';
-          resolve({ installed: true, version });
-        } else {
-          resolve({ installed: false, version: '' });
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Error checking Python installation:', error);
-    return { installed: false, version: '' };
-  }
-}
-
-/**
- * Check and install required Python libraries if missing
- */
-async function checkAndInstallLibraries(): Promise<void> {
-  try {
-    // Get list of installed packages
-    const installedPackages = await getInstalledPackages();
-    
-    // Find missing libraries
-    const missingLibraries = REQUIRED_LIBRARIES.filter(
-      lib => !installedPackages.some(pkg => pkg.name === lib)
-    );
-    
-    if (missingLibraries.length > 0) {
-      console.log('Installing missing Python libraries:', missingLibraries.join(', '));
-      await installLibraries(missingLibraries);
-    } else {
-      console.log('All required Python libraries are already installed');
-    }
-  } catch (error) {
-    console.error('Error checking/installing Python libraries:', error);
-  }
-}
-
-/**
- * Get list of installed Python packages
- */
-async function getInstalledPackages(): Promise<Array<{ name: string, version: string }>> {
-  return new Promise((resolve, reject) => {
-    const pipProcess = spawn('pip3', ['list', '--format=json']);
-    
-    let outputData = '';
-    pipProcess.stdout.on('data', (data) => {
-      outputData += data.toString();
-    });
-    
-    pipProcess.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const packages = JSON.parse(outputData);
-          resolve(packages);
-        } catch (error) {
-          reject(new Error(`Failed to parse pip list output: ${error.message}`));
-        }
-      } else {
-        reject(new Error(`pip list command failed with code ${code}`));
-      }
-    });
-    
-    pipProcess.on('error', (error) => {
-      reject(new Error(`Failed to execute pip: ${error.message}`));
-    });
-  });
-}
-
-/**
- * Install specified Python libraries
- */
-async function installLibraries(libraries: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const pipProcess = spawn('pip3', ['install', ...libraries]);
-    
-    let outputData = '';
-    pipProcess.stdout.on('data', (data) => {
-      outputData += data.toString();
-      console.log(`[pip] ${data.toString().trim()}`);
-    });
-    
-    pipProcess.stderr.on('data', (data) => {
-      console.error(`[pip error] ${data.toString().trim()}`);
-    });
-    
-    pipProcess.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`pip install command failed with code ${code}`));
-      }
-    });
-    
-    pipProcess.on('error', (error) => {
-      reject(new Error(`Failed to execute pip: ${error.message}`));
-    });
-  });
-}
-
-/**
- * Generate Python script for a screener
- */
-async function generatePythonScript(screener: Screener): Promise<string> {
-  // Create a unique filename for this execution
-  const scriptId = uuidv4();
-  const filename = path.join(TEMP_SCRIPT_DIR, `screener_${scriptId}.py`);
-  
-  // Import statements
-  const imports = `
 import pandas as pd
 import numpy as np
 import json
@@ -209,10 +16,7 @@ warnings.filterwarnings('ignore')
 ALPACA_API_KEY = os.environ.get('ALPACA_API_KEY', '')
 ALPACA_API_SECRET = os.environ.get('ALPACA_API_SECRET', '')
 POLYGON_API_KEY = os.environ.get('POLYGON_API_KEY', '')
-`;
 
-  // Helper functions
-  const helperFunctions = `
 def load_market_data(symbols, period='3mo', interval='1d'):
     """Load market data for multiple symbols using yfinance"""
     print(f"Loading data for {len(symbols)} symbols with period {period}, interval {interval}...")
@@ -426,19 +230,8 @@ def detect_cup_and_handle(df, window=63):
             cup_handle.iloc[i] = True
     
     return cup_handle
-`;
 
-  // Main screen execution code
-  let screenCode = '';
-  
-  if (screener.source.type === 'code') {
-    // Use the provided Python code
-    screenCode = screener.source.content;
-  } else {
-    // If it's a natural language description, create a simple screener
-    // This would be enhanced in a real implementation to use AI to generate the code
-    screenCode = `
-# Generated screen based on description: ${screener.description}
+# Generated screen based on description: A completely minimal screener that should work regardless of execution environment issues
 def screen_stocks(data_dict, screen_type='momentum'):
     """
     Screen stocks based on selected strategy type
@@ -681,11 +474,7 @@ def screen_stocks(data_dict, screen_type='momentum'):
         'matches': matches,
         'details': details
     }
-`;
-  }
 
-  // Main execution block
-  const mainExecution = `
 # Import essential packages
 import numpy as np
 import pandas as pd
@@ -694,7 +483,7 @@ import pandas as pd
 if __name__ == "__main__":
     try:
         # Load configuration
-        config = ${JSON.stringify(screener.configuration)}
+        config = {"universe":["AAPL","MSFT","GOOG","AMZN","NVDA"],"parameters":{}}
         
         # Use comprehensive stock universes for screening
         # Import necessary packages for data providers
@@ -710,7 +499,47 @@ if __name__ == "__main__":
         custom_universe_defined = False
         
         # Look for custom universe definition in the source code
-        source_content = """${screener.source.content}"""
+        source_content = """#!/usr/bin/env python3
+
+import json
+import sys
+from datetime import datetime
+
+def main():
+    try:
+        # Hardcoded results for testing the execution pipeline
+        results = {
+            "success": True,
+            "matches": ["AAPL", "MSFT", "GOOG", "AMZN", "NVDA"],
+            "details": {
+                "AAPL": {"price": 175.50, "ma20": 170.25, "rsi": 58.3},
+                "MSFT": {"price": 410.75, "ma20": 405.20, "rsi": 60.2},
+                "GOOG": {"price": 150.25, "ma20": 148.30, "rsi": 56.4},
+                "AMZN": {"price": 178.30, "ma20": 175.60, "rsi": 55.8},
+                "NVDA": {"price": 890.45, "ma20": 870.20, "rsi": 62.7}
+            },
+            "count": 5,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Output in JSON format expected by the system
+        print(json.dumps(results))
+        return 0
+    except Exception as e:
+        # Handle any errors and provide error information
+        error_result = {
+            "success": False,
+            "error": "Error in screener: " + str(e),
+            "matches": [],
+            "details": {},
+            "count": 0,
+            "timestamp": datetime.now().isoformat()
+        }
+        print(json.dumps(error_result))
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())"""
         if 'def get_stock_universe(' in source_content:
             print("Found custom universe function in the code")
             custom_universe_defined = True
@@ -980,7 +809,7 @@ if __name__ == "__main__":
         # Return results
         result = {
             'success': True,
-            'screener_id': ${screener.id},
+            'screener_id': 16,
             'matches': screen_results['matches'],
             'details': screen_results.get('details', {}),
             'execution_time': execution_time,
@@ -998,78 +827,3 @@ if __name__ == "__main__":
             'matches': []
         }))
         sys.exit(1)
-`;
-
-  // Combine all parts
-  const fullScript = imports + helperFunctions + screenCode + mainExecution;
-  
-  // Write the script to a file
-  await fs.writeFile(filename, fullScript);
-  
-  return filename;
-}
-
-/**
- * Execute a Python screener
- */
-export async function executeScreener(screener: Screener): Promise<any> {
-  try {
-    // Generate the Python script
-    const scriptPath = await generatePythonScript(screener);
-    
-    console.log(`Executing Python screener (ID: ${screener.id})`);
-    
-    // Execute the script
-    const result = await runPythonScript(scriptPath);
-    
-    // Clean up - delete the temporary script
-    await fs.unlink(scriptPath).catch(error => {
-      console.warn(`Failed to delete temporary script ${scriptPath}:`, error);
-    });
-    
-    return result;
-  } catch (error) {
-    console.error(`Error executing screener (ID: ${screener.id}):`, error);
-    throw error;
-  }
-}
-
-/**
- * Run a Python script and return the results
- */
-async function runPythonScript(scriptPath: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', [scriptPath]);
-    
-    let outputData = '';
-    let errorData = '';
-    
-    pythonProcess.stdout.on('data', (data) => {
-      outputData += data.toString();
-    });
-    
-    pythonProcess.stderr.on('data', (data) => {
-      errorData += data.toString();
-      console.error(`[Python Error] ${data.toString().trim()}`);
-    });
-    
-    pythonProcess.on('close', (code) => {
-      if (code === 0) {
-        try {
-          // The script should output JSON
-          const result = JSON.parse(outputData);
-          resolve(result);
-        } catch (error) {
-          console.error('Failed to parse Python script output as JSON:', outputData);
-          reject(new Error('Invalid output from Python script'));
-        }
-      } else {
-        reject(new Error(`Python script exited with code ${code}: ${errorData}`));
-      }
-    });
-    
-    pythonProcess.on('error', (error) => {
-      reject(new Error(`Failed to execute Python script: ${error.message}`));
-    });
-  });
-}
