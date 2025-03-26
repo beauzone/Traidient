@@ -1,0 +1,69 @@
+import pandas as pd
+import numpy as np
+import talib
+from datetime import datetime, timedelta
+
+# Mock data loader for testing — replace with Alpaca or real data
+def get_stock_data(symbol, start_date, end_date):
+    df = pd.read_csv(f'data/{symbol}.csv', parse_dates=['date'], index_col='date')  # or Alpaca API
+    df = df.loc[start_date:end_date]
+    return df
+
+def screen_stock(symbol, spx_close=574.08, spx_sma18=568.48):
+    end = datetime.today()
+    start = end - timedelta(days=365 * 2)
+    df = get_stock_data(symbol, start, end)
+
+    if len(df) < 300:
+        return False  # not enough data
+
+    # Calculate indicators
+    df['sma20_vol'] = df['volume'].rolling(20).mean()
+    df['sma40'] = talib.SMA(df['close'], timeperiod=40)
+    df['sma18'] = talib.SMA(df['close'], timeperiod=18)
+    df['mfi'] = talib.MFI(df['high'], df['low'], df['close'], df['volume'], timeperiod=14)
+    df['rsi'] = talib.RSI(df['close'], timeperiod=14)
+    macd, macdsignal, _ = talib.MACD(df['close'], fastperiod=12, slowperiod=26, signalperiod=9)
+    df['macd'], df['macdsignal'] = macd, macdsignal
+
+    # Weekly MACD
+    df_weekly = df.resample('W-FRI').last()
+    df_weekly['weekly_macd'], _, _ = talib.MACD(df_weekly['close'], 12, 26, 9)
+
+    # ADX and DI
+    df['plus_di'] = talib.PLUS_DI(df['high'], df['low'], df['close'], timeperiod=14)
+    df['minus_di'] = talib.MINUS_DI(df['high'], df['low'], df['close'], timeperiod=14)
+    df['adx'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+
+    # 12-month high/low
+    df['max_12mo'] = df['close'].rolling(253).max()
+    df['min_12mo'] = df['close'].rolling(253).min()
+
+    latest = df.iloc[-1]
+    latest_week = df_weekly.iloc[-1]
+
+    # Condition checks
+    conditions = [
+        latest['sma20_vol'] > 500_000,
+        latest['sma40'] > 8,
+        latest['mfi'] >= 50,
+        latest['rsi'] >= 50,
+        latest['macd'] >= latest['macdsignal'] or latest['macd'] >= 0,
+        latest_week['weekly_macd'] >= 0,
+        latest['plus_di'] >= latest['minus_di'],
+        latest['adx'] <= 35,
+        latest['sma18'] >= df['sma18'].iloc[-2],
+        latest['plus_di'] < 40,
+        ((latest['close'] - df['max_12mo'].iloc[-2]) / latest['close']) * 100 >= -10,
+        ((latest['close'] - df['max_12mo'].iloc[-2]) / latest['close']) * 100 <= 5,
+        ((2 * df['max_12mo'].iloc[-2] - df['min_12mo'].iloc[-2]) / df['max_12mo'].iloc[-2]) >= 1.39,
+        (latest['close'] / spx_close) > (latest['sma18'] / spx_sma18)
+    ]
+
+    return all(conditions)
+
+# Example test
+symbols = ["AAPL", "MSFT", "GOOGL", "NVDA"]
+passing_stocks = [sym for sym in symbols if screen_stock(sym)]
+
+print("Passing stocks:", passing_stocks)

@@ -197,14 +197,21 @@ import pandas as pd
 import numpy as np
 import json
 import sys
+import os
 from datetime import datetime, timedelta
 import warnings
 import yfinance as yf
+import talib as ta
+import pandas_ta as pta
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
 
-# No dependencies on pandas_ta or talib - we'll use our own implementations
+# Use both talib and pandas_ta for comprehensive technical indicator support
+# Check if environmental variables for API providers are available
+ALPACA_API_KEY = os.environ.get('ALPACA_API_KEY', '')
+ALPACA_API_SECRET = os.environ.get('ALPACA_API_SECRET', '')
+POLYGON_API_KEY = os.environ.get('POLYGON_API_KEY', '')
 `;
 
   // Helper functions
@@ -227,7 +234,7 @@ def load_market_data(symbols, period='1y', interval='1d'):
     return data
 
 def calculate_technical_indicators(dataframes):
-    """Calculate technical indicators for each dataframe"""
+    """Calculate technical indicators for each dataframe using TA-Lib and pandas_ta"""
     results = {}
     
     for symbol, df in dataframes.items():
@@ -237,70 +244,103 @@ def calculate_technical_indicators(dataframes):
         # Copy dataframe to avoid SettingWithCopyWarning
         result_df = df.copy()
         
-        # Basic indicators
-        result_df['SMA_20'] = df['Close'].rolling(window=20).mean()
-        result_df['SMA_50'] = df['Close'].rolling(window=50).mean()
-        result_df['SMA_200'] = df['Close'].rolling(window=200).mean()
+        # Basic indicators using TA-Lib
+        # Moving Averages
+        result_df['SMA_20'] = ta.SMA(df['Close'], timeperiod=20)
+        result_df['SMA_50'] = ta.SMA(df['Close'], timeperiod=50)
+        result_df['SMA_200'] = ta.SMA(df['Close'], timeperiod=200)
+        result_df['EMA_20'] = ta.EMA(df['Close'], timeperiod=20)
         
-        # Volatility
-        result_df['ATR'] = calculate_atr(df, 14)
-        
-        # Momentum
-        result_df['RSI'] = calculate_rsi(df['Close'], 14)
-        result_df['MACD'], result_df['MACD_Signal'], result_df['MACD_Hist'] = calculate_macd(df['Close'])
-        
-        # Volume
-        result_df['Volume_SMA_20'] = df['Volume'].rolling(window=20).mean()
-        result_df['Volume_Change'] = df['Volume'].pct_change()
+        # Volatility indicators
+        result_df['ATR'] = ta.ATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+        result_df['NATR'] = ta.NATR(df['High'], df['Low'], df['Close'], timeperiod=14)
         
         # Bollinger Bands
-        result_df['BB_Upper'], result_df['BB_Middle'], result_df['BB_Lower'] = calculate_bollinger_bands(df['Close'])
+        result_df['BB_Upper'], result_df['BB_Middle'], result_df['BB_Lower'] = ta.BBANDS(
+            df['Close'], 
+            timeperiod=20,
+            nbdevup=2,
+            nbdevdn=2,
+            matype=0
+        )
+        
+        # Momentum indicators
+        result_df['RSI'] = ta.RSI(df['Close'], timeperiod=14)
+        macd, macdsignal, macdhist = ta.MACD(
+            df['Close'], 
+            fastperiod=12, 
+            slowperiod=26, 
+            signalperiod=9
+        )
+        result_df['MACD'] = macd
+        result_df['MACD_Signal'] = macdsignal
+        result_df['MACD_Hist'] = macdhist
+        
+        # Stochastic
+        result_df['SlowK'], result_df['SlowD'] = ta.STOCH(
+            df['High'], 
+            df['Low'], 
+            df['Close'],
+            fastk_period=14,
+            slowk_period=3,
+            slowk_matype=0,
+            slowd_period=3,
+            slowd_matype=0
+        )
+        
+        # ADX and Directional Movement
+        result_df['ADX'] = ta.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
+        result_df['PLUS_DI'] = ta.PLUS_DI(df['High'], df['Low'], df['Close'], timeperiod=14)
+        result_df['MINUS_DI'] = ta.MINUS_DI(df['High'], df['Low'], df['Close'], timeperiod=14)
+        
+        # Volume indicators
+        result_df['OBV'] = ta.OBV(df['Close'], df['Volume'])
+        result_df['Volume_SMA_20'] = ta.SMA(df['Volume'], timeperiod=20)
+        result_df['Volume_Change'] = df['Volume'].pct_change()
+        
+        # Add some pandas_ta indicators for additional functionality
+        # Calculate a weekly resampled dataframe for weekly patterns
+        try:
+            # Weekly MACD for longer-term trend analysis
+            df_weekly = df.resample('W-FRI').last()
+            if len(df_weekly) > 30:  # Ensure enough data points
+                weekly_macd = pta.macd(df_weekly['Close'])
+                # Map the weekly values back to the daily dataframe
+                # This creates a step function where weekly values are repeated daily
+                weekly_dates = weekly_macd.index
+                weekly_values = weekly_macd['MACDh_12_26_9'].values
+                
+                # Create a Series with the weekly values
+                weekly_series = pd.Series(index=weekly_dates, data=weekly_values)
+                # Reindex to daily values (forward fill)
+                daily_macd = weekly_series.reindex(df.index, method='ffill')
+                result_df['WEEKLY_MACD_HIST'] = daily_macd
+        except Exception as e:
+            print(f"Error calculating weekly indicators: {e}")
+            result_df['WEEKLY_MACD_HIST'] = float('nan')
+        
+        # 12-month high/low
+        result_df['MAX_12MO'] = df['Close'].rolling(253).max()
+        result_df['MIN_12MO'] = df['Close'].rolling(253).min()
+        
+        # Detect patterns using both TA-Lib and pandas_ta
+        try:
+            # Cup and Handle pattern (custom implementation)
+            result_df['CUP_HANDLE'] = detect_cup_and_handle(df)
+            
+            # TA-Lib pattern recognition (returns integer values where 100 = pattern found)
+            result_df['ENGULFING'] = ta.CDLENGULFING(df['Open'], df['High'], df['Low'], df['Close'])
+            result_df['HAMMER'] = ta.CDLHAMMER(df['Open'], df['High'], df['Low'], df['Close'])
+            result_df['DOJI'] = ta.CDLDOJI(df['Open'], df['High'], df['Low'], df['Close'])
+            result_df['EVENING_STAR'] = ta.CDLEVENINGSTAR(df['Open'], df['High'], df['Low'], df['Close'])
+            result_df['MORNING_STAR'] = ta.CDLMORNINGSTAR(df['Open'], df['High'], df['Low'], df['Close'])
+        except Exception as e:
+            print(f"Error calculating pattern recognition: {e}")
         
         # Store results
         results[symbol] = result_df
         
     return results
-
-def calculate_rsi(series, period=14):
-    """Calculate RSI"""
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0).rolling(window=period).mean()
-    loss = -delta.where(delta < 0, 0).rolling(window=period).mean()
-    
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-def calculate_macd(series, fast=12, slow=26, signal=9):
-    """Calculate MACD"""
-    fast_ema = series.ewm(span=fast, adjust=False).mean()
-    slow_ema = series.ewm(span=slow, adjust=False).mean()
-    macd = fast_ema - slow_ema
-    macd_signal = macd.ewm(span=signal, adjust=False).mean()
-    macd_hist = macd - macd_signal
-    return macd, macd_signal, macd_hist
-
-def calculate_bollinger_bands(series, period=20, std_dev=2):
-    """Calculate Bollinger Bands"""
-    middle = series.rolling(window=period).mean()
-    std = series.rolling(window=period).std()
-    upper = middle + (std * std_dev)
-    lower = middle - (std * std_dev)
-    return upper, middle, lower
-
-def calculate_atr(df, period=14):
-    """Calculate Average True Range"""
-    high = df['High']
-    low = df['Low']
-    close = df['Close'].shift(1)
-    
-    tr1 = high - low
-    tr2 = (high - close).abs()
-    tr3 = (low - close).abs()
-    
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=period).mean()
-    return atr
 
 def detect_cup_and_handle(df, window=63):
     """Detect cup and handle pattern using a simpler approach without scipy.signal"""
@@ -397,28 +437,178 @@ if __name__ == "__main__":
         # Load configuration
         config = ${JSON.stringify(screener.configuration)}
         
-        # Default stock universes for screening
-        # Since a stock screener should work with a large universe of stocks,
-        # we'll use default lists if no specific assets are provided.
-        SP500_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH", "XOM", 
-                         "JPM", "JNJ", "V", "PG", "MA", "HD", "AVGO", "CVX", "MRK", "LLY", "ABBV", "PEP", 
-                         "COST", "BAC", "KO", "TMO", "CSCO", "MCD", "ACN", "ABT", "CRM", "WMT", "PFE", "DHR"]
+        # Use comprehensive stock universes for screening
+        # Import necessary packages for data providers
+        import os
         
-        # Define the top stocks by market cap as a default universe
-        TOP_STOCKS = SP500_SYMBOLS[:20]  # Use first 20 stocks from S&P 500 for testing
+        # Data provider selection - supports multiple sources
+        # Default to 'yahoo' if not specified, but also support 'alpaca' and 'polygon'
+        data_provider = config.get('data_provider', 'yahoo')
+        print(f"Using data provider: {data_provider}")
         
-        # Use assets if specified, otherwise default to predefined universe
+        # Get the symbols from the config if provided
         symbols = config.get('assets', [])
+        
         if not symbols:
-            print("No specific assets provided, using default stock universe.")
-            # Choose the universe based on the description or content of the screener
-            # For example, if the description contains "S&P 500", use the S&P 500 symbols
-            description = "${screener.description || ''}".lower()
-            if "s&p" in description or "s&p 500" in description or "sp500" in description:
-                symbols = SP500_SYMBOLS
-            else:
-                # Use top stocks by default for faster execution
-                symbols = TOP_STOCKS
+            print("No specific assets provided, fetching complete stock universe...")
+            
+            try:
+                # Based on data provider, fetch a comprehensive list of tradable symbols
+                
+                # Yahoo Finance approach - get S&P 500 components plus other major indices
+                if data_provider.lower() == 'yahoo':
+                    try:
+                        # Get S&P 500 components first
+                        import yfinance as yf
+                        from concurrent.futures import ThreadPoolExecutor, as_completed
+                        
+                        # Start with major indices components
+                        indices = {
+                            '^GSPC': 'S&P 500',
+                            '^DJI': 'Dow Jones',
+                            '^IXIC': 'NASDAQ',
+                            '^RUT': 'Russell 2000'
+                        }
+                        
+                        all_symbols = set()
+                        
+                        # Try to download constituents from S&P 500 index
+                        print("Fetching index constituents...")
+                        try:
+                            sp500 = yf.Ticker('^GSPC')
+                            # This isn't always available, but worth trying
+                            sp500_constituents = sp500.get_holdings()
+                            if isinstance(sp500_constituents, pd.DataFrame) and not sp500_constituents.empty:
+                                print(f"Found {len(sp500_constituents)} S&P 500 constituents")
+                                all_symbols.update(sp500_constituents.index.tolist())
+                        except Exception as e:
+                            print(f"Failed to get S&P 500 constituents: {e}")
+                        
+                        # If still empty, use the top stocks from each sector
+                        if not all_symbols:
+                            print("Using predefined major US stocks list...")
+                            
+                            # Fall back to a larger predefined list of common stocks
+                            # Include top stocks from major sectors
+                            major_stocks = [
+                                # Technology
+                                "AAPL", "MSFT", "GOOGL", "META", "NVDA", "AVGO", "CSCO", "ORCL", "IBM", "ADBE",
+                                "AMD", "INTC", "TSM", "MU", "QCOM", "TXN", "AMAT", "CRM", "NOW", "INTU",
+                                
+                                # Healthcare
+                                "JNJ", "PFE", "ABBV", "MRK", "AMGN", "LLY", "BMY", "TMO", "DHR", "UNH",
+                                "CVS", "GILD", "ISRG", "VRTX", "ZTS", "REGN", "BIIB", "MRNA", "ILMN", "MDT",
+                                
+                                # Finance
+                                "JPM", "BAC", "WFC", "C", "GS", "MS", "AXP", "V", "MA", "BLK",
+                                "SCHW", "BRK.B", "CB", "AIG", "PNC", "USB", "TFC", "COF", "ALL", "PGR",
+                                
+                                # Consumer
+                                "AMZN", "TSLA", "WMT", "HD", "MCD", "NKE", "SBUX", "TGT", "COST", "LOW",
+                                "PG", "KO", "PEP", "PM", "MO", "EL", "CL", "KMB", "GIS", "K",
+                                
+                                # Energy & Materials
+                                "XOM", "CVX", "COP", "BP", "TOT", "SLB", "EOG", "PSX", "VLO", "KMI",
+                                "LIN", "DD", "DOW", "FCX", "APD", "ECL", "NEM", "SHW", "NUE", "VMC",
+                                
+                                # Telecom & Media
+                                "VZ", "T", "TMUS", "CMCSA", "NFLX", "DIS", "CHTR", "DISH", "LYV", "PARA",
+                                
+                                # Industrials & Transportation
+                                "GE", "HON", "MMM", "CAT", "DE", "UPS", "FDX", "LMT", "GD", "RTX",
+                                "BA", "UNP", "CSX", "NSC", "DAL", "UAL", "AAL", "LUV", "JBLU", "ALK"
+                            ]
+                            
+                            all_symbols.update(major_stocks)
+                            print(f"Added {len(major_stocks)} major stocks to universe")
+                            
+                        symbols = list(all_symbols)
+                        print(f"Using {len(symbols)} symbols from Yahoo Finance")
+                    
+                    except Exception as e:
+                        print(f"Error fetching Yahoo Finance stock universe: {e}")
+                        # Fall back to a basic set of symbols
+                        symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                        print(f"Falling back to basic {len(symbols)} symbols")
+                
+                # Alpaca approach - use their API to get all tradable stocks
+                elif data_provider.lower() == 'alpaca':
+                    try:
+                        # Use Alpaca API to get tradable assets
+                        import alpaca_trade_api as tradeapi
+                        
+                        # Get keys from environment
+                        api_key = os.environ.get('ALPACA_API_KEY', '')
+                        api_secret = os.environ.get('ALPACA_API_SECRET', '')
+                        
+                        if api_key and api_secret:
+                            try:
+                                # Initialize Alpaca API
+                                api = tradeapi.REST(api_key, api_secret, base_url='https://paper-api.alpaca.markets')
+                                
+                                # Get all active US equities
+                                assets = api.list_assets(status='active', asset_class='us_equity')
+                                
+                                # Extract symbols
+                                symbols = [asset.symbol for asset in assets]
+                                print(f"Using {len(symbols)} symbols from Alpaca")
+                            except Exception as e:
+                                print(f"Error connecting to Alpaca API: {e}")
+                                # Fall back to Yahoo approach
+                                print("Falling back to basic symbols")
+                                symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                        else:
+                            print("Alpaca API credentials not found, falling back to basic symbols")
+                            symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                    
+                    except Exception as e:
+                        print(f"Error setting up Alpaca: {e}")
+                        symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                
+                # Polygon approach - use their API to get all tradable stocks
+                elif data_provider.lower() == 'polygon':
+                    try:
+                        from polygon import RESTClient
+                        
+                        # Get API key from environment
+                        api_key = os.environ.get('POLYGON_API_KEY', '')
+                        
+                        if api_key:
+                            try:
+                                # Initialize Polygon client
+                                client = RESTClient(api_key)
+                                
+                                # Get all US equities (common stocks)
+                                print("Fetching stock tickers from Polygon...")
+                                tickers = client.list_tickers(market="stocks", type="cs", active=True, limit=1000)
+                                
+                                # Extract symbols
+                                symbols = [ticker.ticker for ticker in tickers]
+                                print(f"Using {len(symbols)} symbols from Polygon")
+                            except Exception as e:
+                                print(f"Error connecting to Polygon API: {e}")
+                                # Fall back to basic symbols
+                                symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                        else:
+                            print("Polygon API key not found, falling back to basic symbols")
+                            symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                    
+                    except Exception as e:
+                        print(f"Error setting up Polygon: {e}")
+                        symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+                
+                else:
+                    print(f"Unknown data provider: {data_provider}, using basic symbols")
+                    symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+            
+            except Exception as e:
+                print(f"Error fetching stock universe: {e}")
+                # Absolute fallback - basic symbols
+                symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
+            
+            if not symbols:
+                print("Failed to get any symbols, using basic list")
+                symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
                 
         # Load market data
         data_dict = load_market_data(symbols)
