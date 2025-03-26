@@ -14,6 +14,7 @@ import Dashboard from "@/pages/dashboard";
 import Strategies from "@/pages/strategies"; // Renamed from bot-builder to strategies
 import EditStrategy from "@/pages/edit-strategy";
 import Screeners from "@/pages/screeners"; // New screeners page
+import StrategyScreener from "@/pages/strategy-screener"; // New fixed strategy screener page
 import Backtest from "@/pages/backtest";
 import Bots from "@/pages/bots"; // New bots (deployment & automation) page
 import LiveTrading from "@/pages/live-trading";
@@ -96,6 +97,9 @@ function AppRoutes() {
       </Route>
       <Route path="/screens">
         <ProtectedRoute component={Screeners} />
+      </Route>
+      <Route path="/strategy-screener">
+        <ProtectedRoute component={StrategyScreener} />
       </Route>
       <Route path="/screen-builder">
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background">

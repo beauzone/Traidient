@@ -2886,6 +2886,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: 'Internal server error' });
     }
   });
+  
+  // Parameterized Screener Execution (bypasses template issues with strategy selection)
+  app.post('/api/parameterized-screener', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Get strategy from request body
+      const { strategy = 'momentum' } = req.body;
+      
+      // Execute the parameterized screener with the specified strategy
+      const pythonProcess = childProcess.spawn('python3', ['./tmp/parameterized_screener.py', strategy]);
+      
+      let outputData = '';
+      let errorData = '';
+      
+      pythonProcess.stdout.on('data', (data: any) => {
+        outputData += data.toString();
+      });
+      
+      pythonProcess.stderr.on('data', (data: any) => {
+        errorData += data.toString();
+        console.error(`[Parameterized Python Error] ${data.toString().trim()}`);
+      });
+      
+      pythonProcess.on('close', (code: number) => {
+        if (code === 0) {
+          try {
+            // The script should output JSON
+            const result = JSON.parse(outputData);
+            res.status(200).json(result);
+          } catch (error) {
+            console.error('Failed to parse Python script output as JSON:', outputData);
+            res.status(500).json({ error: 'Invalid output from Python script' });
+          }
+        } else {
+          res.status(500).json({ error: `Python script exited with code ${code}: ${errorData}` });
+        }
+      });
+      
+      pythonProcess.on('error', (error: Error) => {
+        res.status(500).json({ error: `Failed to execute Python script: ${error.message}` });
+      });
+      
+    } catch (error) {
+      console.error('Error executing parameterized screener:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
 
   // Screener endpoints
   app.get('/api/screeners', authMiddleware, async (req: AuthRequest, res: Response) => {
