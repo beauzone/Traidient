@@ -26,7 +26,10 @@ export default function ProviderTest() {
                             provider === 'alphavantage' ? 'AlphaVantage' : 
                             provider === 'tiingo' ? 'Tiingo' : provider;
       
-      const response = await apiRequest(`/api/market-data/quote/${symbol}?provider=${providerParam}`);
+      const response = await apiRequest(
+        'GET', 
+        `/api/market-data/quote/${symbol}?provider=${providerParam}`
+      );
 
       setResult(response);
       toast({
