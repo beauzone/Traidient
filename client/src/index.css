@@ -11,3 +11,10 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Custom bright red for negative values */
+  .text-negative {
+    @apply text-[#FF3B5C];
+  }
+}

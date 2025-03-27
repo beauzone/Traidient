@@ -259,12 +259,12 @@ const WatchlistTable = () => {
                       <div className="text-sm">{item.lastPrice}</div>
                     </TableCell>
                     <TableCell>
-                      <div className={`text-sm font-medium ${item.isPositive ? 'text-secondary' : 'text-destructive'}`}>
+                      <div className={`text-sm font-medium ${item.isPositive ? 'text-secondary' : 'text-negative'}`}>
                         {item.change}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className={`text-sm font-medium ${item.isPositive ? 'text-secondary' : 'text-destructive'}`}>
+                      <div className={`text-sm font-medium ${item.isPositive ? 'text-secondary' : 'text-negative'}`}>
                         {item.changePercent}
                       </div>
                     </TableCell>

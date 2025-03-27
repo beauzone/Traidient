@@ -233,7 +233,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                           <TableCell className="text-right">{position.marketValue !== undefined ? formatCurrency(position.marketValue) : '-'}</TableCell>
                           <TableCell className="text-right">
                             {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
-                              <div className={position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}>
+                              <div className={position.unrealizedPnL >= 0 ? "text-green-500" : "text-negative"}>
                                 {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
                               </div>
                             )}
@@ -248,7 +248,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                           <TableCell>{position.exitDate ? new Date(position.exitDate).toLocaleDateString() : '-'}</TableCell>
                           <TableCell className="text-right">
                             {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
-                              <div className={position.realizedPnL >= 0 ? "text-green-500" : "text-red-500"}>
+                              <div className={position.realizedPnL >= 0 ? "text-green-500" : "text-negative"}>
                                 {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
                               </div>
                             )}
@@ -316,7 +316,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                       {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
                                         <div>
                                           <p className="text-sm text-muted-foreground">Realized P&L</p>
-                                          <p className={`font-medium ${position.realizedPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                          <p className={`font-medium ${position.realizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
                                             {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
                                           </p>
                                         </div>
@@ -340,7 +340,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                       {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
                                         <div>
                                           <p className="text-sm text-muted-foreground">Unrealized P&L</p>
-                                          <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                          <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
                                             {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
                                           </p>
                                         </div>

@@ -236,7 +236,7 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
         <div className="px-5 pt-2 pb-5">
           <div className="flex items-baseline">
             <h2 className="text-2xl font-semibold">{currentValue}</h2>
-            <span className={`ml-2 text-sm font-medium flex items-center ${change.isPositive ? 'text-secondary' : 'text-destructive'}`}>
+            <span className={`ml-2 text-sm font-medium flex items-center ${change.isPositive ? 'text-secondary' : 'text-negative'}`}>
               {change.isPositive ? (
                 <ArrowUpRight className="mr-1 h-4 w-4" />
               ) : (

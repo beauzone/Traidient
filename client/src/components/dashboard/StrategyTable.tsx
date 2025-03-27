@@ -149,7 +149,7 @@ const StrategyTable = ({
                      'isPositive' in strategy.profitLoss && 
                      'value' in strategy.profitLoss && 
                      'percentage' in strategy.profitLoss ? (
-                      <div className={`text-sm font-medium ${strategy.profitLoss.isPositive ? 'text-secondary' : 'text-destructive'}`}>
+                      <div className={`text-sm font-medium ${strategy.profitLoss.isPositive ? 'text-secondary' : 'text-negative'}`}>
                         {strategy.profitLoss.value} ({strategy.profitLoss.percentage})
                       </div>
                     ) : (
@@ -164,7 +164,7 @@ const StrategyTable = ({
                           <div 
                             className={`h-full rounded-full ${
                               strategy.winRate >= 60 ? 'bg-secondary' : 
-                              strategy.winRate >= 40 ? 'bg-accent' : 'bg-destructive'
+                              strategy.winRate >= 40 ? 'bg-accent' : 'bg-[#FF3B5C]'
                             }`} 
                             style={{ width: `${strategy.winRate}%` }}
                           ></div>
