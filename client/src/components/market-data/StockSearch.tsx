@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -44,9 +45,9 @@ const StockSearch = () => {
               >
                 <div className="flex flex-col">
                   <span className="font-bold text-base">{result.symbol}</span>
-                  <span className="text-xs text-muted-foreground">{result.name}</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">{result.name}</span>
                 </div>
-                <span className="text-sm">${result.price.toFixed(2)}</span>
+                <span className="text-sm font-medium">${result.price.toFixed(2)}</span>
               </div>
             ))}
           </div>
