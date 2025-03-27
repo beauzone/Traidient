@@ -20,6 +20,7 @@ import Bots from "@/pages/bots"; // New bots (deployment & automation) page
 import LiveTrading from "@/pages/live-trading";
 import MarketData from "@/pages/market-data";
 import MarketTest from "@/pages/market-test";
+import ProviderTest from "@/pages/provider-test"; // New provider test page
 import Settings from "@/pages/settings";
 import NotificationSettings from "@/pages/notification-settings";
 import AlertThresholds from "@/pages/alert-thresholds";
@@ -133,6 +134,9 @@ function AppRoutes() {
       </Route>
       <Route path="/market-test">
         <ProtectedRoute component={MarketTest} />
+      </Route>
+      <Route path="/provider-test">
+        <ProtectedRoute component={ProviderTest} />
       </Route>
       
       {/* Webhooks */}
