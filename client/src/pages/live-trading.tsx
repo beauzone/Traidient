@@ -201,4 +201,6 @@ export default function LiveTrading() {
       </div>
     </MainLayout>
   );
-}
+};
+
+export default LiveTrading;
