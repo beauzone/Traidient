@@ -30,23 +30,23 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
   if (!marketDataSimulations.has(userId)) {
     marketDataSimulations.set(userId, new Map());
   }
-  
+
   // Clear any existing interval for this connection
   const userSimulations = marketDataSimulations.get(userId);
   if (userSimulations?.has(ws)) {
     clearInterval(userSimulations.get(ws));
   }
-  
+
   // Only start sending data if there are symbols to track
   if (symbols.size === 0) return;
-  
+
   // Create price data cache for each symbol
   const priceData = new Map<string, {
     price: number;
     lastChange: number;
     volatility: number;
   }>();
-  
+
   // Initialize price data with default values
   symbols.forEach(symbol => {
     const upperSymbol = symbol.toUpperCase();
@@ -56,7 +56,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       volatility: 0.0002
     });
   });
-  
+
   // Set up interval to send price updates
   const interval = setInterval(async () => {
     if (ws.readyState !== WebSocket.OPEN) {
@@ -64,7 +64,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       userSimulations?.delete(ws);
       return;
     }
-    
+
     const updates: Array<{
       symbol: string;
       price: number;
@@ -74,45 +74,43 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       isSimulated: boolean;
       dataSource: string;
     }> = [];
-    
+
     try {
       // Get user's data provider integrations
       const userIntegrations = await storage.getApiIntegrationsByUser(userId);
-      
+
       // Find available data providers
-      const alpacaIntegration = userIntegrations.find(i => 
-        i.provider === 'alpaca' && i.type === 'exchange' && i.isActive);
       const polygonIntegration = userIntegrations.find(i => 
         i.provider === 'polygon' && i.type === 'data' && i.isActive);
-      const alphaVantageIntegration = userIntegrations.find(i => 
-        i.provider === 'alphavantage' && i.type === 'data' && i.isActive);
       const tiingoIntegration = userIntegrations.find(i => 
         i.provider === 'tiingo' && i.type === 'data' && i.isActive);
-      
+      const alpacaIntegration = userIntegrations.find(i => 
+        i.provider === 'alpaca' && i.type === 'exchange' && i.isActive);
+
       // Initialize API clients with user's integrations
-      const alpacaAPI = alpacaIntegration ? new AlpacaAPI(alpacaIntegration) : new AlpacaAPI();
       const polygonAPI = polygonIntegration ? new PolygonAPI(polygonIntegration) : null;
-      const alphaVantageAPI = alphaVantageIntegration ? new AlphaVantageAPI(alphaVantageIntegration) : null;
       const tiingoAPI = tiingoIntegration ? new TiingoAPI(tiingoIntegration) : null;
-      
+      const alpacaAPI = alpacaIntegration ? new AlpacaAPI(alpacaIntegration) : null;
+
+
       // Get the most accurate market status information
       let isMarketOpen = false;
-      
+
       // For the demo environment, always show market as open on weekdays
       const now = new Date();
       const day = now.getDay();
-      
+
       // Market is open on weekdays (Monday-Friday)
       isMarketOpen = (day >= 1 && day <= 5);
       console.log(`Market status (fixed): ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
-      
+
       // Try to use available providers just for logging purposes, but don't change isMarketOpen
       try {
         let statusFromProvider = false;
         if (polygonAPI && polygonAPI.isValid) {
           statusFromProvider = await polygonAPI.isMarketOpen();
           console.log(`Market status from Polygon.io (for reference): ${statusFromProvider ? 'OPEN' : 'CLOSED'}`);
-        } else if (alpacaAPI) {
+        } else if (alpacaAPI && alpacaAPI.isValid) {
           // Use Alpaca's market status API
           statusFromProvider = await alpacaAPI.isMarketOpen();
           console.log(`Market status from Alpaca (for reference): ${statusFromProvider ? 'OPEN' : 'CLOSED'}`);
@@ -120,17 +118,17 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       } catch (error) {
         console.error('Error checking market status from providers (non-critical):', error);
       }
-      
+
       // Process each symbol
       for (const symbol of Array.from(symbols)) {
         const upperSymbol = symbol.toUpperCase();
         let quoteData = null;
         let dataSource = "";
-        
+
         // Try each data provider in order of quality/reliability
         if (isMarketOpen) {
           // During market hours, try to get real-time data in priority order
-          
+
           // First try Polygon.io (best quality real-time data)
           if (polygonAPI && polygonAPI.isValid) {
             try {
@@ -143,7 +141,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
               console.log(`Polygon.io API error for ${upperSymbol}, trying next provider`);
             }
           }
-          
+
           // If Polygon failed, try Tiingo
           if (!quoteData && tiingoAPI && tiingoAPI.isValid) {
             try {
@@ -156,49 +154,8 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
               console.log(`Tiingo API error for ${upperSymbol}, trying next provider`);
             }
           }
-          
-          // If Tiingo failed, try Alpaca
-          if (!quoteData && alpacaAPI && alpacaAPI.isValid) {
-            try {
-              const response = await alpacaAPI.getQuote(upperSymbol);
-              const quote = response.quote;
-              const price = quote.ap || quote.bp || 0;
-              
-              if (price > 0) {
-                // We don't have previous close from Alpaca, so we'll use the stored price
-                const storedData = priceData.get(upperSymbol);
-                const prevPrice = storedData?.price || price;
-                const change = price - prevPrice;
-                const changePercent = (change / prevPrice) * 100;
-                
-                quoteData = {
-                  symbol: upperSymbol,
-                  price: price,
-                  change: change,
-                  changePercent: changePercent
-                };
-                dataSource = "alpaca";
-                console.log(`Got real Alpaca data for ${upperSymbol}: ${price}`);
-              }
-            } catch (err) {
-              console.log(`Alpaca API error for ${upperSymbol}, trying next provider`);
-            }
-          }
-          
-          // If Alpaca failed, try AlphaVantage
-          if (!quoteData && alphaVantageAPI && alphaVantageAPI.isValid) {
-            try {
-              quoteData = await alphaVantageAPI.getQuote(upperSymbol);
-              if (quoteData && quoteData.price) {
-                dataSource = "alphavantage";
-                console.log(`Got real AlphaVantage data for ${upperSymbol}: ${quoteData.price}`);
-              }
-            } catch (err) {
-              console.log(`AlphaVantage API error for ${upperSymbol}, trying Yahoo Finance`);
-            }
-          }
         }
-        
+
         // If market is closed or all real-time providers failed, use Yahoo Finance
         if (!quoteData) {
           try {
@@ -211,7 +168,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
             console.log(`Yahoo Finance API error for ${upperSymbol}, falling back to simulation`);
           }
         }
-        
+
         // Add the data to updates if we got it
         if (quoteData && quoteData.price) {
           // Update stored price data for future reference
@@ -220,7 +177,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
             lastChange: quoteData.change || 0,
             volatility: 0.0002
           });
-          
+
           updates.push({
             symbol: upperSymbol,
             price: Number(quoteData.price.toFixed(2)),
@@ -234,7 +191,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
           // Fall back to simulation for this symbol
           const data = priceData.get(upperSymbol);
           if (!data) continue;
-          
+
           // Simulate price movement
           const momentum = data.lastChange > 0 ? 0.6 : 0.4;
           const randomFactor = Math.random();
@@ -245,7 +202,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
           data.lastChange = changeAmount;
           const change = data.price - oldPrice;
           const changePercent = (change / oldPrice) * 100;
-          
+
           updates.push({
             symbol: upperSymbol,
             price: Number(data.price.toFixed(2)),
@@ -260,18 +217,18 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
     } catch (error) {
       console.error('Error updating market data:', error);
     }
-    
+
     // Only send update if there are changes
     if (updates.length > 0) {
       // For the demo environment, always show market as open on weekdays
       // This ensures we correctly show "Market Open" on the UI
       const now = new Date();
       const day = now.getDay();
-      
+
       // Market is open on weekdays (Monday-Friday)
       const marketOpen = (day >= 1 && day <= 5);
       console.log(`Market status (fixed): ${marketOpen ? 'OPEN' : 'CLOSED'}`);
-      
+
       // Get the primary data source being used and label it properly
       let primarySource = "yahoo";
       const realDataUpdate = updates.find(u => !u.isSimulated);
@@ -280,7 +237,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       } else if (marketOpen) {
         primarySource = "market-simulation";
       }
-      
+
       ws.send(JSON.stringify({
         type: 'market_data',
         data: updates,
@@ -291,7 +248,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       }));
     }
   }, 1000); // Update every 1 second 
-  
+
   // Store the interval reference
   userSimulations?.set(ws, interval);
 }
@@ -326,96 +283,51 @@ export async function getHistoricalMarketData(
   try {
     // Get user's data provider integrations
     const userIntegrations = await storage.getApiIntegrationsByUser(userId);
-    
-    // Find available data providers
-    const polygonIntegration = userIntegrations.find(i => 
-      i.provider === 'polygon' && i.type === 'data' && i.isActive);
+
+    // Try Yahoo Finance first for historical data
+    try {
+      const yahooProvider = new YahooFinanceAPI();
+      const data = await yahooProvider.getHistoricalData(symbol, timeframe, limit);
+      if (data && data.bars && data.bars.length > 0) {
+        return {
+          ...data,
+          dataSource: 'yahoo'
+        };
+      }
+    } catch (yahooError) {
+      console.log('Yahoo Finance API error, falling back to Tiingo:', yahooError);
+    }
+
+    // Fallback to Tiingo
     const tiingoIntegration = userIntegrations.find(i => 
       i.provider === 'tiingo' && i.type === 'data' && i.isActive);
-    const alphaVantageIntegration = userIntegrations.find(i => 
-      i.provider === 'alphavantage' && i.type === 'data' && i.isActive);
+
+    if (tiingoIntegration) {
+      const tiingoAPI = new TiingoAPI(tiingoIntegration);
+      const data = await tiingoAPI.getHistoricalData(symbol, timeframe, limit);
+      if (data && data.bars && data.bars.length > 0) {
+        return {
+          ...data,
+          dataSource: 'tiingo'
+        };
+      }
+    }
+
+
+    //Fallback to Alpaca
     const alpacaIntegration = userIntegrations.find(i => 
       i.provider === 'alpaca' && i.type === 'exchange' && i.isActive);
-    
-    // Initialize API clients with user's integrations
-    const polygonAPI = polygonIntegration ? new PolygonAPI(polygonIntegration) : null;
-    const tiingoAPI = tiingoIntegration ? new TiingoAPI(tiingoIntegration) : null;
-    const alphaVantageAPI = alphaVantageIntegration ? new AlphaVantageAPI(alphaVantageIntegration) : null;
-    const alpacaAPI = alpacaIntegration ? new AlpacaAPI(alpacaIntegration) : new AlpacaAPI();
-    
-    // Try each provider in order
-    let historicalData = null;
-    
-    // First try Polygon.io (best quality historical data)
-    if (polygonAPI && polygonAPI.isValid) {
-      try {
-        historicalData = await polygonAPI.getHistoricalData(symbol, timeframe, limit);
-        if (historicalData && historicalData.bars && historicalData.bars.length > 0) {
-          console.log(`Got historical data from Polygon.io for ${symbol}`);
-          return historicalData;
-        }
-      } catch (err) {
-        console.log(`Polygon.io API error for historical data, trying next provider`);
+    if (alpacaIntegration) {
+      const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+      const data = await alpacaAPI.getMarketData(symbol, timeframe, limit);
+      if (data && data.bars && data.bars.length > 0) {
+        return {
+          ...data,
+          dataSource: 'alpaca'
+        };
       }
     }
-    
-    // If Polygon failed, try Tiingo
-    if (tiingoAPI && tiingoAPI.isValid) {
-      try {
-        historicalData = await tiingoAPI.getHistoricalData(symbol, timeframe, limit);
-        if (historicalData && historicalData.bars && historicalData.bars.length > 0) {
-          console.log(`Got historical data from Tiingo for ${symbol}`);
-          return historicalData;
-        }
-      } catch (err) {
-        console.log(`Tiingo API error for historical data, trying next provider`);
-      }
-    }
-    
-    // If Tiingo failed, try AlphaVantage
-    if (alphaVantageAPI && alphaVantageAPI.isValid) {
-      try {
-        historicalData = await alphaVantageAPI.getHistoricalData(symbol, timeframe, limit);
-        if (historicalData && historicalData.bars && historicalData.bars.length > 0) {
-          console.log(`Got historical data from AlphaVantage for ${symbol}`);
-          return historicalData;
-        }
-      } catch (err) {
-        console.log(`AlphaVantage API error for historical data, trying next provider`);
-      }
-    }
-    
-    // If AlphaVantage failed, try Alpaca
-    if (alpacaAPI && alpacaAPI.isValid) {
-      try {
-        historicalData = await alpacaAPI.getMarketData(symbol, timeframe, limit);
-        if (historicalData && historicalData.bars && historicalData.bars.length > 0) {
-          console.log(`Got historical data from Alpaca for ${symbol}`);
-          return {
-            symbol,
-            bars: historicalData.bars,
-            isSimulated: false,
-            dataSource: 'alpaca'
-          };
-        }
-      } catch (err) {
-        console.log(`Alpaca API error for historical data, falling back to Yahoo Finance`);
-      }
-    }
-    
-    // If all other providers failed, use Yahoo Finance
-    try {
-      const period = timeframeToYahooPeriod(timeframe);
-      const interval = timeframeToYahooInterval(timeframe);
-      historicalData = await yahooFinance.getHistoricalData(symbol, period, interval);
-      if (historicalData && historicalData.bars && historicalData.bars.length > 0) {
-        console.log(`Got historical data from Yahoo Finance for ${symbol}`);
-        return historicalData;
-      }
-    } catch (err) {
-      console.log(`Yahoo Finance API error for historical data`);
-    }
-    
+
     throw new Error(`Could not retrieve historical data for ${symbol} from any provider`);
   } catch (error) {
     console.error('Error getting historical market data:', error);
