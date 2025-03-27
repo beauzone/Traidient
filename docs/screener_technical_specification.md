@@ -4,6 +4,8 @@
 
 This document outlines the technical specifications for creating stock screeners compatible with our trading platform. It defines the input and output formats, required structure, and best practices for developing effective stock screening algorithms.
 
+The design emphasizes modular separation between data providers (Yahoo Finance, Alpaca, Polygon, etc.) and the screening logic to enable flexibility and adaptability across different data sources.
+
 ## 1. Input Data Format
 
 ### 1.1 DataFrame Structure
@@ -411,3 +413,123 @@ Each screener should be tested for:
 | Average Directional Index | `adx` | Measures trend strength |
 | Directional Indicators | `plus_di`, `minus_di` | Measures positive and negative directional movement |
 | Volume Moving Average | `volume_avg_XX` | Average volume over XX periods |
+
+## 8. Data Provider Abstraction
+
+### 8.1 Data Provider Interface
+
+All market data providers should implement a common interface to ensure consistency and interchangeability between different data sources.
+
+```python
+class MarketDataProvider:
+    """Interface for market data providers."""
+    
+    def get_historical_data(self, symbols, period='3mo', interval='1d'):
+        """
+        Retrieve historical market data for given symbols.
+        
+        Parameters:
+        symbols: List of ticker symbols
+        period: Time period to fetch (e.g., '1d', '5d', '1mo', '3mo', '1y')
+        interval: Data frequency (e.g., '1m', '5m', '1h', '1d', '1wk')
+        
+        Returns:
+        MultiIndex DataFrame with ['ticker', 'date'] index
+        """
+        raise NotImplementedError
+    
+    def calculate_indicators(self, dataframe):
+        """
+        Calculate standard technical indicators on the provided data.
+        
+        Parameters:
+        dataframe: MultiIndex DataFrame with ['ticker', 'date'] index
+        
+        Returns:
+        DataFrame with added technical indicator columns
+        """
+        raise NotImplementedError
+    
+    def get_stock_universe(self, universe_type='default'):
+        """
+        Get a list of stock symbols based on the specified universe type.
+        
+        Parameters:
+        universe_type: Type of stock universe to retrieve
+                       ('default', 'sp500', 'nasdaq100', 'dow30', etc.)
+        
+        Returns:
+        List of stock symbols
+        """
+        raise NotImplementedError
+```
+
+### 8.2 Data Provider Factory
+
+The factory pattern should be used to create and manage data provider instances:
+
+```python
+class MarketDataProviderFactory:
+    """Factory for creating and managing data provider instances."""
+    
+    _providers = {
+        'yahoo': YahooFinanceAdapter,
+        'alpaca': AlpacaAdapter,
+        'alphavantage': AlphaVantageAdapter,
+        'polygon': PolygonAdapter,
+        'tiingo': TiingoAdapter
+    }
+    
+    @classmethod
+    def get_provider(cls, provider_name, **credentials):
+        """
+        Get a configured market data provider instance.
+        
+        Parameters:
+        provider_name: Name of the provider to use
+        credentials: API keys or other credentials needed
+        
+        Returns:
+        A configured MarketDataProvider instance
+        """
+        if provider_name not in cls._providers:
+            raise ValueError(f"Unknown provider: {provider_name}")
+            
+        provider_class = cls._providers[provider_name]
+        return provider_class(**credentials)
+```
+
+### 8.3 Standard Usage Pattern
+
+Screeners should be used in conjunction with data providers following this pattern:
+
+```python
+# Get configured provider
+provider = MarketDataProviderFactory.get_provider(
+    'alpaca', 
+    api_key='YOUR_ALPACA_API_KEY', 
+    api_secret='YOUR_ALPACA_API_SECRET'
+)
+
+# Get universe of stocks
+symbols = provider.get_stock_universe(universe_type='sp500')
+
+# Get data in standardized format
+data = provider.get_historical_data(symbols, period='3mo', interval='1d')
+data_with_indicators = provider.calculate_indicators(data)
+
+# Run screener on standardized data
+results = screen_strategy_name(data_with_indicators, param1=value1)
+```
+
+### 8.4 Provider Implementation Requirements
+
+Each data provider implementation must:
+
+1. Return data in the standard MultiIndex DataFrame format
+2. Handle API rate limiting and error recovery
+3. Implement caching for efficient data retrieval
+4. Calculate a consistent set of technical indicators
+5. Maintain uniform column naming across all providers
+6. Normalize data types and handle provider-specific quirks
+7. Provide appropriate error handling and logging
