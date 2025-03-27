@@ -1587,16 +1587,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the provider from query parameters, default to alpaca
-      const provider = (req.query.provider as string)?.toLowerCase() || 'alpaca';
-      console.log(`Using provider: ${provider} for quote data`);
+      const providerParam = req.query.provider as string;
+      // Store original provider name for user messages
+      const originalProvider = providerParam || 'alpaca';
+      // Convert to lowercase for consistency in the code
+      const provider = originalProvider.toLowerCase();
+      console.log(`Using provider: ${originalProvider} for quote data`);
       
-      // Get API integration for the selected provider
+      // Get all integrations for this user
       let integration;
       try {
-        integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
-        console.log(`Using user's ${provider} API integration`);
+        // Get all integrations
+        const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+        // Find matching integration (case insensitive)
+        integration = integrations.find(i => 
+          i.provider.toLowerCase().trim() === provider.trim());
+        
+        if (integration) {
+          console.log(`Using user's ${integration.provider} API integration`);
+        } else {
+          console.log(`No user-specific ${originalProvider} integration found, using environment variables`);
+        }
       } catch (err: unknown) {
-        console.log(`No user-specific ${provider} integration found, using environment variables`);
+        console.log(`Error finding ${originalProvider} integration:`, err);
       }
       
       // Use the factory to create the appropriate provider
@@ -1605,7 +1618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!dataProvider || !dataProvider.isValid()) {
         return res.status(400).json({ 
           success: false, 
-          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+          error: `Invalid or unconfigured data provider: ${originalProvider}. Please add API credentials in Integrations.` 
         });
       }
       
@@ -1614,12 +1627,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const quoteData = await dataProvider.getQuote(symbol);
         
         // Add the data source to the response
-        quoteData.dataSource = provider;
+        quoteData.dataSource = originalProvider;
         
         res.json(quoteData);
         return;
       } catch (providerError) {
-        console.error(`Error getting quote for ${symbol} from ${provider}:`, providerError);
+        console.error(`Error getting quote for ${symbol} from ${originalProvider}:`, providerError);
         
         // Try Yahoo Finance as a fallback for all providers except Yahoo itself
         if (provider !== 'yahoo') {
@@ -1735,9 +1748,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Try to get user-specific API integration for market data, fallback to environment variables
           let alpacaAPI;
           try {
-            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-            alpacaAPI = new AlpacaAPI(alpacaIntegration);
-            console.log("Using user's Alpaca API integration for historical data");
+            // Get all integrations for the user
+            const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+            // Find the Alpaca integration using case-insensitive matching
+            const alpacaIntegration = integrations.find(i => 
+              i.provider.toLowerCase().trim() === 'alpaca');
+            
+            if (alpacaIntegration) {
+              alpacaAPI = new AlpacaAPI(alpacaIntegration);
+              console.log(`Using user's ${alpacaIntegration.provider} API integration for historical data`);
+            } else {
+              throw new Error("No Alpaca integration found");
+            }
           } catch (err: unknown) {
             console.log("No user-specific Alpaca integration found, using environment variables for historical data");
             alpacaAPI = new AlpacaAPI();
@@ -2074,9 +2096,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Otherwise get the default one for the user
           try {
-            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-            alpacaAPI = new AlpacaAPI(alpacaIntegration);
-            console.log("Using user's default Alpaca API integration for portfolio history");
+            // Get all integrations for the user
+            const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+            // Find the Alpaca integration using case-insensitive matching
+            const alpacaIntegration = integrations.find(i => 
+              i.provider.toLowerCase().trim() === 'alpaca');
+            
+            if (alpacaIntegration) {
+              alpacaAPI = new AlpacaAPI(alpacaIntegration);
+              console.log(`Using user's ${alpacaIntegration.provider} API integration for portfolio history`);
+            } else {
+              throw new Error("No Alpaca integration found");
+            }
           } catch (err) {
             console.log("No user-specific Alpaca integration found, using environment variables for portfolio history");
             alpacaAPI = new AlpacaAPI();
@@ -2128,9 +2159,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         let alpacaAPI;
         try {
-          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-          alpacaAPI = new AlpacaAPI(alpacaIntegration);
-          console.log("Using user's Alpaca API integration for orders");
+          // Get all integrations for the user
+          const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+          // Find the Alpaca integration using case-insensitive matching
+          const alpacaIntegration = integrations.find(i => 
+            i.provider.toLowerCase().trim() === 'alpaca');
+          
+          if (alpacaIntegration) {
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            console.log(`Using user's ${alpacaIntegration.provider} API integration for orders`);
+          } else {
+            throw new Error("No Alpaca integration found");
+          }
         } catch (err) {
           console.log("No user-specific Alpaca integration found, using environment variables for orders");
           alpacaAPI = new AlpacaAPI();

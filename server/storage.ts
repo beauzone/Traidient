@@ -154,12 +154,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getApiIntegrationByProviderAndUser(userId: number, provider: string): Promise<ApiIntegration | undefined> {
-    const result = await db.select().from(apiIntegrations)
-      .where(and(
-        eq(apiIntegrations.userId, userId),
-        eq(apiIntegrations.provider, provider)
-      ));
-    return result.length > 0 ? result[0] : undefined;
+    // Get all integrations for the user
+    const integrations = await this.getApiIntegrationsByUser(userId);
+    
+    // Find the integration using case-insensitive matching
+    const matchingIntegration = integrations.find(
+      integration => integration.provider.toLowerCase().trim() === provider.toLowerCase().trim()
+    );
+    
+    return matchingIntegration;
   }
 
   async createApiIntegration(integration: InsertApiIntegration): Promise<ApiIntegration> {
