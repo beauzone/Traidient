@@ -180,7 +180,8 @@ export class PolygonDataProviderAdapter extends BaseMarketDataProviderAdapter {
     super('polygon');
     
     if (integration?.credentials?.apiKey) {
-      this.provider = new PolygonAPI(integration.credentials.apiKey);
+      // Pass the entire integration object, not just the API key
+      this.provider = new PolygonAPI(integration);
     } else if (process.env.POLYGON_API_KEY) {
       this.provider = new PolygonAPI(process.env.POLYGON_API_KEY);
     } else {
