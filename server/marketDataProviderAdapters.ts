@@ -1,673 +1,512 @@
 /**
- * Market Data Provider Adapters for Screeners
+ * Market Data Provider Adapters
  * 
- * This module implements adapters for various market data providers
- * to connect them to the screener system through a unified interface.
- * 
- * Using the Adapter Pattern to connect the existing market data providers
- * to the ScreenerMarketDataProvider interface.
+ * This file implements adapters for various market data providers
+ * to conform to the IMarketDataProvider interface.
  */
-
-import { ApiIntegration } from '@shared/schema';
-import { ScreenerMarketDataProvider } from './marketDataProviderInterface';
 import { AlpacaAPI } from './alpaca';
 import { YahooFinanceAPI } from './yahoo';
-import AlphaVantageAPI from './alphavantage';
 import PolygonAPI from './polygon';
+import AlphaVantageAPI from './alphavantage';
 import TiingoAPI from './tiingo';
+import type { ApiIntegration } from '@shared/schema';
+import { IMarketDataProvider } from './marketDataProviderInterface';
 
 /**
- * Helper function to convert DataFrame-like market data to standardized multiindex format expected by screeners
+ * Base class for market data provider adapters
  */
-function convertToScreenerFormat(data: any, provider: string): any {
-  // This is a placeholder for actual conversion logic
-  // In a real implementation, this would convert various provider formats to a standard DataFrame format
+export abstract class BaseMarketDataProviderAdapter implements IMarketDataProvider {
+  protected provider: any;
+  protected name: string;
   
-  // For now, we'll assume the data is already in the correct format
-  return {
-    ...data,
-    provider
-  };
+  constructor(name: string) {
+    this.name = name;
+  }
+  
+  abstract getHistoricalData(symbols: string[], period?: string, interval?: string): Promise<Record<string, any>>;
+  abstract getQuote(symbol: string): Promise<any>;
+  abstract getStockUniverse(universeType?: string): Promise<string[]>;
+  abstract isMarketOpen(): Promise<boolean>;
+  
+  isValid(): boolean {
+    return !!this.provider;
+  }
+  
+  getName(): string {
+    return this.name;
+  }
 }
 
 /**
- * Alpaca Data Provider Adapter for Screeners
+ * Alpaca market data provider adapter
  */
-export class AlpacaDataProviderAdapter implements ScreenerMarketDataProvider {
-  private alpaca: AlpacaAPI;
-  public readonly provider = 'alpaca';
-  
+export class AlpacaDataProviderAdapter extends BaseMarketDataProviderAdapter {
   constructor(integration?: ApiIntegration) {
-    this.alpaca = new AlpacaAPI(integration);
+    super('alpaca');
+    this.provider = new AlpacaAPI(integration);
   }
   
-  get isValid(): boolean {
-    return this.alpaca.isValid;
-  }
-  
-  async getHistoricalData(symbols: string | string[], period = '3mo', interval = '1d'): Promise<any> {
-    try {
-      // Convert to array if single symbol
-      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
-      
-      // Convert period to date range
-      const endDate = new Date().toISOString();
-      let startDate: string;
-      
-      // Parse period string to determine start date
-      if (period.endsWith('d')) {
-        const days = parseInt(period.replace('d', ''));
-        const start = new Date();
-        start.setDate(start.getDate() - days);
-        startDate = start.toISOString();
-      } else if (period.endsWith('mo')) {
-        const months = parseInt(period.replace('mo', ''));
-        const start = new Date();
-        start.setMonth(start.getMonth() - months);
-        startDate = start.toISOString();
-      } else if (period.endsWith('y')) {
-        const years = parseInt(period.replace('y', ''));
-        const start = new Date();
-        start.setFullYear(start.getFullYear() - years);
-        startDate = start.toISOString();
-      } else if (period === 'ytd') {
-        const start = new Date();
-        start.setMonth(0, 1);
-        startDate = start.toISOString();
-      } else {
-        // Default to 3 months
-        const start = new Date();
-        start.setMonth(start.getMonth() - 3);
-        startDate = start.toISOString();
-      }
-      
-      // For multiple symbols, fetch data for each and combine
-      const results: any = {};
-      const barsBySymbol: any = {};
-      
-      // Limit batch size to avoid rate limits
-      const batchSize = 10;
-      for (let i = 0; i < symbolArray.length; i += batchSize) {
-        const batch = symbolArray.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(async (symbol) => {
-          try {
-            // Get market data
-            const data = await this.alpaca.getMarketData(
-              symbol,
-              interval,
-              1000, // Reasonable default limit
-              startDate,
-              endDate
-            );
-            
-            // Store the data
-            if (data && data.bars && data.bars.length > 0) {
-              barsBySymbol[symbol] = data.bars;
-            }
-          } catch (error) {
-            console.error(`Error fetching Alpaca data for ${symbol}:`, error);
-          }
-        }));
-        
-        // Rate limiting - sleep between batches
-        if (i + batchSize < symbolArray.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      // Format data for screeners (pandas-like multiindex DataFrame)
-      const formattedData = {
-        symbols: Object.keys(barsBySymbol),
-        data: barsBySymbol,
-        provider: this.provider
-      };
-      
-      return formattedData;
-    } catch (error) {
-      console.error(`Error in AlpacaDataProviderAdapter.getHistoricalData:`, error);
-      throw error;
+  async getHistoricalData(symbols: string[], period: string = '1mo', interval: string = '1d'): Promise<Record<string, any>> {
+    if (!this.isValid()) {
+      throw new Error('Alpaca API is not properly configured');
     }
+    
+    const result: Record<string, any> = {};
+    
+    for (const symbol of symbols) {
+      try {
+        // Alpaca API provides getBars method for historical data
+        const bars = await this.provider.getBars(symbol, period, interval);
+        result[symbol] = bars;
+      } catch (error) {
+        console.error(`Error fetching historical data for ${symbol} from Alpaca:`, error);
+      }
+    }
+    
+    return result;
   }
   
-  async calculateIndicators(data: any): Promise<any> {
-    // This would be implemented in Python, but we expose the method for interface compatibility
-    return {
-      ...data,
-      message: 'Indicators will be calculated in Python'
-    };
+  async getQuote(symbol: string): Promise<any> {
+    if (!this.isValid()) {
+      throw new Error('Alpaca API is not properly configured');
+    }
+    
+    return this.provider.getQuote(symbol);
   }
   
-  async getStockUniverse(universeType = 'default'): Promise<string[]> {
+  async getStockUniverse(universeType: string = 'default'): Promise<string[]> {
+    if (!this.isValid()) {
+      throw new Error('Alpaca API is not properly configured');
+    }
+    
     try {
-      // For Alpaca, we'll use the account's watchlist or tradable assets
-      // In a real implementation, we would have more sophisticated universe logic
-      const assets = await this.alpaca.getAssets();
+      // Get assets from Alpaca
+      const assets = await this.provider.listAssets();
       
       // Filter based on universe type
-      let symbols: string[] = [];
+      let filteredAssets = assets;
       
-      if (universeType === 'default') {
-        // Default to a reasonable set of tradable stocks
-        symbols = assets.filter((asset: any) => 
-          asset.status === 'active' && 
-          asset.tradable && 
-          asset.exchange !== 'OTC'
-        ).map((asset: any) => asset.symbol);
-        
-        // Limit to reasonable number
-        symbols = symbols.slice(0, 100);
-      } else if (universeType === 'sp500') {
-        // For S&P 500, we would need a separate data source
-        // For now, just return a message that it's not implemented
-        console.log("S&P 500 universe not directly available from Alpaca");
-        return [];
+      if (universeType === 'sp500') {
+        // This is a simplification; Alpaca doesn't directly provide S&P 500 constituents
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'BRK.B', 'NVDA', 'JPM', 'JNJ',
+          'V', 'PG', 'UNH', 'HD', 'BAC', 'MA', 'DIS', 'ADBE', 'CRM', 'INTC'
+        ];
       } else if (universeType === 'nasdaq100') {
-        // Similar to S&P 500
-        console.log("NASDAQ 100 universe not directly available from Alpaca");
-        return [];
+        // This is a simplification; Alpaca doesn't directly provide NASDAQ-100 constituents
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'NFLX', 'ADBE', 'PYPL',
+          'CMCSA', 'PEP', 'COST', 'INTC', 'CSCO', 'AVGO', 'TXN', 'QCOM', 'AMGN', 'AMD'
+        ];
       }
       
-      return symbols;
+      // Extract symbols
+      return filteredAssets
+        .filter(asset => asset.status === 'active' && asset.tradable)
+        .map(asset => asset.symbol);
     } catch (error) {
-      console.error(`Error getting stock universe from Alpaca:`, error);
+      console.error('Error fetching stock universe from Alpaca:', error);
       return [];
     }
   }
   
   async isMarketOpen(): Promise<boolean> {
+    if (!this.isValid()) {
+      return false;
+    }
+    
     try {
-      return await this.alpaca.isMarketOpen();
+      const clock = await this.provider.getClock();
+      return clock.is_open;
     } catch (error) {
-      console.error(`Error checking if market is open from Alpaca:`, error);
-      
-      // Default to weekday check as fallback
-      const now = new Date();
-      const day = now.getDay();
-      const hour = now.getHours();
-      
-      // Simple check: market is open on weekdays between 9:30 and 16:00 ET
-      return day >= 1 && day <= 5 && hour >= 9 && hour < 16;
+      console.error('Error checking market status with Alpaca:', error);
+      return false;
     }
   }
 }
 
 /**
- * Yahoo Finance Data Provider Adapter for Screeners
+ * Yahoo Finance market data provider adapter
  */
-export class YahooDataProviderAdapter implements ScreenerMarketDataProvider {
-  private yahoo: YahooFinanceAPI;
-  public readonly provider = 'yahoo';
-  public readonly isValid = true; // Yahoo Finance doesn't require API keys
-  
+export class YahooFinanceDataProviderAdapter extends BaseMarketDataProviderAdapter {
   constructor() {
-    this.yahoo = new YahooFinanceAPI();
+    super('yahoo');
+    this.provider = new YahooFinanceAPI();
   }
   
-  async getHistoricalData(symbols: string | string[], period = '3mo', interval = '1d'): Promise<any> {
-    try {
-      // Convert to array if single symbol
-      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
-      
-      // For multiple symbols, fetch data for each and combine
-      const results: any = {};
-      const barsBySymbol: any = {};
-      
-      // Limit batch size to avoid rate limits
-      const batchSize = 10;
-      for (let i = 0; i < symbolArray.length; i += batchSize) {
-        const batch = symbolArray.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(async (symbol) => {
-          try {
-            // Convert to Yahoo's format
-            const { period: yahooPeriod, interval: yahooInterval } = this.convertToYahooParams(period, interval);
-            
-            // Get historical data
-            const data = await this.yahoo.getHistoricalData(symbol, yahooPeriod, yahooInterval);
-            
-            // Store the data
-            if (data && data.bars && data.bars.length > 0) {
-              barsBySymbol[symbol] = data.bars;
-            }
-          } catch (error) {
-            console.error(`Error fetching Yahoo Finance data for ${symbol}:`, error);
-          }
-        }));
-        
-        // Rate limiting - sleep between batches
-        if (i + batchSize < symbolArray.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+  async getHistoricalData(symbols: string[], period: string = '1mo', interval: string = '1d'): Promise<Record<string, any>> {
+    const result: Record<string, any> = {};
+    
+    for (const symbol of symbols) {
+      try {
+        const history = await this.provider.getHistoricalData(symbol, period, interval);
+        result[symbol] = history;
+      } catch (error) {
+        console.error(`Error fetching historical data for ${symbol} from Yahoo Finance:`, error);
       }
-      
-      // Format data for screeners (pandas-like multiindex DataFrame)
-      const formattedData = {
-        symbols: Object.keys(barsBySymbol),
-        data: barsBySymbol,
-        provider: this.provider
-      };
-      
-      return formattedData;
-    } catch (error) {
-      console.error(`Error in YahooDataProviderAdapter.getHistoricalData:`, error);
-      throw error;
+    }
+    
+    return result;
+  }
+  
+  async getQuote(symbol: string): Promise<any> {
+    return this.provider.getQuote(symbol);
+  }
+  
+  async getStockUniverse(universeType: string = 'default'): Promise<string[]> {
+    if (universeType === 'sp500') {
+      return this.provider.getSP500Symbols();
+    } else if (universeType === 'nasdaq100') {
+      return this.provider.getNASDAQ100Symbols();
+    } else {
+      return this.provider.getDefaultSymbols();
     }
   }
   
-  private convertToYahooParams(period: string, interval: string): { period: string, interval: string } {
-    // Yahoo Finance uses different period/interval format
-    let yahooPeriod: string;
-    let yahooInterval: string;
-    
-    // Convert interval
-    if (interval === '1d') yahooInterval = '1d';
-    else if (interval === '1h') yahooInterval = '1h';
-    else if (interval === '1wk') yahooInterval = '1wk';
-    else if (interval === '1mo') yahooInterval = '1mo';
-    else yahooInterval = '1d'; // default
-    
-    // Convert period
-    if (period === '1d') yahooPeriod = '1d';
-    else if (period === '5d') yahooPeriod = '5d';
-    else if (period === '1mo') yahooPeriod = '1mo';
-    else if (period === '3mo') yahooPeriod = '3mo';
-    else if (period === '6mo') yahooPeriod = '6mo';
-    else if (period === '1y') yahooPeriod = '1y';
-    else if (period === '2y') yahooPeriod = '2y';
-    else if (period === '5y') yahooPeriod = '5y';
-    else if (period === '10y') yahooPeriod = '10y';
-    else if (period === 'ytd') yahooPeriod = 'ytd';
-    else if (period === 'max') yahooPeriod = 'max';
-    else yahooPeriod = '3mo'; // default
-    
-    return { period: yahooPeriod, interval: yahooInterval };
+  async isMarketOpen(): Promise<boolean> {
+    return this.provider.isMarketOpen();
   }
   
-  async calculateIndicators(data: any): Promise<any> {
-    // This would be implemented in Python, but we expose the method for interface compatibility
-    return {
-      ...data,
-      message: 'Indicators will be calculated in Python'
-    };
+  isValid(): boolean {
+    return true; // Yahoo Finance doesn't require authentication
+  }
+}
+
+/**
+ * Polygon market data provider adapter
+ */
+export class PolygonDataProviderAdapter extends BaseMarketDataProviderAdapter {
+  constructor(integration?: ApiIntegration) {
+    super('polygon');
+    
+    if (integration?.credentials?.apiKey) {
+      this.provider = new PolygonAPI(integration.credentials.apiKey);
+    } else if (process.env.POLYGON_API_KEY) {
+      this.provider = new PolygonAPI(process.env.POLYGON_API_KEY);
+    } else {
+      console.error('Polygon API key not found');
+      this.provider = null;
+    }
   }
   
-  async getStockUniverse(universeType = 'default'): Promise<string[]> {
-    try {
-      // For Yahoo Finance, we need to load predefined lists
-      // In a real implementation, we would have more sophisticated universe logic
-      
-      // Define some common stock lists
-      const defaultSymbols = [
-        'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'JPM',
-        'V', 'JNJ', 'WMT', 'MA', 'PG', 'HD', 'BAC', 'DIS', 'ADBE', 'CRM',
-        'NFLX', 'INTC', 'VZ', 'KO', 'CSCO', 'PEP', 'CMCSA', 'ABT', 'MRK'
-      ];
-      
-      if (universeType === 'default') {
-        return defaultSymbols;
-      } else if (universeType === 'sp500') {
-        // We would need to fetch the S&P 500 list from an external source
-        // For now, just return a message that it's not implemented
-        console.log("S&P 500 universe needs to be fetched externally");
-        return defaultSymbols;
-      } else if (universeType === 'nasdaq100') {
-        // Similar to S&P 500
-        console.log("NASDAQ 100 universe needs to be fetched externally");
-        return defaultSymbols;
+  async getHistoricalData(symbols: string[], period: string = '1mo', interval: string = '1d'): Promise<Record<string, any>> {
+    if (!this.isValid()) {
+      throw new Error('Polygon API is not properly configured');
+    }
+    
+    const result: Record<string, any> = {};
+    
+    // Convert period to start/end dates
+    const now = new Date();
+    let startDate = new Date();
+    
+    if (period.endsWith('d')) {
+      const days = parseInt(period);
+      startDate.setDate(now.getDate() - days);
+    } else if (period.endsWith('mo')) {
+      const months = parseInt(period);
+      startDate.setMonth(now.getMonth() - months);
+    } else if (period.endsWith('y')) {
+      const years = parseInt(period);
+      startDate.setFullYear(now.getFullYear() - years);
+    }
+    
+    // Format dates
+    const formattedStartDate = startDate.toISOString().split('T')[0];
+    const formattedEndDate = now.toISOString().split('T')[0];
+    
+    // Convert interval to Polygon timespan
+    let timespan = 'day';
+    if (interval === '1h') timespan = 'hour';
+    else if (interval === '1m') timespan = 'minute';
+    
+    for (const symbol of symbols) {
+      try {
+        const data = await this.provider.getAggregates(
+          symbol,
+          timespan,
+          formattedStartDate,
+          formattedEndDate
+        );
+        
+        result[symbol] = data;
+      } catch (error) {
+        console.error(`Error fetching historical data for ${symbol} from Polygon:`, error);
       }
-      
-      return defaultSymbols;
+    }
+    
+    return result;
+  }
+  
+  async getQuote(symbol: string): Promise<any> {
+    if (!this.isValid()) {
+      throw new Error('Polygon API is not properly configured');
+    }
+    
+    return this.provider.getQuote(symbol);
+  }
+  
+  async getStockUniverse(universeType: string = 'default'): Promise<string[]> {
+    if (!this.isValid()) {
+      throw new Error('Polygon API is not properly configured');
+    }
+    
+    try {
+      // For specific universes, we'll use a pre-defined list
+      if (universeType === 'sp500') {
+        // Return a subset of S&P 500 symbols (for demo purposes)
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'BRK.B', 'NVDA', 'JPM', 'JNJ',
+          'V', 'PG', 'UNH', 'HD', 'BAC', 'MA', 'DIS', 'ADBE', 'CRM', 'INTC'
+        ];
+      } else if (universeType === 'nasdaq100') {
+        // Return a subset of NASDAQ-100 symbols (for demo purposes)
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'NFLX', 'ADBE', 'PYPL',
+          'CMCSA', 'PEP', 'COST', 'INTC', 'CSCO', 'AVGO', 'TXN', 'QCOM', 'AMGN', 'AMD'
+        ];
+      } else {
+        // Return commonly used stock symbols
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT',
+          'PG', 'MA', 'DIS', 'NFLX', 'INTC', 'VZ', 'CSCO', 'KO', 'PEP', 'MRK'
+        ];
+      }
     } catch (error) {
-      console.error(`Error getting stock universe:`, error);
+      console.error('Error fetching stock universe from Polygon:', error);
       return [];
     }
   }
   
   async isMarketOpen(): Promise<boolean> {
+    if (!this.isValid()) {
+      return false;
+    }
+    
     try {
-      // Yahoo Finance doesn't have a direct market status API
-      // So we'll use a time-based check as a reasonable approximation
-      
-      // Get current date in US Eastern time
-      const now = new Date();
-      const day = now.getDay();
-      
-      // Check if it's a weekday (Monday-Friday)
-      if (day === 0 || day === 6) {
-        return false; // Weekend
-      }
-      
-      // Convert to US Eastern Time (ET)
-      const etOptions = { timeZone: 'America/New_York' };
-      const etTimeStr = now.toLocaleTimeString('en-US', etOptions);
-      const etTime = new Date(`1/1/1970 ${etTimeStr}`);
-      
-      const etHours = etTime.getHours();
-      const etMinutes = etTime.getMinutes();
-      const etTimeInMinutes = etHours * 60 + etMinutes;
-      
-      // Regular market hours: 9:30 AM - 4:00 PM ET
-      const marketOpenInMinutes = 9 * 60 + 30;  // 9:30 AM
-      const marketCloseInMinutes = 16 * 60;      // 4:00 PM
-      
-      return etTimeInMinutes >= marketOpenInMinutes && etTimeInMinutes < marketCloseInMinutes;
+      const marketStatus = await this.provider.getMarketStatus();
+      return marketStatus.market === 'open';
     } catch (error) {
-      console.error(`Error checking if market is open:`, error);
-      
-      // Default to weekday check as fallback
-      const now = new Date();
-      const day = now.getDay();
-      
-      // Simple check: market is open on weekdays
-      return day >= 1 && day <= 5;
+      console.error('Error checking market status with Polygon:', error);
+      return false;
     }
   }
 }
 
 /**
- * Polygon.io Data Provider Adapter for Screeners
+ * Alpha Vantage market data provider adapter
  */
-export class PolygonDataProviderAdapter implements ScreenerMarketDataProvider {
-  private polygon: PolygonAPI;
-  public readonly provider = 'polygon';
-  
+export class AlphaVantageDataProviderAdapter extends BaseMarketDataProviderAdapter {
   constructor(integration?: ApiIntegration) {
-    this.polygon = new PolygonAPI(integration);
-  }
-  
-  get isValid(): boolean {
-    return this.polygon.isValid;
-  }
-  
-  async getHistoricalData(symbols: string | string[], period = '3mo', interval = '1d'): Promise<any> {
-    try {
-      // Convert to array if single symbol
-      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
-      
-      // For multiple symbols, fetch data for each and combine
-      const barsBySymbol: any = {};
-      
-      // Limit batch size to avoid rate limits
-      const batchSize = 5; // Polygon has stricter rate limits
-      for (let i = 0; i < symbolArray.length; i += batchSize) {
-        const batch = symbolArray.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(async (symbol) => {
-          try {
-            // Polygon API expects different parameters
-            const data = await this.polygon.getHistoricalData(symbol, interval, 1000);
-            
-            // Store the data
-            if (data && data.bars && data.bars.length > 0) {
-              barsBySymbol[symbol] = data.bars;
-            }
-          } catch (error) {
-            console.error(`Error fetching Polygon.io data for ${symbol}:`, error);
-          }
-        }));
-        
-        // Rate limiting - sleep between batches (Polygon has stricter limits)
-        if (i + batchSize < symbolArray.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-      
-      // Format data for screeners (pandas-like multiindex DataFrame)
-      const formattedData = {
-        symbols: Object.keys(barsBySymbol),
-        data: barsBySymbol,
-        provider: this.provider
-      };
-      
-      return formattedData;
-    } catch (error) {
-      console.error(`Error in PolygonDataProviderAdapter.getHistoricalData:`, error);
-      throw error;
-    }
-  }
-  
-  async calculateIndicators(data: any): Promise<any> {
-    // This would be implemented in Python, but we expose the method for interface compatibility
-    return {
-      ...data,
-      message: 'Indicators will be calculated in Python'
-    };
-  }
-  
-  async getStockUniverse(universeType = 'default'): Promise<string[]> {
-    try {
-      // For Polygon, we can query their stocks API
-      const tickers = await this.polygon.getTickerList(universeType);
-      return tickers;
-    } catch (error) {
-      console.error(`Error getting stock universe from Polygon:`, error);
-      
-      // Fallback to default list
-      const defaultSymbols = [
-        'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'JPM'
-      ];
-      return defaultSymbols;
-    }
-  }
-  
-  async isMarketOpen(): Promise<boolean> {
-    try {
-      return await this.polygon.isMarketOpen();
-    } catch (error) {
-      console.error(`Error checking if market is open from Polygon:`, error);
-      
-      // Default to weekday check as fallback
-      const now = new Date();
-      const day = now.getDay();
-      
-      // Simple check: market is open on weekdays
-      return day >= 1 && day <= 5;
-    }
-  }
-}
-
-/**
- * Alpha Vantage Data Provider Adapter for Screeners
- */
-export class AlphaVantageDataProviderAdapter implements ScreenerMarketDataProvider {
-  private alphaVantage: AlphaVantageAPI;
-  public readonly provider = 'alphavantage';
-  
-  constructor(integration?: ApiIntegration) {
-    this.alphaVantage = new AlphaVantageAPI(integration);
-  }
-  
-  get isValid(): boolean {
-    return this.alphaVantage.isValid;
-  }
-  
-  async getHistoricalData(symbols: string | string[], period = '3mo', interval = '1d'): Promise<any> {
-    try {
-      // Convert to array if single symbol
-      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
-      
-      // For multiple symbols, fetch data for each and combine
-      const barsBySymbol: any = {};
-      
-      // Alpha Vantage has strict rate limits (5 API calls per minute for free tier)
-      // So we need to process symbols one by one with delays
-      for (const symbol of symbolArray) {
-        try {
-          // AlphaVantage uses different parameters
-          // For daily data
-          const functionParam = interval === '1d' ? 'TIME_SERIES_DAILY' : 
-                               interval === '1wk' ? 'TIME_SERIES_WEEKLY' : 
-                               interval === '1mo' ? 'TIME_SERIES_MONTHLY' : 'TIME_SERIES_DAILY';
-          
-          const data = await this.alphaVantage.getTimeSeries(symbol, functionParam);
-          
-          // Store the data
-          if (data && data.bars && data.bars.length > 0) {
-            barsBySymbol[symbol] = data.bars;
-          }
-          
-          // Delay to avoid hitting rate limits
-          await new Promise(resolve => setTimeout(resolve, 12000)); // 5 calls per minute = 12s between calls
-        } catch (error) {
-          console.error(`Error fetching Alpha Vantage data for ${symbol}:`, error);
-        }
-      }
-      
-      // Format data for screeners (pandas-like multiindex DataFrame)
-      const formattedData = {
-        symbols: Object.keys(barsBySymbol),
-        data: barsBySymbol,
-        provider: this.provider
-      };
-      
-      return formattedData;
-    } catch (error) {
-      console.error(`Error in AlphaVantageDataProviderAdapter.getHistoricalData:`, error);
-      throw error;
-    }
-  }
-  
-  async calculateIndicators(data: any): Promise<any> {
-    // This would be implemented in Python, but we expose the method for interface compatibility
-    return {
-      ...data,
-      message: 'Indicators will be calculated in Python'
-    };
-  }
-  
-  async getStockUniverse(universeType = 'default'): Promise<string[]> {
-    // Alpha Vantage doesn't have a specific endpoint for stock universes
-    // We'll return a default list
+    super('alphavantage');
     
-    // Define some common stock lists
-    const defaultSymbols = [
-      'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'JPM'
-    ];
-    
-    if (universeType === 'default') {
-      return defaultSymbols;
+    if (integration?.credentials?.apiKey) {
+      this.provider = new AlphaVantageAPI(integration.credentials.apiKey);
+    } else if (process.env.ALPHAVANTAGE_API_KEY) {
+      this.provider = new AlphaVantageAPI(process.env.ALPHAVANTAGE_API_KEY);
     } else {
-      console.log(`${universeType} universe not available from Alpha Vantage`);
-      return defaultSymbols;
+      console.error('Alpha Vantage API key not found');
+      this.provider = null;
+    }
+  }
+  
+  async getHistoricalData(symbols: string[], period: string = '1mo', interval: string = '1d'): Promise<Record<string, any>> {
+    if (!this.isValid()) {
+      throw new Error('Alpha Vantage API is not properly configured');
+    }
+    
+    const result: Record<string, any> = {};
+    
+    // Convert interval to Alpha Vantage format
+    let avInterval = 'daily';
+    if (interval === '1h') avInterval = '60min';
+    else if (interval === '1m') avInterval = '1min';
+    else if (interval === '1d') avInterval = 'daily';
+    else if (interval === '1wk') avInterval = 'weekly';
+    else if (interval === '1mo') avInterval = 'monthly';
+    
+    for (const symbol of symbols) {
+      try {
+        const data = await this.provider.getTimeSeriesData(symbol, avInterval);
+        result[symbol] = data;
+      } catch (error) {
+        console.error(`Error fetching historical data for ${symbol} from Alpha Vantage:`, error);
+      }
+    }
+    
+    return result;
+  }
+  
+  async getQuote(symbol: string): Promise<any> {
+    if (!this.isValid()) {
+      throw new Error('Alpha Vantage API is not properly configured');
+    }
+    
+    return this.provider.getQuote(symbol);
+  }
+  
+  async getStockUniverse(universeType: string = 'default'): Promise<string[]> {
+    // Alpha Vantage doesn't provide stock universe lists
+    // Return default lists based on universe type
+    if (universeType === 'sp500') {
+      return [
+        'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'BRK.B', 'NVDA', 'JPM', 'JNJ',
+        'V', 'PG', 'UNH', 'HD', 'BAC', 'MA', 'DIS', 'ADBE', 'CRM', 'INTC'
+      ];
+    } else if (universeType === 'nasdaq100') {
+      return [
+        'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'NFLX', 'ADBE', 'PYPL',
+        'CMCSA', 'PEP', 'COST', 'INTC', 'CSCO', 'AVGO', 'TXN', 'QCOM', 'AMGN', 'AMD'
+      ];
+    } else {
+      return [
+        'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT',
+        'PG', 'MA', 'DIS', 'NFLX', 'INTC', 'VZ', 'CSCO', 'KO', 'PEP', 'MRK'
+      ];
     }
   }
   
   async isMarketOpen(): Promise<boolean> {
-    // Alpha Vantage doesn't have a market status API
-    // So we'll use a time-based check as a reasonable approximation
-    
-    // Default to weekday check as fallback
+    // Alpha Vantage doesn't provide a market status endpoint
+    // Use a simple time-based check
     const now = new Date();
     const day = now.getDay();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
     
-    // Simple check: market is open on weekdays
-    return day >= 1 && day <= 5;
+    // US markets are open Monday-Friday, 9:30 AM - 4:00 PM Eastern Time
+    if (day >= 1 && day <= 5) {
+      const totalMinutes = hour * 60 + minute;
+      const marketOpenMinutes = 9 * 60 + 30; // 9:30 AM
+      const marketCloseMinutes = 16 * 60; // 4:00 PM
+      
+      return totalMinutes >= marketOpenMinutes && totalMinutes < marketCloseMinutes;
+    }
+    
+    return false;
   }
 }
 
 /**
- * Tiingo Data Provider Adapter for Screeners
+ * Tiingo market data provider adapter
  */
-export class TiingoDataProviderAdapter implements ScreenerMarketDataProvider {
-  private tiingo: TiingoAPI;
-  public readonly provider = 'tiingo';
-  
+export class TiingoDataProviderAdapter extends BaseMarketDataProviderAdapter {
   constructor(integration?: ApiIntegration) {
-    this.tiingo = new TiingoAPI(integration);
-  }
-  
-  get isValid(): boolean {
-    return this.tiingo.isValid;
-  }
-  
-  async getHistoricalData(symbols: string | string[], period = '3mo', interval = '1d'): Promise<any> {
-    try {
-      // Convert to array if single symbol
-      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
-      
-      // For multiple symbols, fetch data for each and combine
-      const barsBySymbol: any = {};
-      
-      // Limit batch size to avoid rate limits
-      const batchSize = 10;
-      for (let i = 0; i < symbolArray.length; i += batchSize) {
-        const batch = symbolArray.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(async (symbol) => {
-          try {
-            // Get market data
-            const data = await this.tiingo.getHistoricalData(symbol, interval);
-            
-            // Store the data
-            if (data && data.bars && data.bars.length > 0) {
-              barsBySymbol[symbol] = data.bars;
-            }
-          } catch (error) {
-            console.error(`Error fetching Tiingo data for ${symbol}:`, error);
-          }
-        }));
-        
-        // Rate limiting - sleep between batches
-        if (i + batchSize < symbolArray.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      // Format data for screeners (pandas-like multiindex DataFrame)
-      const formattedData = {
-        symbols: Object.keys(barsBySymbol),
-        data: barsBySymbol,
-        provider: this.provider
-      };
-      
-      return formattedData;
-    } catch (error) {
-      console.error(`Error in TiingoDataProviderAdapter.getHistoricalData:`, error);
-      throw error;
+    super('tiingo');
+    
+    if (integration?.credentials?.apiKey) {
+      this.provider = new TiingoAPI(integration.credentials.apiKey);
+    } else if (process.env.TIINGO_API_KEY) {
+      this.provider = new TiingoAPI(process.env.TIINGO_API_KEY);
+    } else {
+      console.error('Tiingo API key not found');
+      this.provider = null;
     }
   }
   
-  async calculateIndicators(data: any): Promise<any> {
-    // This would be implemented in Python, but we expose the method for interface compatibility
-    return {
-      ...data,
-      message: 'Indicators will be calculated in Python'
-    };
+  async getHistoricalData(symbols: string[], period: string = '1mo', interval: string = '1d'): Promise<Record<string, any>> {
+    if (!this.isValid()) {
+      throw new Error('Tiingo API is not properly configured');
+    }
+    
+    const result: Record<string, any> = {};
+    
+    // Convert period to start/end dates
+    const now = new Date();
+    let startDate = new Date();
+    
+    if (period.endsWith('d')) {
+      const days = parseInt(period);
+      startDate.setDate(now.getDate() - days);
+    } else if (period.endsWith('mo')) {
+      const months = parseInt(period);
+      startDate.setMonth(now.getMonth() - months);
+    } else if (period.endsWith('y')) {
+      const years = parseInt(period);
+      startDate.setFullYear(now.getFullYear() - years);
+    }
+    
+    // Format dates
+    const formattedStartDate = startDate.toISOString().split('T')[0];
+    const formattedEndDate = now.toISOString().split('T')[0];
+    
+    // Convert interval to Tiingo format
+    let resampleFreq = 'daily';
+    if (interval === '1h') resampleFreq = 'hourly';
+    else if (interval === '1d') resampleFreq = 'daily';
+    
+    for (const symbol of symbols) {
+      try {
+        const data = await this.provider.getHistoricalData(
+          symbol,
+          formattedStartDate,
+          formattedEndDate,
+          resampleFreq
+        );
+        
+        result[symbol] = data;
+      } catch (error) {
+        console.error(`Error fetching historical data for ${symbol} from Tiingo:`, error);
+      }
+    }
+    
+    return result;
   }
   
-  async getStockUniverse(universeType = 'default'): Promise<string[]> {
+  async getQuote(symbol: string): Promise<any> {
+    if (!this.isValid()) {
+      throw new Error('Tiingo API is not properly configured');
+    }
+    
+    return this.provider.getQuote(symbol);
+  }
+  
+  async getStockUniverse(universeType: string = 'default'): Promise<string[]> {
+    if (!this.isValid()) {
+      throw new Error('Tiingo API is not properly configured');
+    }
+    
     try {
-      // Tiingo has supported tickers endpoint
-      const tickers = await this.tiingo.getSupportedTickers();
-      
-      // Limit to reasonable number based on universe type
-      if (universeType === 'default') {
-        return tickers.slice(0, 100);
+      // For specific universes, we'll use predefined lists
+      if (universeType === 'sp500') {
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'BRK.B', 'NVDA', 'JPM', 'JNJ',
+          'V', 'PG', 'UNH', 'HD', 'BAC', 'MA', 'DIS', 'ADBE', 'CRM', 'INTC'
+        ];
+      } else if (universeType === 'nasdaq100') {
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'NFLX', 'ADBE', 'PYPL',
+          'CMCSA', 'PEP', 'COST', 'INTC', 'CSCO', 'AVGO', 'TXN', 'QCOM', 'AMGN', 'AMD'
+        ];
       } else {
-        console.log(`${universeType} universe not specifically supported by Tiingo`);
-        return tickers.slice(0, 100);
+        return [
+          'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT',
+          'PG', 'MA', 'DIS', 'NFLX', 'INTC', 'VZ', 'CSCO', 'KO', 'PEP', 'MRK'
+        ];
       }
     } catch (error) {
-      console.error(`Error getting stock universe from Tiingo:`, error);
-      
-      // Fallback to default list
-      const defaultSymbols = [
-        'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'JPM'
-      ];
-      return defaultSymbols;
+      console.error('Error fetching stock universe from Tiingo:', error);
+      return [];
     }
   }
   
   async isMarketOpen(): Promise<boolean> {
-    // Tiingo doesn't have a market status API
-    // So we'll use a time-based check as a reasonable approximation
-    
-    // Default to weekday check as fallback
+    // Tiingo doesn't provide a market status endpoint
+    // Use a simple time-based check
     const now = new Date();
     const day = now.getDay();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
     
-    // Simple check: market is open on weekdays
-    return day >= 1 && day <= 5;
+    // US markets are open Monday-Friday, 9:30 AM - 4:00 PM Eastern Time
+    if (day >= 1 && day <= 5) {
+      const totalMinutes = hour * 60 + minute;
+      const marketOpenMinutes = 9 * 60 + 30; // 9:30 AM
+      const marketCloseMinutes = 16 * 60; // 4:00 PM
+      
+      return totalMinutes >= marketOpenMinutes && totalMinutes < marketCloseMinutes;
+    }
+    
+    return false;
   }
 }

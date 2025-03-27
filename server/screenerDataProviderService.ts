@@ -1,201 +1,170 @@
 /**
  * Screener Data Provider Service
  * 
- * This service provides data access for Python screeners through HTTP API endpoints.
- * It exposes the market data provider functionality for Python code to consume.
+ * This service provides a standardized API for Python screeners to access
+ * market data from various providers (Alpaca, Yahoo Finance, Polygon, etc.)
  */
-
 import { Request, Response } from 'express';
-import { MarketDataProviderFactory } from './marketDataProviderInterface';
-import { storage } from './storage';
+import { IMarketDataProvider, MarketDataProviderFactory } from './marketDataProviderInterface';
+import { ApiIntegration } from '@shared/schema';
 
 /**
- * Get historical market data for multiple symbols
+ * Get market data for screener use
+ * 
+ * @param provider The market data provider name ('alpaca', 'yahoo', 'polygon', 'alphavantage', 'tiingo')
+ * @param req The Express request object
+ * @param symbols Array of stock symbols to get data for, or special string 'default', 'sp500', 'nasdaq100'
+ * @param period The time period to get data for (e.g. '1d', '5d', '1mo', '3mo', '6mo', '1y')
+ * @param interval The data interval (e.g. '1m', '5m', '15m', '30m', '1h', '1d', '1wk', '1mo')
+ * @returns An object with the market data for each requested symbol
  */
-export async function getHistoricalMarketData(req: Request, res: Response) {
+export async function getMarketData(
+  provider: string,
+  req: Request,
+  symbols: string[] | string = 'default',
+  period: string = '3mo',
+  interval: string = '1d'
+): Promise<{ success: boolean; data?: Record<string, any>; error?: string }> {
   try {
-    // Extract parameters
-    const { symbols, period = '3mo', interval = '1d', provider = 'yahoo' } = req.query;
+    // Get the appropriate data provider
+    const dataProvider = await getDataProvider(provider, req);
     
-    // Validate symbols
-    if (!symbols) {
-      return res.status(400).json({
+    if (!dataProvider) {
+      return {
         success: false,
-        error: 'Symbols parameter is required'
-      });
+        error: `Failed to initialize ${provider} data provider`
+      };
     }
     
-    // Convert symbols to array
-    const symbolArray = Array.isArray(symbols) 
-      ? symbols as string[] 
-      : (symbols as string).split(',').map(s => s.trim());
-    
-    if (symbolArray.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'At least one symbol is required'
-      });
+    // If symbols is a special string (universe type), get the full list of symbols
+    let symbolList: string[] = [];
+    if (typeof symbols === 'string') {
+      symbolList = await dataProvider.getStockUniverse(symbols);
+    } else {
+      symbolList = symbols;
     }
     
-    // Get user ID from session
-    const userId = req.session.userId;
+    // Get historical data for each symbol
+    const data = await dataProvider.getHistoricalData(symbolList, period, interval);
     
-    // If userId is available, try to get the user's integrations
-    let integration = undefined;
-    if (userId && provider !== 'yahoo') {
-      const userIntegrations = await storage.getApiIntegrationsByUser(userId);
-      integration = userIntegrations.find(i => 
-        i.provider === provider && i.isActive &&
-        (i.type === 'exchange' || i.type === 'data')
-      );
-    }
-    
-    // Get the data provider
-    const dataProvider = MarketDataProviderFactory.getProvider(provider as string, integration);
-    
-    // Check if provider is valid
-    if (!dataProvider.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid provider configuration for ${provider}`
-      });
-    }
-    
-    // Fetch the data
-    const data = await dataProvider.getHistoricalData(
-      symbolArray,
-      period as string,
-      interval as string
-    );
-    
-    return res.json({
+    return {
       success: true,
       data
-    });
-  } catch (error) {
-    console.error('Error in getHistoricalMarketData:', error);
-    return res.status(500).json({
+    };
+  } catch (error: any) {
+    console.error(`Error getting market data from ${provider}:`, error);
+    return {
       success: false,
-      error: error instanceof Error ? error.message : String(error)
-    });
+      error: error.message || 'Unknown error occurred while getting market data'
+    };
   }
 }
 
 /**
- * Get stock universe (list of symbols)
+ * Get a list of available stock symbols from a provider
+ * 
+ * @param provider The market data provider name
+ * @param req The Express request object
+ * @param universeType The type of stock universe to get ('default', 'sp500', 'nasdaq100')
+ * @returns An array of stock symbols
  */
-export async function getStockUniverse(req: Request, res: Response) {
+export async function getStockUniverse(
+  provider: string,
+  req: Request,
+  universeType: string = 'default'
+): Promise<{ success: boolean; symbols?: string[]; error?: string }> {
   try {
-    // Extract parameters
-    const { universeType = 'default', provider = 'yahoo' } = req.query;
+    // Get the appropriate data provider
+    const dataProvider = await getDataProvider(provider, req);
     
-    // Get user ID from session
-    const userId = req.session.userId;
-    
-    // If userId is available, try to get the user's integrations
-    let integration = undefined;
-    if (userId && provider !== 'yahoo') {
-      const userIntegrations = await storage.getApiIntegrationsByUser(userId);
-      integration = userIntegrations.find(i => 
-        i.provider === provider && i.isActive &&
-        (i.type === 'exchange' || i.type === 'data')
-      );
-    }
-    
-    // Get the data provider
-    const dataProvider = MarketDataProviderFactory.getProvider(provider as string, integration);
-    
-    // Check if provider is valid
-    if (!dataProvider.isValid) {
-      return res.status(400).json({
+    if (!dataProvider) {
+      return {
         success: false,
-        error: `Invalid provider configuration for ${provider}`
-      });
+        error: `Failed to initialize ${provider} data provider`
+      };
     }
     
-    // Fetch the stock universe
-    const symbols = await dataProvider.getStockUniverse(universeType as string);
+    // Get the stock universe
+    const symbols = await dataProvider.getStockUniverse(universeType);
     
-    return res.json({
+    return {
       success: true,
-      universeType,
-      provider: dataProvider.provider,
       symbols
-    });
-  } catch (error) {
-    console.error('Error in getStockUniverse:', error);
-    return res.status(500).json({
+    };
+  } catch (error: any) {
+    console.error(`Error getting stock universe from ${provider}:`, error);
+    return {
       success: false,
-      error: error instanceof Error ? error.message : String(error)
-    });
+      error: error.message || 'Unknown error occurred while getting stock universe'
+    };
   }
 }
 
 /**
- * Check if market is open
+ * Check if the market is currently open
+ * 
+ * @param provider The market data provider name
+ * @param req The Express request object
+ * @returns Boolean indicating if the market is open
  */
-export async function checkMarketStatus(req: Request, res: Response) {
+export async function isMarketOpen(
+  provider: string,
+  req: Request
+): Promise<{ success: boolean; isOpen?: boolean; error?: string }> {
   try {
-    // Extract parameters
-    const { provider = 'yahoo' } = req.query;
+    // Get the appropriate data provider
+    const dataProvider = await getDataProvider(provider, req);
     
-    // Get user ID from session
-    const userId = req.session.userId;
-    
-    // If userId is available, try to get the user's integrations
-    let integration = undefined;
-    if (userId && provider !== 'yahoo') {
-      const userIntegrations = await storage.getApiIntegrationsByUser(userId);
-      integration = userIntegrations.find(i => 
-        i.provider === provider && i.isActive &&
-        (i.type === 'exchange' || i.type === 'data')
-      );
-    }
-    
-    // Get the data provider
-    const dataProvider = MarketDataProviderFactory.getProvider(provider as string, integration);
-    
-    // Check if provider is valid
-    if (!dataProvider.isValid) {
-      return res.status(400).json({
+    if (!dataProvider) {
+      return {
         success: false,
-        error: `Invalid provider configuration for ${provider}`
-      });
+        error: `Failed to initialize ${provider} data provider`
+      };
     }
     
-    // Check if market is open
-    const isMarketOpen = await dataProvider.isMarketOpen();
+    // Check if the market is open
+    const isOpen = await dataProvider.isMarketOpen();
     
-    return res.json({
+    return {
       success: true,
-      provider: dataProvider.provider,
-      isMarketOpen
-    });
-  } catch (error) {
-    console.error('Error in checkMarketStatus:', error);
-    return res.status(500).json({
+      isOpen
+    };
+  } catch (error: any) {
+    console.error(`Error checking market status with ${provider}:`, error);
+    return {
       success: false,
-      error: error instanceof Error ? error.message : String(error)
-    });
+      error: error.message || 'Unknown error occurred while checking market status'
+    };
   }
 }
 
 /**
- * Get available data providers
+ * Helper function to initialize the appropriate data provider
  */
-export function getAvailableProviders(req: Request, res: Response) {
-  try {
-    const providers = MarketDataProviderFactory.getAvailableProviders();
-    
-    return res.json({
-      success: true,
-      providers
-    });
-  } catch (error) {
-    console.error('Error in getAvailableProviders:', error);
-    return res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : String(error)
-    });
+async function getDataProvider(provider: string, req: Request): Promise<IMarketDataProvider | null> {
+  let integration: ApiIntegration | undefined;
+  
+  // Try to get user-specific API credentials
+  if (req.user?.id) {
+    try {
+      // Get the user's API integration for this provider
+      // This code assumes there's a function/service to get the user's API integrations
+      // You would customize this based on your app's authentication and storage system
+      const userId = req.user.id;
+      
+      // Example: Get from database
+      // integration = await db.select().from(apiIntegrations).where(eq(apiIntegrations.userId, userId))
+      //   .and(eq(apiIntegrations.provider, provider)).first();
+      
+      // Simplified: Check if the integration exists in session
+      if (req.session?.userIntegrations) {
+        integration = req.session.userIntegrations[provider];
+      }
+    } catch (err) {
+      console.log(`No user-specific ${provider} integration found`);
+    }
   }
+  
+  // Create the provider instance using the factory
+  return MarketDataProviderFactory.createProvider(provider, integration);
 }

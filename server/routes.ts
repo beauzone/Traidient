@@ -2872,9 +2872,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Initialize the provider factory
-      const providerFactory = new MarketDataProviderFactory();
-      const dataProvider = providerFactory.createProvider(provider, integration);
+      // Use the static factory method to create the provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
       
       // Verify provider is valid
       if (!dataProvider || !dataProvider.isValid()) {
@@ -2930,9 +2929,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Initialize the provider factory
-      const providerFactory = new MarketDataProviderFactory();
-      const dataProvider = providerFactory.createProvider(provider, integration);
-      
+      // Use the static factory method to create the provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
       // Verify provider is valid
       if (!dataProvider || !dataProvider.isValid()) {
         return res.status(400).json({ 
@@ -2982,11 +2980,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Initialize the provider factory
-      const providerFactory = new MarketDataProviderFactory();
-      const dataProvider = providerFactory.createProvider(provider, integration);
-      
-      // Verify provider is valid
+      // Use the static factory method to create the provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
       if (!dataProvider || !dataProvider.isValid()) {
         return res.status(400).json({ 
           success: false, 
