@@ -5,16 +5,31 @@ import DeploymentPanel from "@/components/live-trading/DeploymentPanel";
 import PositionsTable from "@/components/live-trading/PositionsTable";
 import OrdersTable from "@/components/live-trading/OrdersTable";
 import StrategyMonitor from "@/components/live-trading/StrategyMonitor";
+import StockSearch from "@/components/market-data/StockSearch";
 import { fetchData, updateData } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Strategy, Deployment } from "@/types";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Strategy, Deployment } from "../types";
+
+interface WatchlistItem {
+  id: number;
+  symbol: string;
+  name: string;
+  lastPrice: string;
+  change: string;
+  changePercent: string;
+  volume: string;
+  marketCap: string;
+  isPositive: boolean;
+}
 
 const LiveTradingPage = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<number | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   // Fetch strategies
   const { data: strategies = [] } = useQuery({
@@ -35,6 +50,12 @@ const LiveTradingPage = () => {
     queryFn: () => fetchData<Deployment>(`/api/deployments/${selectedDeploymentId}`),
     enabled: !!selectedDeploymentId,
     refetchInterval: 10000, // Refresh every 10 seconds when a deployment is selected
+  });
+
+  // Fetch watchlist data
+  const { data: watchlist = [] } = useQuery({
+    queryKey: ['/api/watchlist'],
+    queryFn: () => fetchData<WatchlistItem[]>('/api/watchlist'),
   });
 
   // Update deployment status mutation
@@ -67,6 +88,12 @@ const LiveTradingPage = () => {
     updateDeploymentStatus.mutate({ id: deploymentId, status: newStatus });
   };
 
+  // Handle symbol selection
+  const handleSymbolSelect = (symbol: string) => {
+    setSelectedSymbol(symbol);
+    // Could add additional handling here, like automatically opening a trade dialog
+  };
+
   return (
     <MainLayout title="Live Trading">
       <div className="flex justify-between items-center mb-6">
@@ -78,41 +105,91 @@ const LiveTradingPage = () => {
         </div>
       </div>
       <div className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 w-full max-w-md">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="positions">Positions</TabsTrigger>
-            <TabsTrigger value="orders">Orders</TabsTrigger>
-            <TabsTrigger value="monitor">Monitor</TabsTrigger>
-          </TabsList>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Left sidebar with search and watchlist */}
+          <div className="md:col-span-1">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium mb-1">Search</h3>
+                <p className="text-sm text-muted-foreground mb-3">Find assets to analyze</p>
+                <StockSearch onSymbolSelect={handleSymbolSelect} watchlist={watchlist} />
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-medium mb-1">Watchlist</h3>
+                <p className="text-sm text-muted-foreground mb-3">Keep track of interesting stocks</p>
+                
+                <div className="rounded-md border">
+                  {watchlist.length === 0 ? (
+                    <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
+                      No stocks in watchlist
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {watchlist.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="flex items-center justify-between p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => handleSymbolSelect(item.symbol)}
+                        >
+                          <div>
+                            <div className="font-medium">{item.symbol}</div>
+                            <div className="text-xs text-muted-foreground truncate max-w-[150px]">{item.name}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className={item.isPositive ? "text-green-500" : "text-negative"}>{item.lastPrice}</div>
+                            <div className={`text-xs ${item.isPositive ? "text-green-500" : "text-negative"}`}>
+                              {item.isPositive ? "+" : ""}{item.changePercent}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <TabsContent value="overview" className="space-y-6">
-            <DeploymentPanel 
-              strategies={strategies}
-              deployments={deployments}
-              onSelectDeployment={handleSelectDeployment}
-              onStatusChange={handleStatusChange}
-              isLoading={isLoadingDeployments}
-              selectedDeploymentId={selectedDeploymentId}
-            />
-          </TabsContent>
+          {/* Main content area */}
+          <div className="md:col-span-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-6">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="positions">Positions</TabsTrigger>
+                <TabsTrigger value="orders">Orders</TabsTrigger>
+                <TabsTrigger value="monitor">Monitor</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="positions" className="space-y-6">
-            <PositionsTable />
-          </TabsContent>
+              <TabsContent value="overview" className="space-y-6">
+                <DeploymentPanel 
+                  strategies={strategies}
+                  deployments={deployments}
+                  onSelectDeployment={handleSelectDeployment}
+                  onStatusChange={handleStatusChange}
+                  isLoading={isLoadingDeployments}
+                  selectedDeploymentId={selectedDeploymentId}
+                />
+              </TabsContent>
 
-          <TabsContent value="orders" className="space-y-6">
-            <OrdersTable />
-          </TabsContent>
+              <TabsContent value="positions" className="space-y-6">
+                <PositionsTable />
+              </TabsContent>
 
-          <TabsContent value="monitor" className="space-y-6">
-            <StrategyMonitor 
-              strategies={strategies}
-              deployments={deployments}
-              selectedDeployment={selectedDeployment}
-            />
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="orders" className="space-y-6">
+                <OrdersTable />
+              </TabsContent>
+
+              <TabsContent value="monitor" className="space-y-6">
+                <StrategyMonitor 
+                  strategies={strategies}
+                  deployments={deployments}
+                  selectedDeployment={selectedDeployment}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </MainLayout>
   );

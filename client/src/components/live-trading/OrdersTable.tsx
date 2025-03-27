@@ -288,7 +288,7 @@ const OrdersTable = () => {
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button variant="default">
                 <Plus className="mr-2 h-4 w-4" /> Place Order
               </Button>
             </DialogTrigger>
@@ -556,14 +556,28 @@ const OrdersTable = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={orderTab} onValueChange={setOrderTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-md">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="open">Open</TabsTrigger>
-            <TabsTrigger value="filled">Filled</TabsTrigger>
-            <TabsTrigger value="canceled">Canceled</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="mb-6">
+          <div className="inline-flex rounded-lg shadow-sm bg-muted/50 p-1">
+            {['open', 'filled', 'canceled'].map((tab) => (
+              <button
+                key={tab}
+                className={`px-4 py-2 text-sm font-medium rounded-md relative transition-all ${
+                  orderTab === tab 
+                    ? 'bg-card text-foreground shadow-sm' 
+                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+                onClick={() => setOrderTab(tab)}
+              >
+                {tab === 'open' && orders.filter(o => ["open", "new", "accepted"].includes(o.status)).length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                    {orders.filter(o => ["open", "new", "accepted"].includes(o.status)).length}
+                  </span>
+                )}
+                <span className="capitalize">{tab}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center items-center py-8">
@@ -580,78 +594,92 @@ const OrdersTable = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Side</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-medium">Symbol</TableHead>
+                  <TableHead className="font-medium">Side</TableHead>
+                  <TableHead className="font-medium">Type</TableHead>
+                  <TableHead className="font-medium">Quantity</TableHead>
+                  <TableHead className="font-medium">Price</TableHead>
+                  <TableHead className="font-medium">Status</TableHead>
+                  <TableHead className="font-medium">Created At</TableHead>
+                  <TableHead className="font-medium">Source</TableHead>
+                  <TableHead className="text-right font-medium">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>{order.symbol}</TableCell>
-                    <TableCell>
-                      <Badge variant={order.side === 'buy' ? 'default' : 'destructive'}>
-                        {order.side.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{order.type}</TableCell>
-                    <TableCell>
-                      {order.filledQuantity > 0 && order.filledQuantity < order.quantity ? (
-                        <span>{order.filledQuantity}/{order.quantity}</span>
-                      ) : (
-                        <span>{order.quantity}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {order.type === 'market' ? (
-                        'Market'
-                      ) : order.type === 'limit' ? (
-                        `$${order.limitPrice}`
-                      ) : order.type === 'stop' ? (
-                        `Stop $${order.stopPrice}`
-                      ) : order.type === 'stop_limit' ? (
-                        `Stop $${order.stopPrice} / Limit $${order.limitPrice}`
-                      ) : order.type === 'bracket' || (order.bracket && order.type === 'limit') ? (
-                        <div className="text-xs">
-                          <div>Entry: ${order.limitPrice}</div>
-                          <div>TP: ${order.bracket?.takeProfitPrice || order.takeProfitPrice || 'N/A'}</div>
-                          <div>SL: ${order.bracket?.stopLossPrice || order.stopLossPrice || 'N/A'}</div>
-                        </div>
-                      ) : (
-                        order.type
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>{formatDate(order.createdAt)}</TableCell>
-                    <TableCell>
-                      {order.submittedBy === 'user' ? (
-                        <Badge variant="outline">Manual</Badge>
-                      ) : (
-                        <Badge variant="outline">{order.strategyName || 'System'}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {order.status === 'open' && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => cancelOrder.mutate(order.id)}
-                          disabled={cancelOrder.isPending}
-                          title="Cancel Order"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                {filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center">
+                      No orders found.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredOrders.map((order) => (
+                    <TableRow key={order.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">{order.symbol}</TableCell>
+                      <TableCell>
+                        <Badge variant={order.side === 'buy' ? 'default' : 'destructive'} className={order.side === 'sell' ? 'bg-red-500' : ''}>
+                          {order.side.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="capitalize">{order.type.replace('_', ' ')}</span>
+                      </TableCell>
+                      <TableCell>
+                        {order.filledQuantity > 0 && order.filledQuantity < order.quantity ? (
+                          <span>{order.filledQuantity}/{order.quantity}</span>
+                        ) : (
+                          <span>{order.quantity}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {order.type === 'market' ? (
+                          'Market'
+                        ) : order.type === 'limit' ? (
+                          `$${order.limitPrice?.toFixed(2)}`
+                        ) : order.type === 'stop' ? (
+                          `Stop $${order.stopPrice?.toFixed(2)}`
+                        ) : order.type === 'stop_limit' ? (
+                          <div className="text-xs">
+                            <div>Stop: ${order.stopPrice?.toFixed(2)}</div>
+                            <div>Limit: ${order.limitPrice?.toFixed(2)}</div>
+                          </div>
+                        ) : order.type === 'bracket' || (order.bracket && order.type === 'limit') ? (
+                          <div className="text-xs">
+                            <div>Entry: ${order.limitPrice?.toFixed(2)}</div>
+                            <div className="text-green-500">TP: ${(order.bracket?.takeProfitPrice || order.takeProfitPrice)?.toFixed(2) || 'N/A'}</div>
+                            <div className="text-negative">SL: ${(order.bracket?.stopLossPrice || order.stopLossPrice)?.toFixed(2) || 'N/A'}</div>
+                          </div>
+                        ) : (
+                          order.type
+                        )}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell>{formatDate(order.createdAt)}</TableCell>
+                      <TableCell>
+                        {order.submittedBy === 'user' ? (
+                          <Badge variant="outline">Manual</Badge>
+                        ) : (
+                          <Badge variant="outline">{order.strategyName || 'System'}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {order.status === 'open' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => cancelOrder.mutate(order.id)}
+                            disabled={cancelOrder.isPending}
+                            title="Cancel Order"
+                            className="hover:bg-destructive/10"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
