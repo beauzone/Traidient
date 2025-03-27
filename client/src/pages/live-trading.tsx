@@ -62,7 +62,7 @@ export default function LiveTrading() {
           </div>
 
           {/* Right Side - Chart Controls */}
-          <div className="flex gap-2 ml-auto">
+          <div className="flex gap-2 ml-auto items-center">
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-24">
                 <SelectValue placeholder="Time Range" />
@@ -73,6 +73,47 @@ export default function LiveTrading() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={timeInterval} onValueChange={setTimeInterval}>
+              <SelectTrigger className="w-24">
+                <SelectValue placeholder="Interval" />
+              </SelectTrigger>
+              <SelectContent>
+                {["1min", "5min", "15min", "30min", "1H", "1D"].map((interval) => (
+                  <SelectItem key={interval} value={interval}>{interval}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex items-center space-x-1 border rounded-md p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => setHideIndicators(!hideIndicators)}
+              >
+                Indicators
+              </Button>
+              
+              {!hideIndicators && (
+                <Select
+                  value={selectedIndicators[0] || ""}
+                  onValueChange={(value) => setSelectedIndicators([value])}
+                >
+                  <SelectTrigger className="w-24 h-8">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["SMA", "EMA", "MACD", "RSI", "BB"].map((indicator) => (
+                      <SelectItem key={indicator} value={indicator}>
+                        {indicator}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
 
             <Select value={timeInterval} onValueChange={setTimeInterval}>
               <SelectTrigger className="w-24">
@@ -109,22 +150,45 @@ export default function LiveTrading() {
         </div>
 
         {/* Chart Area */}
-        <Card className="flex-grow relative" ref={chartContainerRef}>
-          <div className="absolute top-2 right-2 flex gap-2">
-            <Button variant="ghost" size="icon" onClick={handleZoomIn}>
+        <Card className="flex-grow relative min-h-[600px]" ref={chartContainerRef}>
+          <div className="absolute top-2 right-2 flex gap-2 z-10">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleZoomIn}
+              className="bg-background/90 backdrop-blur-sm"
+            >
               <ZoomIn className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleZoomOut}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleZoomOut}
+              className="bg-background/90 backdrop-blur-sm"
+            >
               <ZoomOut className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleResetZoom}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleResetZoom}
+              className="bg-background/90 backdrop-blur-sm"
+            >
               <RotateCcw className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={toggleFullscreen}
+              className="bg-background/90 backdrop-blur-sm"
+            >
               <Maximize2 className="h-4 w-4" />
             </Button>
           </div>
-          <div className="w-full h-full" style={{ transform: `scale(${zoomLevel})` }}>
+          <div 
+            className="w-full h-full transition-transform duration-200 ease-in-out" 
+            style={{ transform: `scale(${zoomLevel})` }}
+          >
             {/* TradingView chart will be integrated here */}
           </div>
         </Card>
