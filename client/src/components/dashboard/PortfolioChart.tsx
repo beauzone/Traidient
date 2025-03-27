@@ -35,43 +35,92 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
     return timeRange === '1D' && data?.length > 0 && data[0].date.includes('T');
   }, [timeRange, data]);
 
-  // Format the tooltip timestamp with proper time information
+  // Format the tooltip timestamp with proper time information in Eastern Time for market hours
   const formatTooltipTime = (timestamp: string) => {
     const date = new Date(timestamp);
     
+    // Eastern Time (ET) timezone for market hours
+    const easternOptions: Intl.DateTimeFormatOptions = {
+      timeZone: 'America/New_York'
+    };
+    
     if (isIntraday) {
-      return date.toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // Properly typed format options
+      const options: Intl.DateTimeFormatOptions = {
+        ...easternOptions,
+        month: "short" as const,
+        day: "numeric" as const,
+        hour: "2-digit" as const,
+        minute: "2-digit" as const,
+        hour12: false // Use 24-hour format for consistency
+      };
+      return new Intl.DateTimeFormat('en-US', options).format(date);
     } else {
-      return date.toLocaleDateString([], {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
+      // Use standard date format for non-intraday views
+      const options: Intl.DateTimeFormatOptions = {
+        month: "short" as const,
+        day: "numeric" as const,
+        year: "numeric" as const
+      };
+      return new Intl.DateTimeFormat('en-US', options).format(date);
     }
   };
 
   // Helper to format dates on the X-axis based on selected time range
+  // Using Eastern Time (ET) for market hours
   const formatXAxis = (tickItem: string) => {
     const date = new Date(tickItem);
+    
+    // Create formatter with explicit Eastern Time (ET) timezone
+    // for market hours (9:30 AM - 4:00 PM ET)
+    const easternOptions: Intl.DateTimeFormatOptions = {
+      timeZone: 'America/New_York'
+    };
     
     switch(timeRange) {
       case '1D':
         if (isIntraday) {
-          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          // For intraday, show time in Eastern Time (market hours timezone)
+          // Properly typed format options
+          const options: Intl.DateTimeFormatOptions = {
+            ...easternOptions,
+            hour: "2-digit" as const, 
+            minute: "2-digit" as const,
+            hour12: false // Use 24-hour format
+          };
+          return new Intl.DateTimeFormat('en-US', options).format(date);
         }
-        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        // 1D non-intraday view - also use Eastern Time for market data
+        const options1d: Intl.DateTimeFormatOptions = {
+          ...easternOptions, // Use Eastern Time for market data
+          month: "short" as const,
+          day: "numeric" as const
+        };
+        return new Intl.DateTimeFormat('en-US', options1d).format(date);
       case '1W':
-        return date.toLocaleDateString([], { weekday: 'short' });
+        // Weekly view - show day of week with Eastern Time for market data
+        const options1w: Intl.DateTimeFormatOptions = {
+          ...easternOptions, // Use Eastern Time for market data
+          weekday: "short" as const
+        };
+        return new Intl.DateTimeFormat('en-US', options1w).format(date);
       case '1M':
-        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+        // Monthly view - show day and month with Eastern Time for market data
+        const options1m: Intl.DateTimeFormatOptions = {
+          ...easternOptions, // Use Eastern Time for market data
+          day: "numeric" as const,
+          month: "short" as const
+        };
+        return new Intl.DateTimeFormat('en-US', options1m).format(date);
       case '1Y':
       case 'ALL':
-        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
+        // Yearly/All-time view - show month and year with Eastern Time for market data
+        const optionsYear: Intl.DateTimeFormatOptions = {
+          ...easternOptions, // Use Eastern Time for market data
+          month: "short" as const,
+          year: "2-digit" as const
+        };
+        return new Intl.DateTimeFormat('en-US', optionsYear).format(date);
       default:
         return tickItem;
     }
