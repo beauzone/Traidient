@@ -109,23 +109,28 @@ const LiveTradingPage = () => {
           {/* Left sidebar with search and watchlist */}
           <div className="md:col-span-1">
             <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium mb-1">Search</h3>
-                <p className="text-sm text-muted-foreground mb-3">Find assets to analyze</p>
-                <StockSearch onSymbolSelect={handleSymbolSelect} watchlist={watchlist} />
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Search</CardTitle>
+                  <CardDescription>Find assets to analyze</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <StockSearch onSymbolSelect={handleSymbolSelect} watchlist={watchlist} />
+                </CardContent>
+              </Card>
               
-              <div>
-                <h3 className="text-lg font-medium mb-1">Watchlist</h3>
-                <p className="text-sm text-muted-foreground mb-3">Keep track of interesting stocks</p>
-                
-                <div className="rounded-md border">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Watchlist</CardTitle>
+                  <CardDescription>Keep track of interesting stocks</CardDescription>
+                </CardHeader>
+                <CardContent>
                   {watchlist.length === 0 ? (
                     <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
                       No stocks in watchlist
                     </div>
                   ) : (
-                    <div className="divide-y">
+                    <div className="divide-y border rounded-md">
                       {watchlist.map((item) => (
                         <div 
                           key={item.id} 
@@ -146,8 +151,8 @@ const LiveTradingPage = () => {
                       ))}
                     </div>
                   )}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
