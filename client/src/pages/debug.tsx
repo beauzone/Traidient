@@ -295,6 +295,15 @@ export default function DebugPage() {
                   <li>Test the API to check if authentication works</li>
                   <li>Check browser console for detailed logs</li>
                 </ol>
+                <div className="mt-3">
+                  <Button 
+                    onClick={() => window.location.href = '/provider-test'} 
+                    variant="secondary" 
+                    size="sm"
+                  >
+                    Go to Provider Test Page
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
