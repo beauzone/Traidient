@@ -10,6 +10,7 @@ import TiingoAPI from "./tiingo";
 import { startMarketDataStream, stopMarketDataStream, getHistoricalMarketData } from "./marketDataService";
 import { createMarketDataProvider } from './marketDataProviders';
 import { runBacktest } from './backtestService';
+import { MarketDataProviderFactory } from './marketDataProviderInterface';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
@@ -2838,6 +2839,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Market Data Provider API for Python Screeners
+  
+  // Get historical market data
+  app.get('/api/market-data/historical', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const symbols = req.query.symbols as string;
+      const period = req.query.period as string || '3mo';
+      const interval = req.query.interval as string || '1d';
+      const provider = req.query.provider as string || 'yahoo';
+      
+      if (!symbols) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Missing required parameter: symbols' 
+        });
+      }
+      
+      // Get the provider adapter
+      let integration = undefined;
+      
+      // If provider is not yahoo (which doesn't need credentials), get the user's API integration
+      if (provider !== 'yahoo') {
+        try {
+          integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        } catch (err) {
+          console.log(`No user-specific ${provider} integration found`);
+        }
+      }
+      
+      // Initialize the provider factory
+      const providerFactory = new MarketDataProviderFactory();
+      const dataProvider = providerFactory.createProvider(provider, integration);
+      
+      // Verify provider is valid
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
+      }
+      
+      // Get the historical data
+      const symbolsList = symbols.split(',').map(s => s.trim());
+      const data = await dataProvider.getHistoricalData(symbolsList, period, interval);
+      
+      // Format the response
+      return res.status(200).json({
+        success: true,
+        data: {
+          symbols: symbolsList,
+          data,
+          provider
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error fetching historical market data:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+  
+  // Get stock universe
+  app.get('/api/market-data/universe', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const universeType = req.query.universeType as string || 'default';
+      const provider = req.query.provider as string || 'yahoo';
+      
+      // Get the provider adapter
+      let integration = undefined;
+      
+      // If provider is not yahoo (which doesn't need credentials), get the user's API integration
+      if (provider !== 'yahoo') {
+        try {
+          integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        } catch (err) {
+          console.log(`No user-specific ${provider} integration found`);
+        }
+      }
+      
+      // Initialize the provider factory
+      const providerFactory = new MarketDataProviderFactory();
+      const dataProvider = providerFactory.createProvider(provider, integration);
+      
+      // Verify provider is valid
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
+      }
+      
+      // Get the stock universe
+      const symbols = await dataProvider.getStockUniverse(universeType);
+      
+      // Format the response
+      return res.status(200).json({
+        success: true,
+        symbols,
+        universeType,
+        provider
+      });
+      
+    } catch (error) {
+      console.error('Error fetching stock universe:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+  
+  // Check market status
+  app.get('/api/market-data/status', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const provider = req.query.provider as string || 'yahoo';
+      
+      // Get the provider adapter
+      let integration = undefined;
+      
+      // If provider is not yahoo (which doesn't need credentials), get the user's API integration
+      if (provider !== 'yahoo') {
+        try {
+          integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        } catch (err) {
+          console.log(`No user-specific ${provider} integration found`);
+        }
+      }
+      
+      // Initialize the provider factory
+      const providerFactory = new MarketDataProviderFactory();
+      const dataProvider = providerFactory.createProvider(provider, integration);
+      
+      // Verify provider is valid
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
+      }
+      
+      // Check if market is open
+      const isMarketOpen = await dataProvider.isMarketOpen();
+      
+      // Format the response
+      return res.status(200).json({
+        success: true,
+        isMarketOpen,
+        provider
+      });
+      
+    } catch (error) {
+      console.error('Error checking market status:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+  
   // Direct Screener Execution (bypasses template issues)
   app.post('/api/direct-screener', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
