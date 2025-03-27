@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useState, useMemo, useEffect } from "react";
 
@@ -237,7 +237,11 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
           <div className="flex items-baseline">
             <h2 className="text-2xl font-semibold">{currentValue}</h2>
             <span className={`ml-2 text-sm font-medium flex items-center ${change.isPositive ? 'text-secondary' : 'text-destructive'}`}>
-              <ArrowUpRight className="mr-1 h-4 w-4" />
+              {change.isPositive ? (
+                <ArrowUpRight className="mr-1 h-4 w-4" />
+              ) : (
+                <ArrowDownRight className="mr-1 h-4 w-4" />
+              )}
               {change.value} ({change.percentage})
             </span>
           </div>
