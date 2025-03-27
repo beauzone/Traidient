@@ -1586,135 +1586,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Symbol is required' });
       }
       
-      // Check if market is open using our Yahoo Finance API
-      const isMarketOpen = yahooFinance.isMarketOpen();
+      // Get the provider from query parameters, default to alpaca
+      const provider = (req.query.provider as string)?.toLowerCase() || 'alpaca';
+      console.log(`Using provider: ${provider} for quote data`);
       
-      if (isMarketOpen) {
-        try {
-          // If market is open, first try to get real-time data from Alpaca API
-          // Try to get user-specific API integration for market data, fallback to environment variables
-          let alpacaAPI;
-          try {
-            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-            alpacaAPI = new AlpacaAPI(alpacaIntegration);
-            console.log("Using user's Alpaca API integration");
-          } catch (err) {
-            console.log("No user-specific Alpaca integration found, using environment variables");
-            alpacaAPI = new AlpacaAPI();
-          }
-          
-          // Get asset information
-          const assetInfo = await alpacaAPI.getAssetInformation(symbol);
-          
-          // Get the latest quote from Alpaca
-          const quoteData = await alpacaAPI.getQuote(symbol);
-          const quote = quoteData.quote;
-          
-          // Calculate price change from previous day (this is simplified)
-          const price = quote.ap || quote.bp || 100; // Ask price or bid price
-          const prevPrice = price * (1 - (Math.random() * 0.05 - 0.025)); // For demonstration
-          const change = price - prevPrice;
-          const changePercent = (change / prevPrice) * 100;
-          
-          const responseQuote = {
-            symbol: symbol,
-            name: assetInfo.name || symbol,
-            price: price,
-            change: change,
-            changePercent: changePercent,
-            open: price * (1 - Math.random() * 0.02),
-            high: price * (1 + Math.random() * 0.02),
-            low: price * (1 - Math.random() * 0.03),
-            volume: Math.floor(Math.random() * 10000000),
-            marketCap: Math.floor(Math.random() * 1000000000000),
-            peRatio: 15 + Math.random() * 25,
-            dividend: Math.random() * 3,
-            eps: 5 + Math.random() * 15,
-            exchange: assetInfo.exchange || "NASDAQ",
-            isSimulated: false,
-            dataSource: "alpaca"
-          };
-          
-          res.json(responseQuote);
-          return;
-        } catch (alpacaError) {
-          console.log(`Alpaca API error for ${symbol}, falling back to Yahoo Finance:`, alpacaError);
-          // Fall through to Yahoo Finance if Alpaca fails
-        }
+      // Get API integration for the selected provider
+      let integration;
+      try {
+        integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        console.log(`Using user's ${provider} API integration`);
+      } catch (err: unknown) {
+        console.log(`No user-specific ${provider} integration found, using environment variables`);
+      }
+      
+      // Use the factory to create the appropriate provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
+      
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
       }
       
       try {
-        // During non-market hours or if Alpaca fails, get data from Yahoo Finance
-        console.log(`Using Yahoo Finance for ${symbol} during non-market hours or as fallback`);
-        const quoteData = await yahooFinance.getQuote(symbol);
+        // Get quote data from the provider
+        const quoteData = await dataProvider.getQuote(symbol);
+        
+        // Add the data source to the response
+        quoteData.dataSource = provider;
+        
         res.json(quoteData);
         return;
-      } catch (yahooError) {
-        console.log(`Yahoo Finance API error for ${symbol}, falling back to simulation:`, yahooError);
+      } catch (providerError) {
+        console.error(`Error getting quote for ${symbol} from ${provider}:`, providerError);
         
-        // Reference prices as a last resort fallback
-        const referencePrices: Record<string, any> = {
-          'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
-          'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
-          'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
-          'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
-          'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
-          'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
-          'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
-          'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
-          'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
-          'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
-          'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
-          'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
-          'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
-          'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
-          'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
-          'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
-          'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
-          'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
-          'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
-          'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
-          'PLTR': { price: 24.30, name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
-          'CRWD': { price: 322.00, name: 'CrowdStrike Holdings Inc.', exchange: 'NASDAQ' },
-          'PANS': { price: 688.24, name: 'Palo Alto Networks Inc.', exchange: 'NASDAQ' }
-        };
+        // Try Yahoo Finance as a fallback for all providers except Yahoo itself
+        if (provider !== 'yahoo') {
+          try {
+            console.log(`Falling back to Yahoo Finance for ${symbol}`);
+            const yahooProvider = MarketDataProviderFactory.createProvider('yahoo');
+            if (yahooProvider) {
+              const yahooQuoteData = await yahooProvider.getQuote(symbol);
+              yahooQuoteData.dataSource = 'yahoo';
+              res.json(yahooQuoteData);
+              return;
+            }
+          } catch (yahooError) {
+            console.error(`Yahoo Finance fallback error for ${symbol}:`, yahooError);
+          }
+        }
         
-        // Fall back to reference data as a last resort
-        const upperSymbol = symbol.toUpperCase();
-        const refData = referencePrices[upperSymbol];
-        const basePrice = refData?.price || 100 + Math.random() * 900;
-        const name = refData?.name || symbol;
-        const exchange = refData?.exchange || "NASDAQ";
-        
-        // Add a small random variation to the price (±1%)
-        const priceVariation = basePrice * 0.01 * (Math.random() * 2 - 1);
-        const currentPrice = basePrice + priceVariation;
-        
-        // Calculate a plausible daily change (±2%)
-        const changeDirection = Math.random() > 0.5 ? 1 : -1;
-        const changeAmount = basePrice * (Math.random() * 0.02) * changeDirection;
-        const changePercent = (changeAmount / basePrice) * 100;
-        
-        const responseQuote = {
-          symbol: upperSymbol,
-          name: name,
-          price: currentPrice,
-          change: parseFloat(changeAmount.toFixed(2)),
-          changePercent: parseFloat(changePercent.toFixed(2)),
-          open: basePrice - basePrice * 0.005 * (Math.random() * 2 - 1),
-          high: basePrice + basePrice * 0.01 * Math.random(),
-          low: basePrice - basePrice * 0.01 * Math.random(),
-          volume: Math.floor(Math.random() * 10000000),
-          marketCap: Math.floor(basePrice * 1000000000 * (1 + Math.random())),
-          peRatio: 15 + Math.random() * 25,
-          dividend: Math.random() * 3,
-          eps: 5 + Math.random() * 15,
-          exchange: exchange,
-          isSimulated: true,
-          dataSource: "reference"
-        };
-        
-        res.json(responseQuote);
+        try {
+          // Reference prices as a last resort fallback
+          const referencePrices: Record<string, any> = {
+            'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
+            'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+            'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
+            'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+            'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+            'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+            'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
+            'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+            'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
+            'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
+            'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
+            'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+            'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
+            'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
+            'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
+            'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
+            'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
+            'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
+            'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
+            'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
+            'PLTR': { price: 24.30, name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
+            'CRWD': { price: 322.00, name: 'CrowdStrike Holdings Inc.', exchange: 'NASDAQ' },
+            'PANS': { price: 688.24, name: 'Palo Alto Networks Inc.', exchange: 'NASDAQ' }
+          };
+          
+          // Fall back to reference data as a last resort
+          const upperSymbol = symbol.toUpperCase();
+          const refData = referencePrices[upperSymbol];
+          const basePrice = refData?.price || 100 + Math.random() * 900;
+          const name = refData?.name || symbol;
+          const exchange = refData?.exchange || "NASDAQ";
+          
+          // Add a small random variation to the price (±1%)
+          const priceVariation = basePrice * 0.01 * (Math.random() * 2 - 1);
+          const currentPrice = basePrice + priceVariation;
+          
+          // Calculate a plausible daily change (±2%)
+          const changeDirection = Math.random() > 0.5 ? 1 : -1;
+          const changeAmount = basePrice * (Math.random() * 0.02) * changeDirection;
+          const changePercent = (changeAmount / basePrice) * 100;
+          
+          const responseQuote = {
+            symbol: upperSymbol,
+            name: name,
+            price: currentPrice,
+            change: parseFloat(changeAmount.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2)),
+            open: basePrice - basePrice * 0.005 * (Math.random() * 2 - 1),
+            high: basePrice + basePrice * 0.01 * Math.random(),
+            low: basePrice - basePrice * 0.01 * Math.random(),
+            volume: Math.floor(Math.random() * 10000000),
+            marketCap: Math.floor(basePrice * 1000000000 * (1 + Math.random())),
+            peRatio: 15 + Math.random() * 25,
+            dividend: Math.random() * 3,
+            eps: 5 + Math.random() * 15,
+            exchange: exchange,
+            isSimulated: true,
+            dataSource: "reference"
+          };
+          
+          res.json(responseQuote);
+        } catch (referenceError) {
+          console.error('Reference data error:', referenceError);
+          res.status(500).json({ message: 'Error creating quote data' });
+        }
       }
     } catch (error) {
       console.error('Get quote error:', error);
@@ -1748,7 +1738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
             alpacaAPI = new AlpacaAPI(alpacaIntegration);
             console.log("Using user's Alpaca API integration for historical data");
-          } catch (err) {
+          } catch (err: unknown) {
             console.log("No user-specific Alpaca integration found, using environment variables for historical data");
             alpacaAPI = new AlpacaAPI();
           }
@@ -2076,8 +2066,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               throw new Error(`No valid Alpaca integration found for ID: ${accountId}`);
             }
-          } catch (err) {
-            console.log(`Error getting specific integration: ${err.message}`);
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            console.log(`Error getting specific integration: ${errorMessage}`);
             throw err;
           }
         } else {
@@ -2111,11 +2102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           baseValue: historyData.baseValue,
           dataSource: "alpaca"
         });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error fetching portfolio history from Alpaca:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         res.status(500).json({ 
           error: 'Failed to retrieve portfolio history',
-          message: error.message,
+          message: errorMessage,
           dataSource: "error"
         });
       }
