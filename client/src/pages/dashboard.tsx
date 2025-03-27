@@ -315,14 +315,14 @@ const Dashboard = () => {
     });
   };
 
-  // Format currency for display
+  // Format currency for display - without cents
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.round(value));
   };
   
   // Calculate real P&L data from Alpaca account
@@ -374,7 +374,7 @@ const Dashboard = () => {
     
     return {
       value: `${isPositive ? '+' : ''}${formatCurrency(pnlValue)}`,
-      percentage: `${isPositive ? '+' : ''}${pnlPercentage.toFixed(2)}%`,
+      percentage: `${isPositive ? '+' : ''}${pnlPercentage.toFixed(1)}%`,  // One decimal for percentage is cleaner
       isPositive
     };
   };

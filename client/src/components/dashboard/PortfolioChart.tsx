@@ -110,20 +110,46 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
     // Calculate the range
     const range = max - min;
     
-    // If the range is very small (less than 1% of the max), expand it
-    // to show variations more clearly
+    // For the 1D view, use a much tighter range to emphasize small movements
+    if (timeRange === '1D') {
+      // First, find the average value to center around
+      const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+      
+      // Calculate a tighter range - use the larger of:
+      // 1. Actual min-max range
+      // 2. 0.2% of the average value (to ensure we always see some movement)
+      const minVisibleRange = avgValue * 0.002; 
+      const effectiveRange = Math.max(range, minVisibleRange);
+      
+      // Use minimal padding for intraday view
+      const padding = effectiveRange * 0.5; // Add 50% padding to the range
+      
+      // Round to nice values
+      const scaledMin = min - padding;
+      const scaledMax = max + padding;
+      
+      // For large numbers, round to the nearest 10
+      const roundingFactor = avgValue > 10000 ? 10 : 1;
+      
+      return [
+        Math.floor(scaledMin / roundingFactor) * roundingFactor,
+        Math.ceil(scaledMax / roundingFactor) * roundingFactor
+      ];
+    }
+    
+    // For other time periods
+    // If the range is very small (less than 1% of the max), expand it 
     if (range < max * 0.01) {
       const padding = max * 0.05; // 5% padding
       return [min - padding, max + padding];
     }
     
     // Otherwise, use a reasonable padding to focus on the data
-    // For shorter time periods, use tighter bounds to show daily moves
-    const paddingPercentage = timeRange === '1D' || timeRange === '1W' ? 0.01 : 0.05;
+    const paddingPercentage = timeRange === '1W' ? 0.02 : 0.05;
     const padding = range * paddingPercentage;
     
-    // Floor and ceiling to clean values - more appropriate for larger numbers
-    // For smaller accounts, use smaller increments
+    // Floor and ceiling to clean values 
+    // Use appropriate rounding bases for different value ranges
     const roundingBase = max > 10000 ? 100 : (max > 1000 ? 10 : 1);
     
     return [
@@ -192,11 +218,11 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                 axisLine={{ stroke: '#334155' }}
                 tickLine={{ stroke: '#334155' }}
-                tickFormatter={(value) => `$${value.toLocaleString()}`}
-                width={80} // Give more space for the dollar formatting
+                tickFormatter={(value) => `$${Math.round(value).toLocaleString()}`}
+                width={70} // Less space needed for whole numbers
               />
               <Tooltip 
-                formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Value']}
+                formatter={(value) => [`$${Math.round(Number(value)).toLocaleString()}`, 'Value']}
                 labelFormatter={(label) => formatTooltipTime(label)}
                 contentStyle={{ 
                   backgroundColor: '#1E293B', 
