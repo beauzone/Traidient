@@ -69,7 +69,10 @@ export class MarketDataProviderFactory {
     provider: string,
     integration?: ApiIntegration
   ): IMarketDataProvider | null {
-    switch (provider.toLowerCase()) {
+    // Normalize the provider name by lowercasing and removing trailing spaces and extensions like ".io"
+    const normalizedProvider = provider.toLowerCase().trim().replace(/\.io\s*$/i, '');
+    
+    switch (normalizedProvider) {
       case 'alpaca':
         return new AlpacaDataProviderAdapter(integration);
       case 'yahoo':
