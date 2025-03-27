@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Maximize2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import StockSearch from "@/components/market-data/StockSearch";
 import { Strategy, Deployment, WatchlistItem } from "../types";
+import TradingViewChart from "@/components/market-data/TradingViewChart";
 
 export default function LiveTrading() {
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -189,7 +190,12 @@ export default function LiveTrading() {
             className="w-full h-full transition-transform duration-200 ease-in-out" 
             style={{ transform: `scale(${zoomLevel})` }}
           >
-            {/* TradingView chart will be integrated here */}
+            <TradingViewChart 
+              symbol={selectedStock || 'AAPL'} 
+              interval={timeInterval}
+              theme="dark"
+              autosize={true}
+            />
           </div>
         </Card>
       </div>
