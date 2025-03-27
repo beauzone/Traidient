@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useDebounce } from "@/hooks/use-debounce";
 import { fetchData } from "@/lib/api";
 
 interface SearchResult {
@@ -27,7 +27,7 @@ const StockSearch = () => {
   }, [debouncedSearch]);
 
   return (
-    <div className="relative">
+    <div className="relative w-64">
       <Input
         placeholder="Search stocks..."
         value={searchQuery}
@@ -36,21 +36,23 @@ const StockSearch = () => {
       />
 
       {searchResults.length > 0 && (
-        <Card className="absolute w-full mt-1 max-h-96 overflow-y-auto z-50">
-          <div className="p-2 space-y-1">
-            {searchResults.map((result) => (
-              <div
-                key={result.symbol}
-                className="flex justify-between items-start p-2 hover:bg-muted/50 rounded-md cursor-pointer"
-              >
-                <div className="flex flex-col">
-                  <span className="font-bold text-base">{result.symbol}</span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">{result.name}</span>
-                </div>
-                <span className="text-sm font-medium">${result.price.toFixed(2)}</span>
+        <Card className="absolute w-full mt-1 max-h-96 overflow-y-auto z-50 p-0">
+          {searchResults.map((result) => (
+            <div
+              key={result.symbol}
+              className="flex justify-between items-start p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+            >
+              <div className="flex flex-col">
+                <span className="font-bold text-base">{result.symbol}</span>
+                <span className="text-xs text-muted-foreground truncate max-w-[160px]">
+                  {result.name}
+                </span>
               </div>
-            ))}
-          </div>
+              <span className="text-sm font-medium">
+                ${result.price.toFixed(2)}
+              </span>
+            </div>
+          ))}
         </Card>
       )}
     </div>
