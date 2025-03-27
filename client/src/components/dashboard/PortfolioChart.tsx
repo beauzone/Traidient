@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 interface PortfolioChartProps {
   data: {
@@ -15,53 +15,95 @@ interface PortfolioChartProps {
     percentage: string;
     isPositive: boolean;
   };
+  onTimeRangeChange?: (range: TimeRange) => void;
 }
 
-type TimeRange = '1D' | '1W' | '1M' | '1Y' | 'ALL';
+export type TimeRange = '1D' | '1W' | '1M' | '1Y' | 'ALL';
 
-const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => {
+const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: PortfolioChartProps) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('1W');
 
-  // Filter data based on selected time range
-  const filteredData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+  // Notify parent component when time range changes
+  useEffect(() => {
+    if (onTimeRangeChange) {
+      onTimeRangeChange(timeRange);
+    }
+  }, [timeRange, onTimeRangeChange]);
+
+  // Determine if we're showing intraday data (1-minute intervals)
+  const isIntraday = useMemo(() => {
+    return timeRange === '1D' && data?.length > 0 && data[0].date.includes('T');
+  }, [timeRange, data]);
+
+  // Format the tooltip timestamp with proper time information
+  const formatTooltipTime = (timestamp: string) => {
+    const date = new Date(timestamp);
     
-    const now = new Date();
-    let startDate = new Date();
+    if (isIntraday) {
+      return date.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } else {
+      return date.toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+  };
+
+  // Helper to format dates on the X-axis based on selected time range
+  const formatXAxis = (tickItem: string) => {
+    const date = new Date(tickItem);
     
     switch(timeRange) {
       case '1D':
-        startDate.setDate(now.getDate() - 1);
-        break;
+        if (isIntraday) {
+          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
       case '1W':
-        startDate.setDate(now.getDate() - 7);
-        break;
+        return date.toLocaleDateString([], { weekday: 'short' });
       case '1M':
-        // Correctly set to 30 days, not 3 months
-        startDate.setDate(now.getDate() - 30);
-        break;
+        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
       case '1Y':
-        // Correctly set to 365 days, full year
-        startDate.setDate(now.getDate() - 365);
-        break;
       case 'ALL':
-        // Use all available data
-        return data;
+        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
       default:
-        startDate.setDate(now.getDate() - 7);
+        return tickItem;
     }
+  };
+
+  // Calculate the appropriate tick interval based on data length
+  const getTickInterval = () => {
+    const dataLength = data?.length || 0;
     
-    return data.filter(item => new Date(item.date) >= startDate);
-  }, [data, timeRange]);
+    if (dataLength <= 7) return 0; // Show all points for small datasets
+    if (timeRange === '1D') {
+      // For intraday, show less frequent ticks (approximately hourly)
+      if (isIntraday && dataLength > 60) {
+        return Math.floor(dataLength / 7); // About 7 ticks for a full trading day
+      }
+      return Math.floor(dataLength / 6); // 6 ticks for 1D
+    }
+    if (timeRange === '1W') return Math.floor(dataLength / 7); // 7 ticks for 1W (one per day)
+    if (timeRange === '1M') return Math.floor(dataLength / 10); // 10 ticks for 1M
+    if (timeRange === '1Y') return Math.floor(dataLength / 12); // 12 ticks for 1Y (monthly)
+    
+    return Math.max(1, Math.floor(dataLength / 10)); // Default to 10 ticks
+  };
 
   // Calculate Y-axis domain to focus on the data variation
   const yAxisDomain = useMemo(() => {
-    if (!filteredData || filteredData.length === 0) {
+    if (!data || data.length === 0) {
       return ['auto', 'auto'];
     }
     
     // Find min and max values
-    const values = filteredData.map(d => Number(d.value)); // Ensure values are numbers
+    const values = data.map(d => Number(d.value)); // Ensure values are numbers
     const min = Math.min(...values);
     const max = Math.max(...values);
     
@@ -80,43 +122,21 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
     const paddingPercentage = timeRange === '1D' || timeRange === '1W' ? 0.01 : 0.05;
     const padding = range * paddingPercentage;
     
-    // Floor and ceiling to clean values
+    // Floor and ceiling to clean values - more appropriate for larger numbers
+    // For smaller accounts, use smaller increments
+    const roundingBase = max > 10000 ? 100 : (max > 1000 ? 10 : 1);
+    
     return [
-      Math.floor((min - padding) / 100) * 100, // Round down to nearest 100
-      Math.ceil((max + padding) / 100) * 100   // Round up to nearest 100
+      Math.floor((min - padding) / roundingBase) * roundingBase, // Round down
+      Math.ceil((max + padding) / roundingBase) * roundingBase   // Round up
     ];
-  }, [filteredData, timeRange]);
+  }, [data, timeRange]);
 
-  // Helper to format dates on the X-axis based on selected time range
-  const formatXAxis = (tickItem: string) => {
-    const date = new Date(tickItem);
-    
-    switch(timeRange) {
-      case '1D':
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      case '1W':
-        return date.toLocaleDateString([], { weekday: 'short' });
-      case '1M':
-        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
-      case '1Y':
-      case 'ALL':
-        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
-      default:
-        return tickItem;
+  const handleTimeRangeChange = (range: TimeRange) => {
+    setTimeRange(range);
+    if (onTimeRangeChange) {
+      onTimeRangeChange(range);
     }
-  };
-
-  // Calculate the appropriate tick interval based on data length
-  const getTickInterval = () => {
-    const dataLength = filteredData.length;
-    
-    if (dataLength <= 7) return 1; // Show all points for small datasets
-    if (timeRange === '1D') return Math.floor(dataLength / 6); // 6 ticks for 1D
-    if (timeRange === '1W') return Math.floor(dataLength / 7); // 7 ticks for 1W (one per day)
-    if (timeRange === '1M') return Math.floor(dataLength / 10); // 10 ticks for 1M
-    if (timeRange === '1Y') return Math.floor(dataLength / 12); // 12 ticks for 1Y (monthly)
-    
-    return Math.max(1, Math.floor(dataLength / 10)); // Default to 10 ticks
   };
 
   return (
@@ -131,7 +151,7 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
                 variant={timeRange === range ? "default" : "outline"}
                 size="sm"
                 className="px-3 py-1 h-8"
-                onClick={() => setTimeRange(range)}
+                onClick={() => handleTimeRangeChange(range)}
               >
                 {range}
               </Button>
@@ -150,7 +170,7 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
         <div className="h-72 px-2 pb-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={filteredData}
+              data={data}
               margin={{
                 top: 10,
                 right: 10,
@@ -177,11 +197,7 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
               />
               <Tooltip 
                 formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Value']}
-                labelFormatter={(label) => new Date(label).toLocaleDateString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
+                labelFormatter={(label) => formatTooltipTime(label)}
                 contentStyle={{ 
                   backgroundColor: '#1E293B', 
                   borderColor: '#334155',
@@ -198,7 +214,7 @@ const PortfolioChart = ({ data, currentValue, change }: PortfolioChartProps) => 
                 dataKey="value"
                 stroke="#3B82F6"
                 strokeWidth={2}
-                dot={{ r: 3, fill: '#3B82F6', stroke: '#3B82F6' }}
+                dot={isIntraday ? false : { r: 2, fill: '#3B82F6', stroke: '#3B82F6' }}
                 activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
                 isAnimationActive={true}
                 animationDuration={500}

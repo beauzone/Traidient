@@ -64,13 +64,44 @@ const Dashboard = () => {
     },
   });
 
+  // State for managing the portfolio time range
+  const [portfolioTimeRange, setPortfolioTimeRange] = useState<'1D' | '1W' | '1M' | '1Y' | 'ALL'>('1W');
+
+  // Set timeframe based on selected time range
+  const getTimeframeForRange = (range: string) => {
+    switch(range) {
+      case '1D': return '1Min';
+      case '1W': return '1H';
+      case '1M': return '1D';
+      case '1Y': return '1D';
+      case 'ALL': return '1D';
+      default: return '1D';
+    }
+  };
+
+  // Set period based on selected time range
+  const getPeriodForRange = (range: string) => {
+    switch(range) {
+      case '1D': return '1D';
+      case '1W': return '1W';
+      case '1M': return '1M';
+      case '1Y': return '1Y';
+      case 'ALL': return 'ALL';
+      default: return '1M';
+    }
+  };
+
   // Portfolio history data from Alpaca API
   const { data: portfolioHistoryData, isLoading: isLoadingPortfolioHistory } = useQuery({
-    queryKey: ['/api/trading/portfolio/history', selectedAccount],
+    queryKey: ['/api/trading/portfolio/history', selectedAccount, portfolioTimeRange],
     queryFn: async () => {
+      const period = getPeriodForRange(portfolioTimeRange);
+      const timeframe = getTimeframeForRange(portfolioTimeRange);
+      
       const endpoint = selectedAccount && selectedAccount !== "all" 
-        ? `/api/trading/portfolio/history?accountId=${selectedAccount}&period=3M&timeframe=1D` 
-        : '/api/trading/portfolio/history?period=3M&timeframe=1D';
+        ? `/api/trading/portfolio/history?accountId=${selectedAccount}&period=${period}&timeframe=${timeframe}` 
+        : `/api/trading/portfolio/history?period=${period}&timeframe=${timeframe}`;
+      
       return fetchData(endpoint);
     },
   });
@@ -88,7 +119,8 @@ const Dashboard = () => {
     try {
       // Map API data to chart format
       const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
-        date: new Date(timestamp).toISOString().split('T')[0],
+        // Keep the full timestamp to preserve time information for 1D view
+        date: timestamp,
         value: portfolioHistoryData.equity[index],
       }));
       
@@ -386,6 +418,7 @@ const Dashboard = () => {
                 percentage: pnlData.percentage,
                 isPositive: pnlData.isPositive
               }}
+              onTimeRangeChange={setPortfolioTimeRange}
             />
             
             {/* Force remount of component when account changes */}
