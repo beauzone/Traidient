@@ -764,6 +764,8 @@ const SettingsPage = () => {
                             <SelectItem value="alpaca">Alpaca</SelectItem>
                             <SelectItem value="yahoo">Yahoo Finance</SelectItem>
                             <SelectItem value="polygon">Polygon.io</SelectItem>
+                            <SelectItem value="alphavantage">AlphaVantage</SelectItem>
+                            <SelectItem value="tiingo">Tiingo</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -777,6 +779,8 @@ const SettingsPage = () => {
                           <SelectContent>
                             <SelectItem value="alpaca">Alpaca</SelectItem>
                             <SelectItem value="polygon">Polygon.io</SelectItem>
+                            <SelectItem value="alphavantage">AlphaVantage</SelectItem>
+                            <SelectItem value="tiingo">Tiingo</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

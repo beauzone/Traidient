@@ -197,25 +197,53 @@ export default function ProviderTest() {
 
       {error && (
         <Card className="w-full max-w-2xl mx-auto mt-6 border-red-500">
-          <CardHeader>
+          <CardHeader className="border-b border-red-200">
             <CardTitle className="text-red-500">Error</CardTitle>
+            <CardDescription>
+              {error.includes("Invalid or unconfigured data provider")
+                ? `Unable to fetch data from ${provider} - API credentials not configured`
+                : "Failed to fetch market data"}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <pre className="bg-red-50 p-4 rounded overflow-auto">{error}</pre>
+          <CardContent className="pt-4">
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle className="flex items-center">
+                <XCircle className="h-4 w-4 mr-2" />
+                Provider Error
+              </AlertTitle>
+              <AlertDescription className="mt-1">
+                {error}
+              </AlertDescription>
+            </Alert>
             
             {error.includes("Invalid or unconfigured data provider") && (
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-                <h3 className="text-sm font-medium text-yellow-800">Missing API credentials</h3>
-                <p className="mt-2 text-sm text-yellow-700">
-                  You need to configure API credentials for this provider in the Integrations page.
+              <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Missing API credentials</h3>
+                <p className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                  This provider requires API credentials to function. Please configure them in the Integrations page.
                 </p>
-                <Button 
-                  className="mt-3" 
-                  variant="outline"
-                  onClick={() => window.location.href = '/integrations'}
-                >
-                  Go to Integrations
-                </Button>
+                <div className="mt-4 flex space-x-2">
+                  <Button 
+                    variant="outline"
+                    className="border-yellow-300 hover:border-yellow-400 hover:text-yellow-800"
+                    onClick={() => window.location.href = '/integrations'}
+                  >
+                    Configure API Credentials
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    onClick={() => {
+                      setProvider('yahoo');
+                      setError(null);
+                      toast({
+                        title: 'Provider Changed',
+                        description: 'Switched to Yahoo Finance which requires no API key',
+                      });
+                    }}
+                  >
+                    Try Yahoo Finance Instead
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -223,11 +251,24 @@ export default function ProviderTest() {
       )}
 
       {result && (
-        <Card className="w-full max-w-2xl mx-auto mt-6">
-          <CardHeader>
-            <CardTitle>Result from {provider}</CardTitle>
+        <Card className="w-full max-w-2xl mx-auto mt-6 border-green-500">
+          <CardHeader className="border-b border-green-200">
+            <CardTitle className="text-green-600">Result from {provider}</CardTitle>
+            <CardDescription>
+              Successfully retrieved market data for {symbol}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <div className="text-sm font-medium text-muted-foreground">Symbol</div>
+                <div className="text-xl font-semibold">{result.symbol}</div>
+              </div>
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <div className="text-sm font-medium text-muted-foreground">Price</div>
+                <div className="text-xl font-semibold">${parseFloat(result.price).toFixed(2)}</div>
+              </div>
+            </div>
             <pre className="bg-gray-100 dark:bg-gray-900 text-black dark:text-white p-4 rounded overflow-auto max-h-80 border border-gray-200 dark:border-gray-700">
               {JSON.stringify(result, null, 2)}
             </pre>
