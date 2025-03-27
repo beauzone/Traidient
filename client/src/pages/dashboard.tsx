@@ -266,19 +266,29 @@ const Dashboard = () => {
     
     // Convert to percentage values for the pie chart
     const result = Array.from(assetGroups.entries())
-      .map(([name, value], index) => ({
-        name: name,
-        value: totalEquity > 0 ? Math.round((value / totalEquity) * 100) : 0,
-        color: name === "Cash" ? "#EF4444" : colors[index % colors.length]
-      }))
-      .filter(item => item.value > 0)
-      .sort((a, b) => b.value - a.value);
+      .map(([name, value], index) => {
+        // For short positions (negative value), we want to show them as positive percentages
+        // but with a "Short" indicator in the name
+        const absValue = Math.abs(value);
+        const displayName = value < 0 ? `${name} (Short)` : name;
+        const percentage = totalEquity > 0 ? Math.round((absValue / totalEquity) * 100) : 0;
+        
+        return {
+          name: displayName,
+          value: percentage,
+          color: name === "Cash" ? "#EF4444" : colors[index % colors.length],
+          // Store the original market value for sorting
+          originalValue: absValue
+        };
+      })
+      .filter(item => item.value > 0) // Still filter zero values
+      .sort((a, b) => b.originalValue - a.originalValue);
     
     console.log("Final asset allocation data:", result);
     
     // If there's no data, show 100% cash
     if (result.length === 0) {
-      result.push({ name: "Cash", value: 100, color: "#EF4444" });
+      result.push({ name: "Cash", value: 100, color: "#EF4444", originalValue: 100 });
     }
     
     // Update the asset allocation data
@@ -337,16 +347,17 @@ const Dashboard = () => {
     
     // Get the selected account data or aggregate all accounts
     let selectedAccountData: any;
+    let performanceValue = 0;
     
     if (selectedAccount === "all") {
       // Calculate aggregated P&L across all accounts
       const totalEquity = accountData.reduce((sum: number, acc: any) => sum + (acc.equity || 0), 0);
-      const totalLastEquity = accountData.reduce((sum: number, acc: any) => sum + (acc.lastEquity || acc.equity || 0), 0);
+      const totalPerformance = accountData.reduce((sum: number, acc: any) => sum + (acc.performance || 0), 0);
       
       selectedAccountData = {
-        equity: totalEquity,
-        lastEquity: totalLastEquity
+        equity: totalEquity
       };
+      performanceValue = totalPerformance;
     } else {
       // Find the specific account
       selectedAccountData = accountData.find((acc: any) => acc.id.toString() === selectedAccount);
@@ -354,6 +365,10 @@ const Dashboard = () => {
       // If account not found, use the first account as fallback
       if (!selectedAccountData && accountData.length > 0) {
         selectedAccountData = accountData[0];
+      }
+      
+      if (selectedAccountData) {
+        performanceValue = selectedAccountData.performance || 0;
       }
     }
     
@@ -365,16 +380,16 @@ const Dashboard = () => {
       };
     }
     
-    // If lastEquity is missing, use equity for both to prevent NaN
-    const pnlValue = (selectedAccountData.equity || 0) - (selectedAccountData.lastEquity || selectedAccountData.equity || 0);
-    const pnlPercentage = selectedAccountData.lastEquity && selectedAccountData.lastEquity > 0 
-      ? (pnlValue / selectedAccountData.lastEquity) * 100 
-      : 0;
-    const isPositive = pnlValue >= 0;
+    // Use the performance value which comes directly from Alpaca API
+    const isPositive = performanceValue >= 0;
+    
+    // Calculate percentage against total equity
+    const equity = selectedAccountData.equity || 0;
+    const pnlPercentage = equity > 0 ? (performanceValue / equity) * 100 : 0;
     
     return {
-      value: `${isPositive ? '+' : ''}${formatCurrency(pnlValue)}`,
-      percentage: `${isPositive ? '+' : ''}${pnlPercentage.toFixed(1)}%`,  // One decimal for percentage is cleaner
+      value: `${isPositive ? '+' : ''}${formatCurrency(performanceValue)}`,
+      percentage: `${isPositive ? '+' : ''}${Math.abs(pnlPercentage).toFixed(2)}%`,
       isPositive
     };
   };

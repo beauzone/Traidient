@@ -7,6 +7,7 @@ interface AssetAllocationProps {
     name: string;
     value: number;
     color: string;
+    originalValue?: number;
   }[];
 }
 
