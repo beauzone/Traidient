@@ -111,7 +111,7 @@ export default function ProviderTest() {
             <CardTitle>Result from {provider}</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="bg-gray-50 p-4 rounded overflow-auto max-h-80">
+            <pre className="bg-gray-100 dark:bg-gray-900 text-black dark:text-white p-4 rounded overflow-auto max-h-80 border border-gray-200 dark:border-gray-700">
               {JSON.stringify(result, null, 2)}
             </pre>
           </CardContent>
