@@ -122,10 +122,6 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Market Overview Header */}
-      <div className="flex items-center mb-2">
-        <h2 className="text-2xl font-bold">Market Overview</h2>
-      </div>
       
       {/* Market Indices */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
