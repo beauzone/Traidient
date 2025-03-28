@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -17,7 +18,7 @@ import {
   Legend
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, TrendingUp, TrendingDown, Clock, Database } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Clock, Database, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { fetchData } from "@/lib/api";
 import { useMarketData } from "@/hooks/useMarketData";
 
@@ -42,6 +43,23 @@ interface SectorPerformanceData {
 const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
   // Use market data hook to get market status
   const { marketStatus } = useMarketData();
+  
+  // State for sorting gainers and losers
+  const [gainersSort, setGainersSort] = useState<{
+    column: keyof MarketMover;
+    direction: 'asc' | 'desc';
+  }>({
+    column: 'changePercent',
+    direction: 'desc'
+  });
+  
+  const [losersSort, setLosersSort] = useState<{
+    column: keyof MarketMover;
+    direction: 'asc' | 'desc';
+  }>({
+    column: 'changePercent',
+    direction: 'asc'
+  });
   // Fetch market indices data
   const { data: indices, isLoading: isLoadingIndices } = useQuery({
     queryKey: ['/api/market-data/indices'],
@@ -126,6 +144,55 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
   // Format percentage
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+  
+  // Function to handle column sorting for gainers
+  const handleGainersSort = (column: keyof MarketMover) => {
+    setGainersSort(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+  
+  // Function to handle column sorting for losers
+  const handleLosersSort = (column: keyof MarketMover) => {
+    setLosersSort(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+  
+  // Function to get sorted data
+  const getSortedData = (data: MarketMover[], sort: { column: keyof MarketMover, direction: 'asc' | 'desc' }) => {
+    return [...data].sort((a, b) => {
+      const aValue = a[sort.column];
+      const bValue = b[sort.column];
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sort.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sort.direction === 'asc'
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number);
+      }
+    });
+  };
+  
+  // Get sorted gainers and losers
+  const sortedGainers = getSortedData(topGainers, gainersSort);
+  const sortedLosers = getSortedData(topLosers, losersSort);
+  
+  // Function to render sort indicator
+  const renderSortIndicator = (column: keyof MarketMover, currentSort: { column: keyof MarketMover, direction: 'asc' | 'desc' }) => {
+    if (column !== currentSort.column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-50" />;
+    }
+    
+    return currentSort.direction === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-primary" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-primary" />;
   };
 
   return (
@@ -249,15 +316,55 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                     <table className="w-full">
                       <thead className="border-b border-border">
                         <tr>
-                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
-                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
-                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
-                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
+                          <th 
+                            className="text-left py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleGainersSort('symbol')}
+                          >
+                            <span className="flex items-center">
+                              Symbol
+                              {renderSortIndicator('symbol', gainersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleGainersSort('name')}
+                          >
+                            <span className="flex items-center">
+                              Name
+                              {renderSortIndicator('name', gainersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-right py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleGainersSort('price')}
+                          >
+                            <span className="flex items-center justify-end">
+                              Price
+                              {renderSortIndicator('price', gainersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-right py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleGainersSort('change')}
+                          >
+                            <span className="flex items-center justify-end">
+                              Change
+                              {renderSortIndicator('change', gainersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-right py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleGainersSort('changePercent')}
+                          >
+                            <span className="flex items-center justify-end">
+                              % Change
+                              {renderSortIndicator('changePercent', gainersSort)}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {topGainers.map((stock) => (
+                        {sortedGainers.map((stock) => (
                           <tr 
                             key={stock.symbol} 
                             className="border-b border-border hover:bg-muted/50 cursor-pointer"
@@ -302,15 +409,55 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                     <table className="w-full">
                       <thead className="border-b border-border">
                         <tr>
-                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
-                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
-                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
-                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
+                          <th 
+                            className="text-left py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleLosersSort('symbol')}
+                          >
+                            <span className="flex items-center">
+                              Symbol
+                              {renderSortIndicator('symbol', losersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleLosersSort('name')}
+                          >
+                            <span className="flex items-center">
+                              Name
+                              {renderSortIndicator('name', losersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-right py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleLosersSort('price')}
+                          >
+                            <span className="flex items-center justify-end">
+                              Price
+                              {renderSortIndicator('price', losersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-right py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleLosersSort('change')}
+                          >
+                            <span className="flex items-center justify-end">
+                              Change
+                              {renderSortIndicator('change', losersSort)}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-right py-2 px-4 text-sm font-medium text-muted-foreground cursor-pointer"
+                            onClick={() => handleLosersSort('changePercent')}
+                          >
+                            <span className="flex items-center justify-end">
+                              % Change
+                              {renderSortIndicator('changePercent', losersSort)}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {topLosers.map((stock) => (
+                        {sortedLosers.map((stock) => (
                           <tr 
                             key={stock.symbol} 
                             className="border-b border-border hover:bg-muted/50 cursor-pointer"
