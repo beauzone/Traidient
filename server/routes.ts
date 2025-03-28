@@ -2613,7 +2613,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       // Get top gainers from Yahoo Finance (already includes dataSource field)
-      const gainers = await yahooFinance.getTopGainers(5);
+      // Changed limit from 5 to 10 as requested
+      const gainers = await yahooFinance.getTopGainers(10);
       console.log('Fetched gainers:', gainers);
       res.json(gainers);
     } catch (error) {
@@ -2625,7 +2626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       // Get top losers from Yahoo Finance (already includes dataSource field)
-      const losers = await yahooFinance.getTopLosers(5);
+      // Changed limit from 5 to 10 as requested
+      const losers = await yahooFinance.getTopLosers(10);
       console.log('Fetched losers:', losers);
       res.json(losers);
     } catch (error) {
