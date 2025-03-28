@@ -462,8 +462,8 @@ export class YahooFinanceAPI {
       // Use Yahoo Finance trending API to get all active symbols
       const trending = await this.getTrendingTickers();
       
-      // Sort by change percent (descending) to get top gainers
-      const gainers = trending
+      // Filter by change percent (descending) to get top gainers
+      let gainers = trending
         .filter(ticker => ticker.changePercent > 0)
         .sort((a, b) => b.changePercent - a.changePercent)
         .slice(0, limit)
@@ -472,8 +472,40 @@ export class YahooFinanceAPI {
           name: ticker.name,
           price: ticker.price,
           change: ticker.change,
-          changePercent: ticker.changePercent
+          changePercent: ticker.changePercent,
+          dataSource: "yahoo"
         }));
+      
+      // If we don't have enough gainers, make a direct request to specific stocks
+      if (gainers.length < limit) {
+        console.log(`Not enough gainers (found ${gainers.length}), using specific stock list`);
+        
+        // Tech and growth stocks that often have gains
+        const potentialGainers = [
+          'NVDA', 'AMD', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOG', 'META', 'AVGO',
+          'CRM', 'ADBE', 'NFLX', 'ASML', 'COST', 'INTC', 'QCOM', 'AMAT', 'MRVL'
+        ];
+        
+        // Fetch quotes in parallel
+        const quotesPromises = potentialGainers.map(symbol => this.getQuote(symbol));
+        const quotes = await Promise.all(quotesPromises);
+        
+        // Find gainers from these quotes
+        const additionalGainers = quotes
+          .filter(quote => quote.changePercent > 0)
+          .sort((a, b) => b.changePercent - a.changePercent)
+          .map(quote => ({
+            symbol: quote.symbol,
+            name: quote.name,
+            price: quote.price,
+            change: quote.change,
+            changePercent: quote.changePercent,
+            dataSource: "yahoo"
+          }));
+        
+        // Combine both lists but prioritize the original gainers, limit to requested count
+        gainers = [...gainers, ...additionalGainers].slice(0, limit);
+      }
       
       return gainers;
     } catch (error) {
@@ -493,7 +525,7 @@ export class YahooFinanceAPI {
       const trending = await this.getTrendingTickers();
       
       // Sort by change percent (ascending) to get top losers
-      const losers = trending
+      let losers = trending
         .filter(ticker => ticker.changePercent < 0)
         .sort((a, b) => a.changePercent - b.changePercent)
         .slice(0, limit)
@@ -502,8 +534,40 @@ export class YahooFinanceAPI {
           name: ticker.name,
           price: ticker.price,
           change: ticker.change,
-          changePercent: ticker.changePercent
+          changePercent: ticker.changePercent,
+          dataSource: "yahoo"
         }));
+      
+      // If we don't have enough losers, make a direct request to specific stocks
+      if (losers.length < limit) {
+        console.log(`Not enough losers (found ${losers.length}), using specific stock list`);
+        
+        // Stocks that often show volatility or are sensitive to market conditions
+        const potentialLosers = [
+          'XOM', 'CVX', 'OXY', 'PFE', 'VZ', 'T', 'INTC', 'IBM', 'WMT', 
+          'KO', 'PEP', 'JNJ', 'PG', 'MMM', 'CAT', 'BA', 'F', 'GM'
+        ];
+        
+        // Fetch quotes in parallel
+        const quotesPromises = potentialLosers.map(symbol => this.getQuote(symbol));
+        const quotes = await Promise.all(quotesPromises);
+        
+        // Find losers from these quotes
+        const additionalLosers = quotes
+          .filter(quote => quote.changePercent < 0)
+          .sort((a, b) => a.changePercent - b.changePercent)
+          .map(quote => ({
+            symbol: quote.symbol,
+            name: quote.name,
+            price: quote.price,
+            change: quote.change,
+            changePercent: quote.changePercent,
+            dataSource: "yahoo"
+          }));
+        
+        // Combine both lists but prioritize the original losers, limit to requested count
+        losers = [...losers, ...additionalLosers].slice(0, limit);
+      }
       
       return losers;
     } catch (error) {

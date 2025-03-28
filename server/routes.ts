@@ -2612,16 +2612,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Get top gainers from Yahoo Finance
+      // Get top gainers from Yahoo Finance (already includes dataSource field)
       const gainers = await yahooFinance.getTopGainers(5);
-      
-      // Add dataSource field to each gainer
-      const gainersWithSource = gainers.map(gainer => ({
-        ...gainer,
-        dataSource: "yahoo"
-      }));
-      
-      res.json(gainersWithSource);
+      console.log('Fetched gainers:', gainers);
+      res.json(gainers);
     } catch (error) {
       console.error('Yahoo Finance API error for top gainers:', error);
       res.status(500).json({ message: 'Error fetching top gainers data' });
@@ -2630,16 +2624,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Get top losers from Yahoo Finance
+      // Get top losers from Yahoo Finance (already includes dataSource field)
       const losers = await yahooFinance.getTopLosers(5);
-      
-      // Add dataSource field to each loser
-      const losersWithSource = losers.map(loser => ({
-        ...loser,
-        dataSource: "yahoo"
-      }));
-      
-      res.json(losersWithSource);
+      console.log('Fetched losers:', losers);
+      res.json(losers);
     } catch (error) {
       console.error('Yahoo Finance API error for top losers:', error);
       res.status(500).json({ message: 'Error fetching top losers data' });
