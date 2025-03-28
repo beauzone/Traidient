@@ -115,7 +115,16 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
         eps: 5.98,
         exchange: "NASDAQ",
         isSimulated: true,
-        dataSource: "reference-data-fallback"
+        dataSource: "reference-data-fallback",
+        previousClose: 180.49,
+        dayRange: "$180.25 - $183.25",
+        weekRange52: "$145.23 - $189.75",
+        beta: 1.23,
+        averageVolume: 48500000,
+        forwardPE: 28.3,
+        dividendYield: 0.52,
+        earningsDate: "2025-04-28",
+        exDividendDate: "2025-05-12"
       };
     }),
   });
@@ -175,7 +184,8 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
   });
 
   // Format currency
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return 'N/A';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -185,12 +195,14 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
   };
 
   // Format percentage
-  const formatPercentage = (value: number) => {
+  const formatPercentage = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return 'N/A';
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
   // Format large numbers
-  const formatLargeNumber = (value: number) => {
+  const formatLargeNumber = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return 'N/A';
     if (value >= 1e12) return `${(value / 1e12).toFixed(2)}T`;
     if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
     if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
@@ -271,8 +283,8 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
             
             <div className="flex items-baseline space-x-3 mb-1">
               <span className="text-4xl font-bold">{formatCurrency(quote.price)}</span>
-              <span className={`flex items-center text-lg ${quote.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {quote.change >= 0 ? (
+              <span className={`flex items-center text-lg ${(quote.change || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {(quote.change || 0) >= 0 ? (
                   <TrendingUp className="mr-1 h-5 w-5" />
                 ) : (
                   <TrendingDown className="mr-1 h-5 w-5" />
@@ -282,7 +294,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
             </div>
             
             <p className="text-sm text-muted-foreground">
-              As of {new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' })} EDT. Market {quote.change >= 0 ? 'Open' : 'Closed'}.
+              As of {new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' })} EDT. Market {(quote.change || 0) >= 0 ? 'Open' : 'Closed'}.
               {quote.dataSource && (
                 <span className="ml-2 flex items-center inline-block">
                   <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
@@ -650,7 +662,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Previous Close</p>
-                    <p className="font-medium">{formatCurrency(quote.previousClose || quote.open)}</p>
+                    <p className="font-medium">{formatCurrency(quote.previousClose !== undefined ? quote.previousClose : quote.open)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Day Range</p>
@@ -670,17 +682,17 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Average Volume</p>
-                    <p className="font-medium">{formatLargeNumber(quote.averageVolume || quote.volume)}</p>
+                    <p className="font-medium">{formatLargeNumber(quote.averageVolume !== undefined ? quote.averageVolume : quote.volume)}</p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">P/E Ratio</p>
-                    <p className="font-medium">{quote.peRatio.toFixed(2)}</p>
+                    <p className="font-medium">{quote.peRatio !== undefined ? quote.peRatio.toFixed(2) : 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Forward P/E</p>
-                    <p className="font-medium">{quote.forwardPE?.toFixed(2) || 'N/A'}</p>
+                    <p className="font-medium">{quote.forwardPE !== undefined ? quote.forwardPE.toFixed(2) : 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">EPS (TTM)</p>
@@ -689,12 +701,12 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                   <div>
                     <p className="text-sm text-muted-foreground">Dividend & Yield</p>
                     <p className="font-medium">
-                      {formatCurrency(quote.dividend)} ({quote.dividendYield ? `${quote.dividendYield.toFixed(2)}%` : 'N/A'})
+                      {formatCurrency(quote.dividend)} ({quote.dividendYield !== undefined ? `${quote.dividendYield.toFixed(2)}%` : 'N/A'})
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Beta</p>
-                    <p className="font-medium">{quote.beta?.toFixed(2) || 'N/A'}</p>
+                    <p className="font-medium">{quote.beta !== undefined ? quote.beta.toFixed(2) : 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Exchange</p>
