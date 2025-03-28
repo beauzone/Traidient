@@ -662,11 +662,24 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Previous Close</p>
-                    <p className="font-medium">{formatCurrency(quote.previousClose !== undefined ? quote.previousClose : quote.open)}</p>
+                    <p className="font-medium">
+                      {quote.previousClose !== undefined && quote.previousClose !== null 
+                        ? formatCurrency(quote.previousClose) 
+                        : quote.open !== undefined && quote.open !== null 
+                          ? formatCurrency(quote.open)
+                          : 'N/A'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Day Range</p>
-                    <p className="font-medium">{quote.dayRange || `${formatCurrency(quote.low)} - ${formatCurrency(quote.high)}`}</p>
+                    <p className="font-medium">
+                      {quote.dayRange || (
+                        (quote.low !== undefined && quote.low !== null && 
+                         quote.high !== undefined && quote.high !== null)
+                          ? `${formatCurrency(quote.low)} - ${formatCurrency(quote.high)}`
+                          : 'N/A'
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">52 Week Range</p>
@@ -682,35 +695,63 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Average Volume</p>
-                    <p className="font-medium">{formatLargeNumber(quote.averageVolume !== undefined ? quote.averageVolume : quote.volume)}</p>
+                    <p className="font-medium">
+                      {quote.averageVolume !== undefined && quote.averageVolume !== null
+                        ? formatLargeNumber(quote.averageVolume)
+                        : quote.volume !== undefined && quote.volume !== null
+                          ? formatLargeNumber(quote.volume)
+                          : 'N/A'}
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">P/E Ratio</p>
-                    <p className="font-medium">{quote.peRatio !== undefined ? quote.peRatio.toFixed(2) : 'N/A'}</p>
+                    <p className="font-medium">
+                      {quote.peRatio !== undefined && quote.peRatio !== null
+                        ? Number(quote.peRatio).toFixed(2)
+                        : 'N/A'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Forward P/E</p>
-                    <p className="font-medium">{quote.forwardPE !== undefined ? quote.forwardPE.toFixed(2) : 'N/A'}</p>
+                    <p className="font-medium">
+                      {quote.forwardPE !== undefined && quote.forwardPE !== null
+                        ? Number(quote.forwardPE).toFixed(2)
+                        : 'N/A'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">EPS (TTM)</p>
-                    <p className="font-medium">{formatCurrency(quote.eps)}</p>
+                    <p className="font-medium">
+                      {quote.eps !== undefined && quote.eps !== null
+                        ? formatCurrency(quote.eps)
+                        : 'N/A'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Dividend & Yield</p>
                     <p className="font-medium">
-                      {formatCurrency(quote.dividend)} ({quote.dividendYield !== undefined ? `${quote.dividendYield.toFixed(2)}%` : 'N/A'})
+                      {quote.dividend !== undefined && quote.dividend !== null 
+                        ? `${formatCurrency(quote.dividend)}${
+                            quote.dividendYield !== undefined && quote.dividendYield !== null
+                              ? ` (${Number(quote.dividendYield).toFixed(2)}%)`
+                              : ''
+                          }`
+                        : 'N/A'}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Beta</p>
-                    <p className="font-medium">{quote.beta !== undefined ? quote.beta.toFixed(2) : 'N/A'}</p>
+                    <p className="font-medium">
+                      {quote.beta !== undefined && quote.beta !== null
+                        ? Number(quote.beta).toFixed(2)
+                        : 'N/A'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Exchange</p>
-                    <p className="font-medium">{quote.exchange}</p>
+                    <p className="font-medium">{quote.exchange || 'N/A'}</p>
                   </div>
                 </div>
               </div>
