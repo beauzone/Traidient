@@ -137,13 +137,13 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
                         {position.currentPrice > position.averageEntryPrice ? (
                           <TrendingUp className="ml-1 h-4 w-4 text-green-500" />
                         ) : (
-                          <TrendingDown className="ml-1 h-4 w-4 text-red-500" />
+                          <TrendingDown className="ml-1 h-4 w-4 text-negative" />
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(position.marketValue)}</TableCell>
                     <TableCell className="text-right">
-                      <div className={position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}>
+                      <div className={position.unrealizedPnL >= 0 ? "text-green-500" : "text-negative"}>
                         {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
                       </div>
                     </TableCell>
@@ -158,6 +158,10 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
                                 className="h-8 w-8 text-muted-foreground hover:text-primary"
                                 onClick={() => {
                                   setSelectedPosition(position);
+                                  toast({
+                                    title: "Preparing to modify position",
+                                    description: `Loading trade form for ${position.symbol}`,
+                                  });
                                   setTradeAction("modify");
                                   setTradeDialogOpen(true);
                                 }}
@@ -180,6 +184,11 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
                                 className="h-8 w-8 text-muted-foreground hover:text-red-500"
                                 onClick={() => {
                                   setSelectedPosition(position);
+                                  toast({
+                                    title: "Preparing to exit position",
+                                    description: `Loading exit form for ${position.symbol}`,
+                                    variant: "destructive"
+                                  });
                                   setTradeAction("exit");
                                   setTradeDialogOpen(true);
                                 }}

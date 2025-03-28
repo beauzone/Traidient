@@ -24,11 +24,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Search, Loader2, ArrowUpRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Search, Loader2, ArrowUpRight, PenLine, XCircle } from "lucide-react";
 import { useAccountContext } from "@/context/AccountContext";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link } from "wouter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 // Generic position interface that can represent both open and closed positions
 interface Position {
@@ -63,6 +65,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [positionStatus, setPositionStatus] = useState<"open" | "closed" | "all">("open");
+  const { toast } = useToast();
   
   // Use passed loading state or query loading state
   let positions: Position[] = [];
@@ -211,7 +214,15 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                   {filteredPositions.map((position) => (
                     <TableRow key={`${position.symbol}-${position.entryDate || ''}`}>
                       <TableCell>
-                        <div className="font-medium">{position.symbol}</div>
+                        <div 
+                          className="font-medium cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => {
+                            // Navigate to the symbol on the live trading page
+                            window.location.href = `/live-trading?symbol=${position.symbol}`;
+                          }}
+                        >
+                          {position.symbol}
+                        </div>
                         <div className="text-xs text-muted-foreground">{position.assetName}</div>
                       </TableCell>
                       <TableCell>{position.quantity}</TableCell>
@@ -226,7 +237,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                               {position.currentPrice > position.averageEntryPrice ? (
                                 <TrendingUp className="ml-1 h-4 w-4 text-green-500" />
                               ) : (
-                                <TrendingDown className="ml-1 h-4 w-4 text-red-500" />
+                                <TrendingDown className="ml-1 h-4 w-4 text-negative" />
                               )}
                             </div>
                           </TableCell>
@@ -257,109 +268,166 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                       )}
                       
                       <TableCell className="text-right">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedPosition(position)}
-                            >
-                              Details
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Position Details: {position.symbol}</DialogTitle>
-                            </DialogHeader>
-                            {selectedPosition && selectedPosition.symbol === position.symbol && (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Asset Name</p>
-                                    <p className="font-medium">{position.assetName}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Quantity</p>
-                                    <p className="font-medium">{position.quantity}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Entry Price</p>
-                                    <p className="font-medium">{formatCurrency(position.averageEntryPrice)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Cost Basis</p>
-                                    <p className="font-medium">{formatCurrency(position.costBasis)}</p>
+                        <div className="flex items-center justify-end space-x-2">
+                          {/* Modify Position Button */}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                  onClick={() => {
+                                    setSelectedPosition(position);
+                                    toast({
+                                      title: "Redirecting to Live Trading",
+                                      description: `Preparing to modify position for ${position.symbol}`,
+                                    });
+                                    window.location.href = `/live-trading?symbol=${position.symbol}&action=modify`;
+                                  }}
+                                >
+                                  <PenLine className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Modify Position</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          {/* Exit Position Button */}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                                  onClick={() => {
+                                    setSelectedPosition(position);
+                                    toast({
+                                      title: "Redirecting to Live Trading",
+                                      description: `Preparing to exit position for ${position.symbol}`,
+                                      variant: "destructive"
+                                    });
+                                    window.location.href = `/live-trading?symbol=${position.symbol}&action=exit`;
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Exit Position</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          {/* Position Details Dialog */}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                onClick={() => setSelectedPosition(position)}
+                              >
+                                <Search className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Position Details: {position.symbol}</DialogTitle>
+                              </DialogHeader>
+                              {selectedPosition && selectedPosition.symbol === position.symbol && (
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Asset Name</p>
+                                      <p className="font-medium">{position.assetName}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Quantity</p>
+                                      <p className="font-medium">{position.quantity}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Entry Price</p>
+                                      <p className="font-medium">{formatCurrency(position.averageEntryPrice)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Cost Basis</p>
+                                      <p className="font-medium">{formatCurrency(position.costBasis)}</p>
+                                    </div>
+                                    
+                                    {/* Show additional fields based on position status */}
+                                    {position.positionStatus === 'closed' ? (
+                                      // Closed position details
+                                      <>
+                                        {position.exitPrice !== undefined && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Exit Price</p>
+                                            <p className="font-medium">{formatCurrency(position.exitPrice)}</p>
+                                          </div>
+                                        )}
+                                        {position.exitDate && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Exit Date</p>
+                                            <p className="font-medium">{new Date(position.exitDate).toLocaleDateString()}</p>
+                                          </div>
+                                        )}
+                                        {position.entryDate && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Entry Date</p>
+                                            <p className="font-medium">{new Date(position.entryDate).toLocaleDateString()}</p>
+                                          </div>
+                                        )}
+                                        {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Realized P&L</p>
+                                            <p className={`font-medium ${position.realizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
+                                              {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
+                                            </p>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      // Open position details
+                                      <>
+                                        {position.currentPrice !== undefined && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Current Price</p>
+                                            <p className="font-medium">{formatCurrency(position.currentPrice)}</p>
+                                          </div>
+                                        )}
+                                        {position.marketValue !== undefined && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Market Value</p>
+                                            <p className="font-medium">{formatCurrency(position.marketValue)}</p>
+                                          </div>
+                                        )}
+                                        {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
+                                          <div>
+                                            <p className="text-sm text-muted-foreground">Unrealized P&L</p>
+                                            <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
+                                              {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
+                                            </p>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
                                   </div>
                                   
-                                  {/* Show additional fields based on position status */}
-                                  {position.positionStatus === 'closed' ? (
-                                    // Closed position details
-                                    <>
-                                      {position.exitPrice !== undefined && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Exit Price</p>
-                                          <p className="font-medium">{formatCurrency(position.exitPrice)}</p>
-                                        </div>
-                                      )}
-                                      {position.exitDate && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Exit Date</p>
-                                          <p className="font-medium">{new Date(position.exitDate).toLocaleDateString()}</p>
-                                        </div>
-                                      )}
-                                      {position.entryDate && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Entry Date</p>
-                                          <p className="font-medium">{new Date(position.entryDate).toLocaleDateString()}</p>
-                                        </div>
-                                      )}
-                                      {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Realized P&L</p>
-                                          <p className={`font-medium ${position.realizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
-                                            {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
-                                          </p>
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    // Open position details
-                                    <>
-                                      {position.currentPrice !== undefined && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Current Price</p>
-                                          <p className="font-medium">{formatCurrency(position.currentPrice)}</p>
-                                        </div>
-                                      )}
-                                      {position.marketValue !== undefined && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Market Value</p>
-                                          <p className="font-medium">{formatCurrency(position.marketValue)}</p>
-                                        </div>
-                                      )}
-                                      {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
-                                        <div>
-                                          <p className="text-sm text-muted-foreground">Unrealized P&L</p>
-                                          <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
-                                            {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
-                                          </p>
-                                        </div>
-                                      )}
-                                    </>
+                                  {/* Only show action buttons for open positions */}
+                                  {position.positionStatus !== 'closed' && (
+                                    <div className="flex justify-end space-x-2">
+                                      <Button variant="outline">Close Position</Button>
+                                      <Button variant="outline">Modify Position</Button>
+                                    </div>
                                   )}
                                 </div>
-                                
-                                {/* Only show action buttons for open positions */}
-                                {position.positionStatus !== 'closed' && (
-                                  <div className="flex justify-end space-x-2">
-                                    <Button variant="outline">Close Position</Button>
-                                    <Button variant="outline">Modify Position</Button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
