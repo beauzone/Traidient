@@ -16,8 +16,10 @@ import {
   Briefcase,
   ShoppingCart,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Database
 } from "lucide-react";
+import { useMarketData } from "@/hooks/useMarketData";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +76,7 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   const { user, updateUser } = useAuth();
   const [theme, setTheme] = useState<'dark' | 'light'>(user?.settings?.theme || 'dark');
   const { accounts, selectedAccount, setSelectedAccount, isLoadingAccounts } = useAccountContext();
+  const { marketStatus } = useMarketData();
   
   // Query to get notifications
   const { data: notifications, isLoading: isLoadingNotifications } = useQuery({
@@ -273,6 +276,41 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
               </div>
               
               <div className="flex items-center md:ml-6">
+                {/* Market Status Indicators */}
+                <div className="flex items-center mr-4">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center mr-3">
+                          <div className={`w-2 h-2 rounded-full mr-1.5 ${marketStatus.isMarketOpen ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          <span className="text-xs font-medium">
+                            Market {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">U.S. Stock Market status</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center">
+                          <Database className="h-3.5 w-3.5 mr-1" />
+                          <span className="text-xs font-medium">
+                            {marketStatus.dataSource || 'Unknown'}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Current data provider</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                
                 {/* Notification dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
