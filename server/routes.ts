@@ -2612,67 +2612,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      try {
-        // Get top gainers from Yahoo Finance
-        const gainers = await yahooFinance.getTopGainers(5);
-        
-        // Add dataSource field to each gainer
-        const gainersWithSource = gainers.map(gainer => ({
-          ...gainer,
-          dataSource: "yahoo"
-        }));
-        
-        res.json(gainersWithSource);
-      } catch (error) {
-        console.error('Yahoo Finance API error for top gainers:', error);
-        
-        // Fallback to reference data if Yahoo Finance fails
-        const gainers = [
-          { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 938.46, change: 13.76, changePercent: 1.49, dataSource: "reference" },
-          { symbol: 'MRVL', name: 'Marvell Technology, Inc.', price: 72.35, change: 4.18, changePercent: 6.13, dataSource: "reference" },
-          { symbol: 'PANW', name: 'Palo Alto Networks Inc', price: 311.78, change: 9.52, changePercent: 3.15, dataSource: "reference" },
-          { symbol: 'AMD', name: 'Advanced Micro Devices Inc', price: 175.24, change: 4.83, changePercent: 2.83, dataSource: "reference" },
-          { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92, dataSource: "reference" }
-        ];
-        
-        res.json(gainers);
-      }
+      // Get top gainers from Yahoo Finance
+      const gainers = await yahooFinance.getTopGainers(5);
+      
+      // Add dataSource field to each gainer
+      const gainersWithSource = gainers.map(gainer => ({
+        ...gainer,
+        dataSource: "yahoo"
+      }));
+      
+      res.json(gainersWithSource);
     } catch (error) {
-      console.error('Get gainers error:', error);
-      res.status(500).json({ message: 'Error fetching top gainers' });
+      console.error('Yahoo Finance API error for top gainers:', error);
+      res.status(500).json({ message: 'Error fetching top gainers data' });
     }
   });
 
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      try {
-        // Get top losers from Yahoo Finance
-        const losers = await yahooFinance.getTopLosers(5);
-        
-        // Add dataSource field to each loser
-        const losersWithSource = losers.map(loser => ({
-          ...loser,
-          dataSource: "yahoo"
-        }));
-        
-        res.json(losersWithSource);
-      } catch (error) {
-        console.error('Yahoo Finance API error for top losers:', error);
-        
-        // Fallback to reference data if Yahoo Finance fails
-        const losers = [
-          { symbol: 'CVX', name: 'Chevron Corporation', price: 155.61, change: -2.43, changePercent: -1.54, dataSource: "reference" },
-          { symbol: 'XOM', name: 'Exxon Mobil Corporation', price: 113.65, change: -1.54, changePercent: -1.34, dataSource: "reference" },
-          { symbol: 'WMT', name: 'Walmart Inc', price: 59.53, change: -0.75, changePercent: -1.24, dataSource: "reference" },
-          { symbol: 'VZ', name: 'Verizon Communications Inc', price: 41.02, change: -0.48, changePercent: -1.16, dataSource: "reference" },
-          { symbol: 'INTC', name: 'Intel Corporation', price: 41.93, change: -0.47, changePercent: -1.11, dataSource: "reference" }
-        ];
-        
-        res.json(losers);
-      }
+      // Get top losers from Yahoo Finance
+      const losers = await yahooFinance.getTopLosers(5);
+      
+      // Add dataSource field to each loser
+      const losersWithSource = losers.map(loser => ({
+        ...loser,
+        dataSource: "yahoo"
+      }));
+      
+      res.json(losersWithSource);
     } catch (error) {
-      console.error('Get losers error:', error);
-      res.status(500).json({ message: 'Error fetching top losers' });
+      console.error('Yahoo Finance API error for top losers:', error);
+      res.status(500).json({ message: 'Error fetching top losers data' });
     }
   });
 

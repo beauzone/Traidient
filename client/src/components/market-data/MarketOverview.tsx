@@ -76,33 +76,27 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
     }),
   });
 
-  // Fetch market movers data
-  const { data: topGainers, isLoading: isLoadingGainers } = useQuery({
+  // Type definition for market mover data
+  interface MarketMover {
+    symbol: string;
+    name: string;
+    price: number;
+    change: number;
+    changePercent: number;
+    dataSource?: string;
+  }
+
+  // Fetch market movers data with error handling
+  const { data: topGainers = [], isLoading: isLoadingGainers, error: gainersError } = useQuery({
     queryKey: ['/api/market-data/gainers'],
-    queryFn: () => fetchData<{ symbol: string; name: string; price: number; change: number; changePercent: number }[]>('/api/market-data/gainers').catch(() => {
-      // Fallback data in case API isn't implemented yet
-      return [
-        { symbol: "NVDA", name: "NVIDIA Corporation", price: 892.32, change: 45.67, changePercent: 5.4 },
-        { symbol: "AMD", name: "Advanced Micro Devices", price: 168.78, change: 7.23, changePercent: 4.5 },
-        { symbol: "META", name: "Meta Platforms Inc", price: 512.45, change: 18.65, changePercent: 3.8 },
-        { symbol: "AAPL", name: "Apple Inc", price: 198.32, change: 6.78, changePercent: 3.5 },
-        { symbol: "TSLA", name: "Tesla Inc", price: 256.72, change: 7.32, changePercent: 2.9 }
-      ];
-    }),
+    queryFn: () => fetchData<MarketMover[]>('/api/market-data/gainers'),
+    retry: 1
   });
 
-  const { data: topLosers, isLoading: isLoadingLosers } = useQuery({
+  const { data: topLosers = [], isLoading: isLoadingLosers, error: losersError } = useQuery({
     queryKey: ['/api/market-data/losers'],
-    queryFn: () => fetchData<{ symbol: string; name: string; price: number; change: number; changePercent: number }[]>('/api/market-data/losers').catch(() => {
-      // Fallback data in case API isn't implemented yet
-      return [
-        { symbol: "NFLX", name: "Netflix Inc", price: 624.54, change: -18.32, changePercent: -2.8 },
-        { symbol: "BA", name: "Boeing Co", price: 178.23, change: -4.56, changePercent: -2.5 },
-        { symbol: "JPM", name: "JPMorgan Chase & Co", price: 192.34, change: -4.21, changePercent: -2.1 },
-        { symbol: "MS", name: "Morgan Stanley", price: 88.76, change: -1.87, changePercent: -2.0 },
-        { symbol: "IBM", name: "International Business Machines", price: 172.45, change: -3.21, changePercent: -1.8 }
-      ];
-    }),
+    queryFn: () => fetchData<MarketMover[]>('/api/market-data/losers'),
+    retry: 1
   });
 
   // Format currency
@@ -220,6 +214,16 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
+              ) : gainersError ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-destructive mb-2">Unable to fetch top gainers</div>
+                  <div className="text-sm text-muted-foreground">Market data service may be temporarily unavailable</div>
+                </div>
+              ) : topGainers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-muted-foreground mb-2">No top gainers available</div>
+                  <div className="text-sm text-muted-foreground">Check back during market hours for live updates</div>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -233,7 +237,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {topGainers?.map((stock) => (
+                      {topGainers.map((stock) => (
                         <tr 
                           key={stock.symbol} 
                           className="border-b border-border hover:bg-muted/50 cursor-pointer"
@@ -257,6 +261,16 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
+              ) : losersError ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-destructive mb-2">Unable to fetch top losers</div>
+                  <div className="text-sm text-muted-foreground">Market data service may be temporarily unavailable</div>
+                </div>
+              ) : topLosers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-muted-foreground mb-2">No top losers available</div>
+                  <div className="text-sm text-muted-foreground">Check back during market hours for live updates</div>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -270,7 +284,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {topLosers?.map((stock) => (
+                      {topLosers.map((stock) => (
                         <tr 
                           key={stock.symbol} 
                           className="border-b border-border hover:bg-muted/50 cursor-pointer"
