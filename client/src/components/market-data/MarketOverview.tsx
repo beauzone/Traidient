@@ -123,9 +123,9 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
   return (
     <div className="space-y-6">
       {/* Market Status Indicator */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center mb-2">
         <h2 className="text-2xl font-bold">Market Overview</h2>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center ml-4 space-x-3">
           <Badge 
             variant={marketStatus?.isMarketOpen ? "default" : "secondary"}
             className="flex items-center space-x-1"
