@@ -42,8 +42,8 @@ const Sidebar = () => {
   const navItems = [
     // Dashboard always comes first
     { path: "/dashboard", name: "Dashboard", icon: <LineChart className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // Live Trading Monitor
-    { path: "/live-trading", name: "Live Trading", icon: <MonitorPlay className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Trading Monitor
+    { path: "/live-trading", name: "Trading", icon: <MonitorPlay className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Markets (renamed from Market Data)
     { path: "/markets", name: "Markets", icon: <Database className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Screens (renamed from Screeners)
