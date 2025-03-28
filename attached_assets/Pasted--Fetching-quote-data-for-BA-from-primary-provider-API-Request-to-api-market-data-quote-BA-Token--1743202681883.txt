@@ -1,0 +1,158 @@
+ Fetching quote data for BA from primary provider
+ API Request to /api/market-data/quote/BA - Token exists: true
+ Request headers: {Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2…jI3fQ.PwqK1KGNKET4y9B8uEgAq4VOtYwoE0f86QveDj4jBfU'}
+ API Request to /api/market-data/historical/BA - Token exists: true
+ Request headers: {Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2…jI3fQ.PwqK1KGNKET4y9B8uEgAq4VOtYwoE0f86QveDj4jBfU'}
+ WebSocket connection closed
+ Response from /api/market-data/quote/BA: 200 OK
+ Response data from /api/market-data/quote/BA: {quote: {…}, symbol: 'BA', dataSource: 'alpaca'}
+ Received data for BA: {quote: {…}, symbol: 'BA', dataSource: 'alpaca'}
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+ Response from /api/market-data/historical/BA: 200 OK
+ Response data from /api/market-data/historical/BA: {symbol: 'BA', bars: Array(1), isSimulated: false, dataSource: 'alpaca'}
+_app-e57a6e4480539716.js:13 Fetch finished loading: POST "https://sp.replit.com/v1/m".
+(anonymous) @ _app-e57a6e4480539716.js:13
+o @ sdk.min.js:1
+(anonymous) @ remote-metrics.ts:138
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+i.449.t.send @ sdk.min.js:1
+(anonymous) @ remote-metrics.ts:125
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+(anonymous) @ sdk.min.js:1
+l @ remote-metrics.ts:83
+n @ _app-e57a6e4480539716.js:13
+_app-e57a6e4480539716.js:13 Fetch finished loading: POST "https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3A4c24c09d&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=997764b1-9a6d-423d-aae0-8cf9c3e65d2c".
+(anonymous) @ _app-e57a6e4480539716.js:13
+a @ _app-e57a6e4480539716.js:30
+g @ _app-e57a6e4480539716.js:30
+m @ _app-e57a6e4480539716.js:30
+send @ _app-e57a6e4480539716.js:30
+e.flush @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+e.notify @ _app-e57a6e4480539716.js:15
+f @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+d @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+n @ _app-e57a6e4480539716.js:13
+setTimeout
+(anonymous) @ _app-e57a6e4480539716.js:13
+a @ _app-e57a6e4480539716.js:15
+notifyBeforeAddMessage @ _app-e57a6e4480539716.js:15
+e.push @ _app-e57a6e4480539716.js:15
+e.addOrUpdate @ _app-e57a6e4480539716.js:15
+e.add @ _app-e57a6e4480539716.js:15
+add @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:18
+e.notify @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:18
+e.notify @ _app-e57a6e4480539716.js:18
+handleLog @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:18
+e.log @ _app-e57a6e4480539716.js:18
+d @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+r.value @ _app-e57a6e4480539716.js:15
+e.info @ _app-e57a6e4480539716.js:18
+info @ _app-e57a6e4480539716.js:18
+A @ 8518-3a55fe7e20c0d87a.js:1
+info @ 7570-874d3d9b83c73434.js:1
+(anonymous) @ 7570-874d3d9b83c73434.js:1
+(anonymous) @ 7570-874d3d9b83c73434.js:1
+(anonymous) @ 7570-874d3d9b83c73434.js:1
+(anonymous) @ 7570-874d3d9b83c73434.js:1
+apply @ 7570-874d3d9b83c73434.js:1
+(anonymous) @ 2250-fa954b00216f3f1f.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+n @ main-11e1658f871f3b20.js:1
+u @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ 2250-fa954b00216f3f1f.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+n @ main-11e1658f871f3b20.js:1
+u @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+u @ 7531-7b010355ce15e2ae.js:1
+(anonymous) @ 7531-7b010355ce15e2ae.js:1
+n @ _app-e57a6e4480539716.js:13
+setTimeout
+(anonymous) @ _app-e57a6e4480539716.js:13
+Object.assign.isScheduled @ 7531-7b010355ce15e2ae.js:1
+(anonymous) @ 2250-fa954b00216f3f1f.js:1
+n @ 2250-fa954b00216f3f1f.js:1
+n @ _app-e57a6e4480539716.js:13
+Console.js:61 API Request to /api/notifications?limit=10 - Token exists: true
+Console.js:61 Request headers: {Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2…jI3fQ.PwqK1KGNKET4y9B8uEgAq4VOtYwoE0f86QveDj4jBfU'}
+Console.js:61 Response from /api/notifications?limit=10: 200 OK
+Console.js:61 Response data from /api/notifications?limit=10: []
+Console.js:61 API Request to /api/notifications?limit=10 - Token exists: true
+Console.js:61 Request headers: {Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2…jI3fQ.PwqK1KGNKET4y9B8uEgAq4VOtYwoE0f86QveDj4jBfU'}
+ API Request to /api/notifications?limit=10 - Token exists: true
+ Request headers: {Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2…jI3fQ.PwqK1KGNKET4y9B8uEgAq4VOtYwoE0f86QveDj4jBfU'}
+Console.js:61 Response from /api/notifications?limit=10: 200 OK
+Console.js:61 Response data from /api/notifications?limit=10: []
+ Response from /api/notifications?limit=10: 200 OK
+ Response data from /api/notifications?limit=10: []
+AITradeGenius:1 Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: div
+Ancestor with aria-hidden:  <div class=​" useView_view__C2mnv css-1gdmsm6 Surface_surfaceDefault__TcNI5" aria-hidden=​"true" style=​"--useView--gap:​ 4px;​ --borderColor:​ var(--outline-dimmer)​;​ --focusedBorderColor:​ var(--accent-primary-default)​;​ --hoverBorderColor:​ var(--accent-primary-default)​;​">​…​</div>​flex
+_app-e57a6e4480539716.js:13 Fetch finished loading: POST "https://replit.com/graphql".
+(anonymous) @ _app-e57a6e4480539716.js:13
+(anonymous) @ _app-e57a6e4480539716.js:15
+e @ _app-e57a6e4480539716.js:18
+t.subscribe @ _app-e57a6e4480539716.js:18
+e.consumeQueue @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+n @ _app-e57a6e4480539716.js:13
+setTimeout
+(anonymous) @ _app-e57a6e4480539716.js:13
+e.scheduleQueueConsumption @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+e @ _app-e57a6e4480539716.js:18
+t.subscribe @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:15
+e @ _app-e57a6e4480539716.js:18
+t.subscribe @ _app-e57a6e4480539716.js:18
+e.try @ _app-e57a6e4480539716.js:15
+e.start @ _app-e57a6e4480539716.js:15
+t.request @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:18
+e.execute @ _app-e57a6e4480539716.js:18
+e.getObservableFromLink @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:15
+s @ _app-e57a6e4480539716.js:15
+e.mutate @ _app-e57a6e4480539716.js:15
+e.mutate @ _app-e57a6e4480539716.js:15
+(anonymous) @ _app-e57a6e4480539716.js:18
+(anonymous) @ _app-e57a6e4480539716.js:15
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+n @ main-11e1658f871f3b20.js:1
+u @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+(anonymous) @ main-11e1658f871f3b20.js:1
+n @ _app-e57a6e4480539716.js:13
