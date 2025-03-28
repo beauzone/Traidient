@@ -328,36 +328,64 @@ export class YahooFinanceAPI {
   
   /**
    * Get trending tickers from Yahoo Finance
+   * If market is closed, will still return the latest available data
    * @returns List of trending tickers
    */
   async getTrendingTickers(): Promise<TrendingTicker[]> {
     try {
+      // Try to get trending symbols from Yahoo Finance
       const result = await yahooFinance.trendingSymbols('US');
       
-      return result.quotes.map(quote => {
-        // Safe property access with fallbacks
-        const symbol = typeof quote.symbol === 'string' ? quote.symbol : '';
-        const longName = 'longName' in quote && typeof quote.longName === 'string' ? quote.longName : '';
-        const shortName = 'shortName' in quote && typeof quote.shortName === 'string' ? quote.shortName : '';
-        const price = 'regularMarketPrice' in quote && typeof quote.regularMarketPrice === 'number' ? quote.regularMarketPrice : 0;
-        const change = 'regularMarketChange' in quote && typeof quote.regularMarketChange === 'number' ? quote.regularMarketChange : 0;
-        const changePercent = 'regularMarketChangePercent' in quote && typeof quote.regularMarketChangePercent === 'number' ? quote.regularMarketChangePercent : 0;
-        const fullExchangeName = 'fullExchangeName' in quote && typeof quote.fullExchangeName === 'string' ? quote.fullExchangeName : '';
-        const exchangeName = 'exchange' in quote && typeof quote.exchange === 'string' ? quote.exchange : 'UNKNOWN';
-        
-        return {
-          symbol,
-          name: longName || shortName || symbol,
-          price,
-          change,
-          changePercent,
-          exchange: fullExchangeName || exchangeName
-        };
-      });
+      // Check if we have quotes
+      if (result.quotes && result.quotes.length > 0) {
+        return result.quotes.map(quote => this._formatQuoteToTrendingTicker(quote));
+      }
+      
+      // If no trending data available (possibly after hours or weekend),
+      // fetch major index components instead to get most recent session data
+      console.log('No trending stocks found, fetching major stocks instead');
+      
+      // Common major stocks (S&P 500 top components)
+      const majorStocks = [
+        'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA', 'UNH', 'XOM',
+        'JPM', 'JNJ', 'V', 'PG', 'MA', 'HD', 'CVX', 'MRK', 'ABBV', 'LLY', 'AVGO'
+      ];
+      
+      // Get quotes for these stocks
+      const quotesPromises = majorStocks.map(stock => yahooFinance.quote(stock));
+      const quotes = await Promise.all(quotesPromises);
+      
+      return quotes.map(quote => this._formatQuoteToTrendingTicker(quote));
     } catch (error) {
       console.error('Error fetching trending tickers:', error);
       throw new Error('Failed to fetch trending tickers');
     }
+  }
+  
+  /**
+   * Helper method to format a Yahoo Finance quote to our TrendingTicker format
+   * @param quote Yahoo Finance quote object
+   * @returns Formatted trending ticker
+   */
+  private _formatQuoteToTrendingTicker(quote: any): TrendingTicker {
+    // Safe property access with fallbacks
+    const symbol = typeof quote.symbol === 'string' ? quote.symbol : '';
+    const longName = 'longName' in quote && typeof quote.longName === 'string' ? quote.longName : '';
+    const shortName = 'shortName' in quote && typeof quote.shortName === 'string' ? quote.shortName : '';
+    const price = 'regularMarketPrice' in quote && typeof quote.regularMarketPrice === 'number' ? quote.regularMarketPrice : 0;
+    const change = 'regularMarketChange' in quote && typeof quote.regularMarketChange === 'number' ? quote.regularMarketChange : 0;
+    const changePercent = 'regularMarketChangePercent' in quote && typeof quote.regularMarketChangePercent === 'number' ? quote.regularMarketChangePercent : 0;
+    const fullExchangeName = 'fullExchangeName' in quote && typeof quote.fullExchangeName === 'string' ? quote.fullExchangeName : '';
+    const exchangeName = 'exchange' in quote && typeof quote.exchange === 'string' ? quote.exchange : 'UNKNOWN';
+    
+    return {
+      symbol,
+      name: longName || shortName || symbol,
+      price,
+      change,
+      changePercent,
+      exchange: fullExchangeName || exchangeName
+    };
   }
   
   /**

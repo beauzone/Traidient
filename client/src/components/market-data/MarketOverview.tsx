@@ -86,17 +86,31 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
     dataSource?: string;
   }
 
-  // Fetch market movers data with error handling
-  const { data: topGainers = [], isLoading: isLoadingGainers, error: gainersError } = useQuery({
+  // Fetch market movers data with error handling and refresh every 5 minutes
+  const { 
+    data: topGainers = [], 
+    isLoading: isLoadingGainers, 
+    error: gainersError,
+    dataUpdatedAt: gainersUpdatedAt
+  } = useQuery({
     queryKey: ['/api/market-data/gainers'],
     queryFn: () => fetchData<MarketMover[]>('/api/market-data/gainers'),
-    retry: 1
+    retry: 1,
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes (in milliseconds)
+    staleTime: 5 * 60 * 1000 // Consider data fresh for 5 minutes
   });
 
-  const { data: topLosers = [], isLoading: isLoadingLosers, error: losersError } = useQuery({
+  const { 
+    data: topLosers = [], 
+    isLoading: isLoadingLosers, 
+    error: losersError,
+    dataUpdatedAt: losersUpdatedAt
+  } = useQuery({
     queryKey: ['/api/market-data/losers'],
     queryFn: () => fetchData<MarketMover[]>('/api/market-data/losers'),
-    retry: 1
+    retry: 1,
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes (in milliseconds)
+    staleTime: 5 * 60 * 1000 // Consider data fresh for 5 minutes
   });
 
   // Format currency
@@ -202,7 +216,12 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
       {/* Market Movers */}
       <Card className="overflow-hidden">
         <CardContent className="p-4">
-          <h3 className="font-medium mb-4">Market Movers</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-medium">Market Movers</h3>
+            <div className="text-xs text-muted-foreground">
+              Auto-updates every 5 minutes
+            </div>
+          </div>
           <Tabs defaultValue="gainers">
             <TabsList className="mb-4">
               <TabsTrigger value="gainers">Top Gainers</TabsTrigger>
@@ -226,32 +245,38 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b border-border">
-                      <tr>
-                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
-                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
-                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
-                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topGainers.map((stock) => (
-                        <tr 
-                          key={stock.symbol} 
-                          className="border-b border-border hover:bg-muted/50 cursor-pointer"
-                          onClick={() => onSymbolSelect(stock.symbol)}
-                        >
-                          <td className="py-3 px-4 font-medium">{stock.symbol}</td>
-                          <td className="py-3 px-4">{stock.name}</td>
-                          <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
-                          <td className="py-3 px-4 text-right text-green-500">{formatCurrency(stock.change)}</td>
-                          <td className="py-3 px-4 text-right text-green-500">{formatPercentage(stock.changePercent)}</td>
+                  <div>
+                    <table className="w-full">
+                      <thead className="border-b border-border">
+                        <tr>
+                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
+                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {topGainers.map((stock) => (
+                          <tr 
+                            key={stock.symbol} 
+                            className="border-b border-border hover:bg-muted/50 cursor-pointer"
+                            onClick={() => onSymbolSelect(stock.symbol)}
+                          >
+                            <td className="py-3 px-4 font-medium">{stock.symbol}</td>
+                            <td className="py-3 px-4">{stock.name}</td>
+                            <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
+                            <td className="py-3 px-4 text-right text-green-500">{formatCurrency(stock.change)}</td>
+                            <td className="py-3 px-4 text-right text-green-500">{formatPercentage(stock.changePercent)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="flex justify-between items-center mt-2 px-4 text-xs text-muted-foreground">
+                      <div>Data Source: {topGainers[0]?.dataSource || 'Yahoo Finance'}</div>
+                      <div>Last Updated: {gainersUpdatedAt ? new Date(gainersUpdatedAt).toLocaleTimeString() : 'Just now'}</div>
+                    </div>
+                  </div>
                 </div>
               )}
             </TabsContent>
@@ -273,32 +298,38 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b border-border">
-                      <tr>
-                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
-                        <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
-                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
-                        <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topLosers.map((stock) => (
-                        <tr 
-                          key={stock.symbol} 
-                          className="border-b border-border hover:bg-muted/50 cursor-pointer"
-                          onClick={() => onSymbolSelect(stock.symbol)}
-                        >
-                          <td className="py-3 px-4 font-medium">{stock.symbol}</td>
-                          <td className="py-3 px-4">{stock.name}</td>
-                          <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
-                          <td className="py-3 px-4 text-right text-red-500">{formatCurrency(stock.change)}</td>
-                          <td className="py-3 px-4 text-right text-red-500">{formatPercentage(stock.changePercent)}</td>
+                  <div>
+                    <table className="w-full">
+                      <thead className="border-b border-border">
+                        <tr>
+                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Symbol</th>
+                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Name</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Price</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Change</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">% Change</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {topLosers.map((stock) => (
+                          <tr 
+                            key={stock.symbol} 
+                            className="border-b border-border hover:bg-muted/50 cursor-pointer"
+                            onClick={() => onSymbolSelect(stock.symbol)}
+                          >
+                            <td className="py-3 px-4 font-medium">{stock.symbol}</td>
+                            <td className="py-3 px-4">{stock.name}</td>
+                            <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
+                            <td className="py-3 px-4 text-right text-red-500">{formatCurrency(stock.change)}</td>
+                            <td className="py-3 px-4 text-right text-red-500">{formatPercentage(stock.changePercent)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="flex justify-between items-center mt-2 px-4 text-xs text-muted-foreground">
+                      <div>Data Source: {topLosers[0]?.dataSource || 'Yahoo Finance'}</div>
+                      <div>Last Updated: {losersUpdatedAt ? new Date(losersUpdatedAt).toLocaleTimeString() : 'Just now'}</div>
+                    </div>
+                  </div>
                 </div>
               )}
             </TabsContent>
