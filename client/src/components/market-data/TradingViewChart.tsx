@@ -7,55 +7,105 @@ interface TradingViewChartProps {
   theme?: 'light' | 'dark';
   autosize?: boolean;
   height?: number;
+  startDate?: string;
+  endDate?: string;
+  containerClass?: string;
 }
 
 export default function TradingViewChart({
   symbol,
-  interval = '1D',
+  interval = 'D',
   theme = 'dark',
   autosize = true,
-  height = 500
+  height = 500,
+  startDate,
+  endDate,
+  containerClass
 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const widgetRef = useRef<any>(null);
 
   useEffect(() => {
     if (!symbol || !containerRef.current) return;
 
+    // Clean up any previous instance
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+    }
+
+    // Create container ID
+    const containerId = `tradingview_${symbol.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}`;
+    containerRef.current.id = containerId;
+
     const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.type = 'text/javascript';
     script.async = true;
-    script.onload = () => {
-      if (typeof TradingView !== 'undefined') {
-        new TradingView.widget({
-          symbol: symbol,
-          interval: interval,
-          container_id: containerRef.current?.id,
-          datafeed: new (window as any).Datafeeds.UDFCompatibleDatafeed('/api/market-data'),
-          library_path: 'https://s3.tradingview.com/charting_library/',
-          locale: 'en',
-          disabled_features: ['use_localstorage_for_settings'],
-          enabled_features: ['study_templates'],
-          charts_storage_url: 'https://saveload.tradingview.com',
-          client_id: 'tradingview.com',
-          user_id: 'public_user',
-          autosize: autosize,
-          height: height,
-          theme: theme,
-          toolbar_bg: theme === 'dark' ? '#1a1b1e' : '#ffffff',
-          loading_screen: { backgroundColor: theme === 'dark' ? '#1a1b1e' : '#ffffff' },
-          overrides: {
-            "mainSeriesProperties.style": 1,
-            "symbolWatermarkProperties.color": "rgba(0, 0, 0, 0)",
-          }
-        });
-      }
+
+    // Format the widget configuration
+    const widgetConfig = {
+      autosize: autosize,
+      height: height,
+      symbol: `${symbol}`,
+      interval: interval,
+      timezone: "America/New_York",
+      theme: theme,
+      style: "1",
+      locale: "en",
+      enable_publishing: false,
+      allow_symbol_change: true,
+      calendar: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      save_image: false,
+      support_host: "https://www.tradingview.com"
     };
-    document.head.appendChild(script);
+
+    script.innerHTML = JSON.stringify(widgetConfig);
+    
+    // Create a container
+    const widgetContainer = document.createElement('div');
+    widgetContainer.className = 'tradingview-widget-container';
+    
+    const widgetDiv = document.createElement('div');
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    widgetDiv.style.height = '100%';
+    widgetDiv.style.width = '100%';
+    
+    // Create a copyright div 
+    const copyrightDiv = document.createElement('div');
+    copyrightDiv.className = 'tradingview-widget-copyright';
+    copyrightDiv.style.width = '100%';
+    copyrightDiv.style.fontSize = '10px';
+    copyrightDiv.style.textAlign = 'right';
+    copyrightDiv.style.position = 'absolute';
+    copyrightDiv.style.bottom = '5px';
+    copyrightDiv.style.right = '10px';
+    copyrightDiv.style.color = 'rgba(255, 255, 255, 0.3)';
+    
+    // Assemble the widget
+    widgetContainer.appendChild(widgetDiv);
+    widgetContainer.appendChild(copyrightDiv);
+    
+    // Insert the widget
+    containerRef.current.appendChild(widgetContainer);
+    containerRef.current.appendChild(script);
 
     return () => {
-      script.remove();
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+      if (widgetRef.current) {
+        widgetRef.current = null;
+      }
     };
-  }, [symbol, interval, theme]);
+  }, [symbol, interval, theme, autosize, height]);
 
-  return <div id={`tradingview_${symbol}`} ref={containerRef} className="w-full h-full" />;
+  return (
+    <div 
+      ref={containerRef}
+      className={containerClass || "w-full h-full"}
+      style={{ position: 'relative' }}
+    />
+  );
 }

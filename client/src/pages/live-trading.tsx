@@ -45,7 +45,7 @@ const LiveTradingPage = () => {
     queryFn: () => fetchData<WatchlistItem[]>('/api/watchlist'),
   });
 
-  // Sample data for mockup illustration (to fill in from real data later)
+  // Sample data for mockup illustration
   const sampleWatchlist = [
     { id: 1, symbol: "CRWD", name: "CrowdStrike Inc.", lastPrice: "$367.28", change: "-2.35", changePercent: "-0.64%", isPositive: false },
     { id: 2, symbol: "PANS", name: "Palo Alto Networks Inc.", lastPrice: "$286.75", change: "+3.40", changePercent: "+1.20%", isPositive: true },
@@ -132,41 +132,39 @@ const LiveTradingPage = () => {
               </div>
             </div>
 
-            <Card className="flex-1">
-              <CardHeader className="py-3 px-4">
-                <CardTitle className="text-sm font-medium">Your Watchlist</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="max-h-[calc(100vh-230px)] overflow-y-auto">
-                  {displayedWatchlist.length === 0 ? (
-                    <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
-                      No stocks found
-                    </div>
-                  ) : (
-                    <div>
-                      {displayedWatchlist.map((item) => (
-                        <div 
-                          key={item.id} 
-                          className={`flex items-center justify-between p-3 px-4 hover:bg-accent/50 cursor-pointer transition-colors ${selectedSymbol === item.symbol ? 'bg-accent' : ''}`}
-                          onClick={() => handleSymbolSelect(item.symbol)}
-                        >
-                          <div className="flex flex-col">
-                            <div className="font-medium">{item.symbol}</div>
-                            <div className="text-xs text-muted-foreground">{item.name}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className={item.isPositive ? "text-green-500" : "text-red-500"}>{item.lastPrice}</div>
-                            <div className={`text-xs ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
-                              {item.changePercent}
-                            </div>
+            <div className="flex-1 border rounded-md bg-background">
+              <div className="py-3 px-4 border-b border-border">
+                <div className="text-sm font-medium">Your Watchlist</div>
+              </div>
+              <div className="max-h-[calc(100vh-230px)] overflow-y-auto">
+                {displayedWatchlist.length === 0 ? (
+                  <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
+                    No stocks found
+                  </div>
+                ) : (
+                  <div>
+                    {displayedWatchlist.map((item) => (
+                      <div 
+                        key={item.id} 
+                        className={`flex items-center justify-between p-3 px-4 hover:bg-muted/50 cursor-pointer transition-colors border-b border-border last:border-0 ${selectedSymbol === item.symbol ? 'bg-muted/70' : ''}`}
+                        onClick={() => handleSymbolSelect(item.symbol)}
+                      >
+                        <div className="flex flex-col">
+                          <div className="font-medium">{item.symbol}</div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[120px]">{item.name}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={item.isPositive ? "text-green-500" : "text-red-500"}>{item.lastPrice}</div>
+                          <div className={`text-xs ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
+                            {item.changePercent}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Right Content Area */}
@@ -226,10 +224,17 @@ const LiveTradingPage = () => {
               style={{ minHeight: '420px' }}
               ref={chartContainerRef}
             >
-              <div className="absolute top-2 left-3 z-10 flex flex-col">
-                <div className="font-bold text-sm">{selectedSymbol || 'CRWD'}</div>
+              <div className="absolute top-2 left-3 z-10 flex flex-col pointer-events-none">
+                <div className="font-bold text-sm">{selectedSymbol || 'PANS'}</div>
                 <div className="text-xs text-muted-foreground">
-                  CrowdStrike Holdings, Inc. Class A Common Stock
+                  {selectedSymbol === 'PANS' 
+                    ? 'CrowdStrike Holdings, Inc. Class A Common Stock'
+                    : selectedSymbol === 'CRWD' 
+                      ? 'CrowdStrike Holdings, Inc. Class A Common Stock'
+                      : selectedSymbol === 'PANS' 
+                        ? 'Palo Alto Networks Inc. Class A Common Stock'
+                        : `${selectedSymbol} Stock`
+                  }
                 </div>
                 <div className="text-xs mt-1">
                   Daily
@@ -239,10 +244,12 @@ const LiveTradingPage = () => {
 
               <div className="w-full h-full">
                 <TradingViewChart 
-                  symbol={selectedSymbol || 'CRWD'} 
-                  interval={timeInterval}
+                  symbol={selectedSymbol || 'PANS'} 
+                  interval="D"
                   theme="dark"
                   autosize={true}
+                  startDate="2025-03-01"
+                  endDate="2025-03-28"
                 />
               </div>
             </div>
