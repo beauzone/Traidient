@@ -66,7 +66,11 @@ interface Notification {
   readAt?: string;
 }
 
-const TopNavbar = () => {
+interface TopNavbarProps {
+  title?: string;
+}
+
+const TopNavbar = ({ title }: TopNavbarProps) => {
   const { user, updateUser } = useAuth();
   const [theme, setTheme] = useState<'dark' | 'light'>(user?.settings?.theme || 'dark');
   const { accounts, selectedAccount, setSelectedAccount, isLoadingAccounts } = useAccountContext();

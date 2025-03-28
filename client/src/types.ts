@@ -53,3 +53,16 @@ export interface Deployment {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface WatchlistItem {
+  id: number;
+  symbol: string;
+  name: string;
+  lastPrice: string;
+  change?: string;
+  changePercent: string;
+  isPositive: boolean;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

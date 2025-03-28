@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Maximize2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Maximize2, ZoomIn, ZoomOut, RotateCcw, Search, Plus } from "lucide-react";
 import StockSearch from "@/components/market-data/StockSearch";
 import PositionsTable from "@/components/dashboard/PositionsTable";
 import OrdersTable from "@/components/live-trading/OrdersTable";
@@ -17,15 +19,14 @@ import TradingViewChart from "@/components/market-data/TradingViewChart";
 
 const LiveTradingPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>("AAPL");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>("CRWD");
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<number | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [timeRange, setTimeRange] = useState("1D");
   const [timeInterval, setTimeInterval] = useState("1min");
-  const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
-  const [hideIndicators, setHideIndicators] = useState(true);
+  const [searchValue, setSearchValue] = useState("");
 
   // Queries
   const { data: strategies = [] } = useQuery({
@@ -43,6 +44,33 @@ const LiveTradingPage = () => {
     queryKey: ['/api/watchlist'],
     queryFn: () => fetchData<WatchlistItem[]>('/api/watchlist'),
   });
+
+  // Sample data for mockup illustration (to fill in from real data later)
+  const sampleWatchlist = [
+    { id: 1, symbol: "CRWD", name: "CrowdStrike Inc.", lastPrice: "$367.28", change: "-2.35", changePercent: "-0.64%", isPositive: false },
+    { id: 2, symbol: "PANS", name: "Palo Alto Networks Inc.", lastPrice: "$286.75", change: "+3.40", changePercent: "+1.20%", isPositive: true },
+    { id: 3, symbol: "META", name: "Meta Platforms Inc.", lastPrice: "$485.12", change: "+5.86", changePercent: "+1.22%", isPositive: true },
+    { id: 4, symbol: "GOOG", name: "Alphabet Inc.", lastPrice: "$166.80", change: "-0.29", changePercent: "-0.17%", isPositive: false },
+    { id: 5, symbol: "TSLA", name: "Tesla Inc.", lastPrice: "$173.80", change: "+2.54", changePercent: "+1.48%", isPositive: true },
+    { id: 6, symbol: "AMZN", name: "Amazon.com Inc.", lastPrice: "$183.80", change: "+1.32", changePercent: "+0.72%", isPositive: true },
+    { id: 7, symbol: "NFLX", name: "Netflix Inc.", lastPrice: "$612.44", change: "-4.12", changePercent: "-0.67%", isPositive: false },
+    { id: 8, symbol: "PLTR", name: "Palantir Technologies Inc.", lastPrice: "$22.87", change: "+0.43", changePercent: "+1.92%", isPositive: true },
+    { id: 9, symbol: "NET", name: "Cloudflare Inc.", lastPrice: "$93.76", change: "+2.11", changePercent: "+2.30%", isPositive: true },
+    { id: 10, symbol: "MSFT", name: "Microsoft Corp.", lastPrice: "$416.38", change: "+0.85", changePercent: "+0.20%", isPositive: true },
+    { id: 11, symbol: "NOW", name: "ServiceNow Inc.", lastPrice: "$744.29", change: "-3.22", changePercent: "-0.43%", isPositive: false },
+    { id: 12, symbol: "CRM", name: "Salesforce Inc.", lastPrice: "$283.51", change: "+1.67", changePercent: "+0.59%", isPositive: true },
+    { id: 13, symbol: "GLD", name: "SPDR Gold Trust", lastPrice: "$205.13", change: "+0.32", changePercent: "+0.16%", isPositive: true },
+    { id: 14, symbol: "PATH", name: "UiPath Inc.", lastPrice: "$12.17", change: "-0.23", changePercent: "-1.85%", isPositive: false },
+    { id: 15, symbol: "OKTA", name: "Okta Inc.", lastPrice: "$112.65", change: "+3.71", changePercent: "+3.40%", isPositive: true },
+  ];
+
+  // Filter the watchlist based on the search term
+  const displayedWatchlist = searchValue.trim() === "" 
+    ? sampleWatchlist 
+    : sampleWatchlist.filter(item => 
+        item.symbol.toLowerCase().includes(searchValue.toLowerCase()) || 
+        item.name.toLowerCase().includes(searchValue.toLowerCase())
+      );
 
   // Find the selected deployment
   const selectedDeployment = deployments.find(d => d.id === selectedDeploymentId);
@@ -80,206 +108,207 @@ const LiveTradingPage = () => {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col h-full gap-4 p-4">
-          {/* Top Row */}
-          <div className="flex gap-4">
-            {/* Left Side - Stock Search */}
-            <div className="w-64">
-              <StockSearch onSymbolSelect={handleSymbolSelect} watchlist={watchlist} />
-            </div>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold">Live Trading</h1>
+          <p className="text-sm text-muted-foreground">Monitor and manage your active trading strategies</p>
+        </div>
 
-            {/* Right Side - Chart Controls */}
-            <div className="flex gap-2 ml-auto items-center">
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-24">
-                  <SelectValue placeholder="Time Range" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["1D", "5D", "1M", "3M", "1Y", "3Y", "All"].map((range) => (
-                    <SelectItem key={range} value={range}>{range}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={timeInterval} onValueChange={setTimeInterval}>
-                <SelectTrigger className="w-24">
-                  <SelectValue placeholder="Interval" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["1min", "5min", "15min", "30min", "1H", "1D"].map((interval) => (
-                    <SelectItem key={interval} value={interval}>{interval}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center space-x-1 border rounded-md p-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() => setHideIndicators(!hideIndicators)}
-                >
-                  Indicators
-                </Button>
-
-                {!hideIndicators && (
-                  <Select
-                    value={selectedIndicators[0] || ""}
-                    onValueChange={(value) => setSelectedIndicators([value])}
-                  >
-                    <SelectTrigger className="w-24 h-8">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["SMA", "EMA", "MACD", "RSI", "BB"].map((indicator) => (
-                        <SelectItem key={indicator} value={indicator}>
-                          {indicator}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+        {/* Main Content Area */}
+        <div className="flex h-full gap-4">
+          {/* Left Sidebar - Watchlist */}
+          <div className="w-64 flex flex-col">
+            <div className="mb-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search symbol..."
+                  className="pl-9 h-9"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Chart Area */}
-          <Card className="flex-grow relative min-h-[600px]" ref={chartContainerRef}>
-            <div className="absolute top-2 right-2 flex gap-2 z-10">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleZoomIn}
-                className="bg-background/90 backdrop-blur-sm"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleZoomOut}
-                className="bg-background/90 backdrop-blur-sm"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleResetZoom}
-                className="bg-background/90 backdrop-blur-sm"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={toggleFullscreen}
-                className="bg-background/90 backdrop-blur-sm"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            </div>
-            <div 
-              className="w-full h-full transition-transform duration-200 ease-in-out" 
-              style={{ transform: `scale(${zoomLevel})` }}
-            >
-              <TradingViewChart 
-                symbol={selectedSymbol || 'AAPL'} 
-                interval={timeInterval}
-                theme="dark"
-                autosize={true}
-              />
-            </div>
-          </Card>
-        </div>
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Left sidebar with search and watchlist */}
-            <div className="md:col-span-1">
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Search</CardTitle>
-                    <CardDescription>Find assets to analyze</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <StockSearch onSymbolSelect={handleSymbolSelect} watchlist={watchlist} />
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Watchlist</CardTitle>
-                    <CardDescription>Keep track of interesting stocks</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {watchlist.length === 0 ? (
-                      <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
-                        No stocks in watchlist
-                      </div>
-                    ) : (
-                      <div className="divide-y border rounded-md">
-                        {watchlist.map((item) => (
-                          <div 
-                            key={item.id} 
-                            className="flex items-center justify-between p-3 hover:bg-muted/50 cursor-pointer transition-colors"
-                            onClick={() => handleSymbolSelect(item.symbol)}
-                          >
-                            <div>
-                              <div className="font-medium">{item.symbol}</div>
-                              <div className="text-xs text-muted-foreground truncate max-w-[150px]">{item.name}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className={item.isPositive ? "text-green-500" : "text-negative"}>{item.lastPrice}</div>
-                              <div className={`text-xs ${item.isPositive ? "text-green-500" : "text-negative"}`}>
-                                {item.isPositive ? "+" : ""}{item.changePercent}
-                              </div>
+            <Card className="flex-1">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-medium">Your Watchlist</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-[calc(100vh-230px)] overflow-y-auto">
+                  {displayedWatchlist.length === 0 ? (
+                    <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
+                      No stocks found
+                    </div>
+                  ) : (
+                    <div>
+                      {displayedWatchlist.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className={`flex items-center justify-between p-3 px-4 hover:bg-accent/50 cursor-pointer transition-colors ${selectedSymbol === item.symbol ? 'bg-accent' : ''}`}
+                          onClick={() => handleSymbolSelect(item.symbol)}
+                        >
+                          <div className="flex flex-col">
+                            <div className="font-medium">{item.symbol}</div>
+                            <div className="text-xs text-muted-foreground">{item.name}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className={item.isPositive ? "text-green-500" : "text-red-500"}>{item.lastPrice}</div>
+                            <div className={`text-xs ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
+                              {item.changePercent}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Content Area */}
+          <div className="flex-1 flex flex-col">
+            {/* Chart Time Controls */}
+            <div className="flex items-center space-x-1 mb-2">
+              {['1D', '5D', '1W', '1M', '3M', '6M', '1Y', 'ALL'].map((range) => (
+                <Button 
+                  key={range}
+                  variant={timeRange === range ? "default" : "ghost"}
+                  size="sm"
+                  className="px-2 py-1 h-7 text-xs"
+                  onClick={() => setTimeRange(range)}
+                >
+                  {range}
+                </Button>
+              ))}
+              <div className="ml-auto flex space-x-1">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleZoomIn}
+                  className="h-7 w-7"
+                >
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleZoomOut}
+                  className="h-7 w-7"
+                >
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleResetZoom}
+                  className="h-7 w-7"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={toggleFullscreen}
+                  className="h-7 w-7"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
 
-            {/* Main content area */}
-            <div className="md:col-span-3">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-6">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="positions">Positions</TabsTrigger>
-                  <TabsTrigger value="orders">Orders</TabsTrigger>
-                  <TabsTrigger value="monitor">Monitor</TabsTrigger>
-                </TabsList>
+            {/* Chart Area */}
+            <div 
+              className="relative rounded-lg overflow-hidden bg-muted border border-border mb-4 flex-grow" 
+              style={{ minHeight: '420px' }}
+              ref={chartContainerRef}
+            >
+              <div className="absolute top-2 left-3 z-10 flex flex-col">
+                <div className="font-bold text-sm">{selectedSymbol || 'CRWD'}</div>
+                <div className="text-xs text-muted-foreground">
+                  CrowdStrike Holdings, Inc. Class A Common Stock
+                </div>
+                <div className="text-xs mt-1">
+                  Daily
+                  <span className="text-muted-foreground ml-1">03/01/2025 - 03/28/2025</span>
+                </div>
+              </div>
 
-                <TabsContent value="overview" className="space-y-6">
-                  <DeploymentPanel 
-                    strategies={strategies}
-                    deployments={deployments}
-                    onSelectDeployment={handleSelectDeployment}
-                    onStatusChange={handleStatusChange}
-                    isLoading={isLoadingDeployments}
-                    selectedDeploymentId={selectedDeploymentId}
-                  />
+              <div className="w-full h-full">
+                <TradingViewChart 
+                  symbol={selectedSymbol || 'CRWD'} 
+                  interval={timeInterval}
+                  theme="dark"
+                  autosize={true}
+                />
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex-grow">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+                <div className="border-b">
+                  <TabsList className="bg-transparent h-10 w-full justify-start">
+                    <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Overview</TabsTrigger>
+                    <TabsTrigger value="positions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Positions</TabsTrigger>
+                    <TabsTrigger value="orders" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Orders</TabsTrigger>
+                    <TabsTrigger value="monitor" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Monitor</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="overview" className="h-full mt-0 pt-4 border-none">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">Deployments</h3>
+                      <p className="text-sm text-muted-foreground">Manage your live trading strategies</p>
+                    </div>
+                    <Button className="bg-blue-500 hover:bg-blue-600">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Deploy Strategy
+                    </Button>
+                  </div>
+
+                  {deployments.length > 0 ? (
+                    <DeploymentPanel 
+                      strategies={strategies}
+                      deployments={deployments}
+                      onSelectDeployment={handleSelectDeployment}
+                      onStatusChange={handleStatusChange}
+                      isLoading={isLoadingDeployments}
+                      selectedDeploymentId={selectedDeploymentId}
+                    />
+                  ) : (
+                    <div className="h-[200px] flex flex-col items-center justify-center border rounded-lg bg-muted/30">
+                      <p className="text-muted-foreground mb-1">No active deployments found</p>
+                      <p className="text-sm text-muted-foreground mb-4">Deploy a strategy to start trading</p>
+                      <Badge className="text-xs bg-muted text-muted-foreground">0 active deployment(s)</Badge>
+                    </div>
+                  )}
                 </TabsContent>
 
-                <TabsContent value="positions" className="space-y-6">
+                <TabsContent value="positions" className="h-full mt-0 pt-4 border-none">
                   <PositionsTable />
                 </TabsContent>
 
-                <TabsContent value="orders" className="space-y-6">
+                <TabsContent value="orders" className="h-full mt-0 pt-4 border-none">
                   <OrdersTable />
                 </TabsContent>
 
-                <TabsContent value="monitor" className="space-y-6">
-                  <StrategyMonitor 
-                    strategies={strategies}
-                    deployments={deployments}
-                    selectedDeployment={selectedDeployment}
-                  />
+                <TabsContent value="monitor" className="h-full mt-0 pt-4 border-none">
+                  {selectedDeployment ? (
+                    <StrategyMonitor 
+                      strategies={strategies}
+                      deployments={deployments}
+                      selectedDeployment={selectedDeployment}
+                    />
+                  ) : (
+                    <div className="h-[200px] flex items-center justify-center border rounded-lg bg-muted/30">
+                      <p className="text-muted-foreground">Select a deployment to monitor</p>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

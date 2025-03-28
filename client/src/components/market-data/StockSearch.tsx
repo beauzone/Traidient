@@ -4,6 +4,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { fetchData } from "@/lib/api";
+import { WatchlistItem } from "../../types";
 
 interface SearchResult {
   symbol: string;
@@ -11,10 +12,23 @@ interface SearchResult {
   price: number;
 }
 
-const StockSearch = () => {
+interface StockSearchProps {
+  onSymbolSelect?: (symbol: string) => void;
+  watchlist?: WatchlistItem[];
+}
+
+const StockSearch = ({ onSymbolSelect, watchlist = [] }: StockSearchProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const handleSelectSymbol = (symbol: string) => {
+    if (onSymbolSelect) {
+      onSymbolSelect(symbol);
+      setSearchQuery("");
+      setSearchResults([]);
+    }
+  };
 
   useEffect(() => {
     if (debouncedSearch) {
@@ -27,7 +41,7 @@ const StockSearch = () => {
   }, [debouncedSearch]);
 
   return (
-    <div className="relative w-64">
+    <div className="relative w-full">
       <Input
         placeholder="Search stocks..."
         value={searchQuery}
@@ -41,6 +55,7 @@ const StockSearch = () => {
             <div
               key={result.symbol}
               className="flex justify-between items-start p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+              onClick={() => handleSelectSymbol(result.symbol)}
             >
               <div className="flex flex-col">
                 <span className="font-bold text-base">{result.symbol}</span>

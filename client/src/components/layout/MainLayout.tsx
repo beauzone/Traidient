@@ -2,9 +2,9 @@ import { ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 
-interface MainLayoutProps {
+export interface MainLayoutProps {
   children: ReactNode;
-  title: string;
+  title?: string;
 }
 
 const MainLayout = ({ children, title }: MainLayoutProps) => {
@@ -16,7 +16,7 @@ const MainLayout = ({ children, title }: MainLayoutProps) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <TopNavbar />
+        <TopNavbar title={title} />
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
