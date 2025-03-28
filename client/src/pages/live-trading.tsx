@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Maximize2, ZoomIn, ZoomOut, RotateCcw, Search, Plus } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import StockSearch from "@/components/market-data/StockSearch";
 import PositionsTable from "@/components/dashboard/PositionsTable";
 import OrdersTable from "@/components/live-trading/OrdersTable";
@@ -21,11 +21,7 @@ const LiveTradingPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>("CRWD");
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<number | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [timeRange, setTimeRange] = useState("1D");
-  const [timeInterval, setTimeInterval] = useState("1min");
   const [searchValue, setSearchValue] = useState("");
 
   // Queries
@@ -91,21 +87,6 @@ const LiveTradingPage = () => {
     console.log(`Updating deployment ${deploymentId} to status: ${status}`);
   };
 
-  // Chart controls handlers
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
-  const handleResetZoom = () => setZoomLevel(1);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      chartContainerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-  };
-
   return (
     <MainLayout>
       <div className="flex flex-col h-full">
@@ -169,87 +150,19 @@ const LiveTradingPage = () => {
 
           {/* Right Content Area */}
           <div className="flex-1 flex flex-col">
-            {/* Chart Time Controls */}
-            <div className="flex items-center space-x-1 mb-2">
-              {['1D', '5D', '1W', '1M', '3M', '6M', '1Y', 'ALL'].map((range) => (
-                <Button 
-                  key={range}
-                  variant={timeRange === range ? "default" : "ghost"}
-                  size="sm"
-                  className="px-2 py-1 h-7 text-xs"
-                  onClick={() => setTimeRange(range)}
-                >
-                  {range}
-                </Button>
-              ))}
-              <div className="ml-auto flex space-x-1">
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleZoomIn}
-                  className="h-7 w-7"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleZoomOut}
-                  className="h-7 w-7"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleResetZoom}
-                  className="h-7 w-7"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={toggleFullscreen}
-                  className="h-7 w-7"
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-
             {/* Chart Area */}
             <div 
               className="relative rounded-lg overflow-hidden bg-muted border border-border mb-4 flex-grow" 
               style={{ minHeight: '420px' }}
               ref={chartContainerRef}
             >
-              <div className="absolute top-2 left-3 z-10 flex flex-col pointer-events-none">
-                <div className="font-bold text-sm">{selectedSymbol || 'PANS'}</div>
-                <div className="text-xs text-muted-foreground">
-                  {selectedSymbol === 'PANS' 
-                    ? 'CrowdStrike Holdings, Inc. Class A Common Stock'
-                    : selectedSymbol === 'CRWD' 
-                      ? 'CrowdStrike Holdings, Inc. Class A Common Stock'
-                      : selectedSymbol === 'PANS' 
-                        ? 'Palo Alto Networks Inc. Class A Common Stock'
-                        : `${selectedSymbol} Stock`
-                  }
-                </div>
-                <div className="text-xs mt-1">
-                  Daily
-                  <span className="text-muted-foreground ml-1">03/01/2025 - 03/28/2025</span>
-                </div>
-              </div>
-
               <div className="w-full h-full">
                 <TradingViewChart 
-                  symbol={selectedSymbol || 'PANS'} 
+                  symbol={selectedSymbol || 'CRWD'} 
                   interval="D"
                   theme="dark"
                   autosize={true}
-                  startDate="2025-03-01"
-                  endDate="2025-03-28"
+                  height={420}
                 />
               </div>
             </div>
