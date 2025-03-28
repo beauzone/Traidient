@@ -152,8 +152,8 @@ const LiveTradingPage = () => {
           <div className="flex-1 flex flex-col">
             {/* Chart Area */}
             <div 
-              className="relative rounded-lg overflow-hidden bg-muted border border-border mb-4 flex-grow" 
-              style={{ minHeight: '650px', height: 'calc(100vh - 300px)' }}
+              className="relative rounded-lg overflow-hidden bg-muted border border-border mb-4 w-full" 
+              style={{ minHeight: '450px', height: 'calc(100vh - 450px)' }}
               ref={chartContainerRef}
             >
               <div className="w-full h-full">
