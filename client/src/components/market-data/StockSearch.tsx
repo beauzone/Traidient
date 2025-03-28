@@ -14,10 +14,11 @@ interface SearchResult {
 
 interface StockSearchProps {
   onSymbolSelect?: (symbol: string) => void;
+  onSelectStock?: (symbol: string) => void;
   watchlist?: WatchlistItem[];
 }
 
-const StockSearch = ({ onSymbolSelect, watchlist = [] }: StockSearchProps) => {
+const StockSearch = ({ onSymbolSelect, onSelectStock, watchlist = [] }: StockSearchProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -25,9 +26,12 @@ const StockSearch = ({ onSymbolSelect, watchlist = [] }: StockSearchProps) => {
   const handleSelectSymbol = (symbol: string) => {
     if (onSymbolSelect) {
       onSymbolSelect(symbol);
-      setSearchQuery("");
-      setSearchResults([]);
     }
+    if (onSelectStock) {
+      onSelectStock(symbol);
+    }
+    setSearchQuery("");
+    setSearchResults([]);
   };
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
 import { fetchData } from "@/lib/api";
@@ -10,7 +10,7 @@ import StockSearch from "@/components/market-data/StockSearch";
 import { Strategy, Deployment, WatchlistItem } from "../types";
 import TradingViewChart from "@/components/market-data/TradingViewChart";
 
-export default function LiveTrading() {
+function LiveTrading() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -18,6 +18,7 @@ export default function LiveTrading() {
   const [timeInterval, setTimeInterval] = useState("1min");
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
   const [hideIndicators, setHideIndicators] = useState(true);
+  const [selectedStock, setSelectedStock] = useState('AAPL');
 
   // Queries
   const { data: strategies = [] } = useQuery({
@@ -35,7 +36,6 @@ export default function LiveTrading() {
     queryKey: ['/api/watchlist'],
     queryFn: () => fetchData<WatchlistItem[]>('/api/watchlist'),
   });
-
 
   // Chart controls handlers
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
@@ -59,7 +59,7 @@ export default function LiveTrading() {
         <div className="flex gap-4">
           {/* Left Side - Stock Search */}
           <div className="w-64">
-            <StockSearch />
+            <StockSearch onSelectStock={(symbol) => setSelectedStock(symbol)} />
           </div>
 
           {/* Right Side - Chart Controls */}
@@ -80,7 +80,7 @@ export default function LiveTrading() {
                 <SelectValue placeholder="Interval" />
               </SelectTrigger>
               <SelectContent>
-                {["1min", "5min", "15min", "30min", "1H", "1D"].map((interval) => (
+                {["1min", "5min", "15min", "30min", "1H", "1D", "1W", "1M"].map((interval) => (
                   <SelectItem key={interval} value={interval}>{interval}</SelectItem>
                 ))}
               </SelectContent>
@@ -114,39 +114,6 @@ export default function LiveTrading() {
                 </Select>
               )}
             </div>
-          </div>
-
-            <Select value={timeInterval} onValueChange={setTimeInterval}>
-              <SelectTrigger className="w-24">
-                <SelectValue placeholder="Interval" />
-              </SelectTrigger>
-              <SelectContent>
-                {["1min", "5min", "15min", "1H", "2H", "4H", "1D", "1W", "1M"].map((interval) => (
-                  <SelectItem key={interval} value={interval}>{interval}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={hideIndicators ? "hide" : "show"}
-              onValueChange={(val) => setHideIndicators(val === "hide")}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Indicators" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hide">Hide All</SelectItem>
-                <SelectItem value="sma20">SMA (20)</SelectItem>
-                <SelectItem value="sma50">SMA (50)</SelectItem>
-                <SelectItem value="sma150">SMA (150)</SelectItem>
-                <SelectItem value="sma200">SMA (200)</SelectItem>
-                <SelectItem value="support">Support</SelectItem>
-                <SelectItem value="resistance">Resistance</SelectItem>
-                <SelectItem value="bollinger">Bollinger Bands (20)</SelectItem>
-                <SelectItem value="rsi">RSI (14)</SelectItem>
-                <SelectItem value="macd">MACD (12, 26, 9)</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 
@@ -191,7 +158,7 @@ export default function LiveTrading() {
             style={{ transform: `scale(${zoomLevel})` }}
           >
             <TradingViewChart 
-              symbol={selectedStock || 'AAPL'} 
+              symbol={selectedStock} 
               interval={timeInterval}
               theme="dark"
               autosize={true}
@@ -201,8 +168,6 @@ export default function LiveTrading() {
       </div>
     </MainLayout>
   );
-};
-
-export default LiveTrading;
+}
 
 export default LiveTrading;
