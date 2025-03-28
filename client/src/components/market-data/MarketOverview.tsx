@@ -122,32 +122,9 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Market Status Indicator */}
+      {/* Market Overview Header */}
       <div className="flex items-center mb-2">
         <h2 className="text-2xl font-bold">Market Overview</h2>
-        <div className="flex items-center ml-4 space-x-3">
-          <Badge 
-            variant={marketStatus?.isMarketOpen ? "default" : "secondary"}
-            className="flex items-center space-x-1"
-          >
-            <Clock className="h-3 w-3" />
-            <span>{marketStatus?.isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
-          </Badge>
-          
-          <span className="text-xs flex items-center">
-            <Database className="h-3 w-3 mr-1" />
-            Data Source: {
-              marketStatus?.dataSource === 'yahoo' ? 'Yahoo Finance' : 
-              marketStatus?.dataSource === 'alpaca' ? 'Alpaca API' : 
-              marketStatus?.dataSource === 'market-simulation' ? 'Market Simulation' :
-              marketStatus?.dataSource === 'polygon' ? 'Polygon.io' :
-              marketStatus?.dataSource === 'tiingo' ? 'Tiingo API' :
-              marketStatus?.dataSource === 'alphavantage' ? 'Alpha Vantage' :
-              marketStatus?.dataSource === 'reference-data-fallback' ? 'Reference Data' :
-              marketStatus?.dataSource || 'Unknown'
-            }
-          </span>
-        </div>
       </div>
       
       {/* Market Indices */}
