@@ -490,8 +490,8 @@ export class YahooFinanceAPI {
         const quotesPromises = potentialGainers.map(symbol => this.getQuote(symbol));
         const quotes = await Promise.all(quotesPromises);
         
-        // Find gainers from these quotes
-        const additionalGainers = quotes
+        // First try to get stocks with positive change
+        let additionalGainers = quotes
           .filter(quote => quote.changePercent > 0)
           .sort((a, b) => b.changePercent - a.changePercent)
           .map(quote => ({
@@ -503,8 +503,78 @@ export class YahooFinanceAPI {
             dataSource: "yahoo"
           }));
         
+        // If still no gainers, just take the top performing stocks regardless of positive/negative change
+        if (additionalGainers.length === 0 && quotes.length > 0) {
+          console.log('No positive performers found, using best performing stocks regardless of direction');
+          additionalGainers = quotes
+            .sort((a, b) => b.changePercent - a.changePercent)
+            .slice(0, limit)
+            .map(quote => ({
+              symbol: quote.symbol,
+              name: quote.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              dataSource: "yahoo"
+            }));
+        }
+        
         // Combine both lists but prioritize the original gainers, limit to requested count
         gainers = [...gainers, ...additionalGainers].slice(0, limit);
+      }
+      
+      // If we still have no data, get real data but without filtering
+      if (gainers.length === 0) {
+        console.log('No positive gainers data could be fetched, using best performers regardless of direction');
+        
+        // Get the most commonly traded stocks and sort them by performance (best first)
+        const commonStocks = [
+          'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'INTC',
+          'JPM', 'BAC', 'C', 'WFC', 'GS', 'V', 'MA', 'PYPL', 'SQ', 'ADBE'
+        ];
+        
+        try {
+          console.log('Attempting to fetch data for common stocks:', commonStocks.join(', '));
+          
+          // Get quotes for each stock individually to handle potential errors
+          let successfulQuotes = [];
+          
+          for (const symbol of commonStocks) {
+            try {
+              const quote = await this.getQuote(symbol);
+              console.log(`Got data for ${symbol}: price=${quote.price}, change=${quote.change}, changePercent=${quote.changePercent}`);
+              successfulQuotes.push(quote);
+            } catch (err) {
+              console.error(`Error fetching quote for ${symbol}:`, err);
+              // Continue with other symbols
+            }
+          }
+          
+          console.log(`Successfully fetched data for ${successfulQuotes.length} stocks`);
+          
+          // Only proceed if we got some valid data
+          if (successfulQuotes.length > 0) {
+            // Sort by performance (best first)
+            gainers = successfulQuotes
+              .sort((a, b) => b.changePercent - a.changePercent)
+              .slice(0, limit)
+              .map(quote => ({
+                symbol: quote.symbol,
+                name: quote.name,
+                price: quote.price,
+                change: quote.change,
+                changePercent: quote.changePercent,
+                dataSource: "yahoo"
+              }));
+            
+            console.log(`Returning ${gainers.length} best performers (not necessarily gainers):`);
+            gainers.forEach(stock => console.log(`  ${stock.symbol}: ${stock.changePercent.toFixed(2)}%`));
+          } else {
+            console.error('Could not fetch data for any common stocks');
+          }
+        } catch (error) {
+          console.error('Error in common stocks fallback section:', error);
+        }
       }
       
       return gainers;
@@ -552,8 +622,8 @@ export class YahooFinanceAPI {
         const quotesPromises = potentialLosers.map(symbol => this.getQuote(symbol));
         const quotes = await Promise.all(quotesPromises);
         
-        // Find losers from these quotes
-        const additionalLosers = quotes
+        // First try to get stocks with negative change
+        let additionalLosers = quotes
           .filter(quote => quote.changePercent < 0)
           .sort((a, b) => a.changePercent - b.changePercent)
           .map(quote => ({
@@ -565,8 +635,78 @@ export class YahooFinanceAPI {
             dataSource: "yahoo"
           }));
         
+        // If still no losers, just take the worst performing stocks regardless of negative/positive change
+        if (additionalLosers.length === 0 && quotes.length > 0) {
+          console.log('No negative performers found, using worst performing stocks regardless of direction');
+          additionalLosers = quotes
+            .sort((a, b) => a.changePercent - b.changePercent)
+            .slice(0, limit)
+            .map(quote => ({
+              symbol: quote.symbol,
+              name: quote.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              dataSource: "yahoo"
+            }));
+        }
+        
         // Combine both lists but prioritize the original losers, limit to requested count
         losers = [...losers, ...additionalLosers].slice(0, limit);
+      }
+      
+      // If we still have no data, get real data but without filtering
+      if (losers.length === 0) {
+        console.log('No negative losers data could be fetched, using worst performers regardless of direction');
+        
+        // Get the most commonly traded stocks and sort them by performance (worst first)
+        const commonStocks = [
+          'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'INTC',
+          'JPM', 'BAC', 'C', 'WFC', 'GS', 'V', 'MA', 'PYPL', 'SQ', 'ADBE'
+        ];
+        
+        try {
+          console.log('Attempting to fetch data for common stocks:', commonStocks.join(', '));
+          
+          // Get quotes for each stock individually to handle potential errors
+          let successfulQuotes = [];
+          
+          for (const symbol of commonStocks) {
+            try {
+              const quote = await this.getQuote(symbol);
+              console.log(`Got data for ${symbol}: price=${quote.price}, change=${quote.change}, changePercent=${quote.changePercent}`);
+              successfulQuotes.push(quote);
+            } catch (err) {
+              console.error(`Error fetching quote for ${symbol}:`, err);
+              // Continue with other symbols
+            }
+          }
+          
+          console.log(`Successfully fetched data for ${successfulQuotes.length} stocks`);
+          
+          // Only proceed if we got some valid data
+          if (successfulQuotes.length > 0) {
+            // Sort by performance (worst first)
+            losers = successfulQuotes
+              .sort((a, b) => a.changePercent - b.changePercent)
+              .slice(0, limit)
+              .map(quote => ({
+                symbol: quote.symbol,
+                name: quote.name,
+                price: quote.price,
+                change: quote.change,
+                changePercent: quote.changePercent,
+                dataSource: "yahoo"
+              }));
+            
+            console.log(`Returning ${losers.length} worst performers (not necessarily losers):`);
+            losers.forEach(stock => console.log(`  ${stock.symbol}: ${stock.changePercent.toFixed(2)}%`));
+          } else {
+            console.error('Could not fetch data for any common stocks');
+          }
+        } catch (error) {
+          console.error('Error in common stocks fallback section:', error);
+        }
       }
       
       return losers;
