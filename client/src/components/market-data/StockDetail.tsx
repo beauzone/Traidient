@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchData, postData } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -18,9 +18,28 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Loader2, TrendingUp, TrendingDown, Plus, LineChart as LineChartIcon } from "lucide-react";
+import { 
+  Loader2, 
+  TrendingUp, 
+  TrendingDown, 
+  Plus, 
+  LineChart as LineChartIcon,
+  CalendarIcon,
+  DollarSign,
+  PercentIcon,
+  BarChart2,
+  Target,
+  Award,
+  Info,
+  Bookmark,
+  Share2,
+  Bell
+} from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link } from "wouter";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface StockDetailProps {
   symbol: string;
@@ -43,6 +62,15 @@ interface QuoteData {
   exchange: string;
   isSimulated?: boolean;
   dataSource?: string;
+  dayRange?: string;
+  weekRange52?: string;
+  beta?: number;
+  averageVolume?: number;
+  forwardPE?: number;
+  dividendYield?: number;
+  earningsDate?: string;
+  exDividendDate?: string;
+  previousClose?: number;
 }
 
 interface HistoricalDataPoint {
@@ -52,6 +80,15 @@ interface HistoricalDataPoint {
   low: number;
   close: number;
   volume: number;
+}
+
+interface NewsItem {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  summary?: string;
+  imageUrl?: string;
 }
 
 const StockDetail = ({ symbol }: StockDetailProps) => {
@@ -166,158 +203,170 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
     return `Create a momentum trading strategy for ${symbol} that buys when the price breaks above the 50-day moving average and sells when the price drops below the 20-day moving average. Include stop loss of 5% and take profit of 15%.`;
   };
 
+  // Mock news data (will be replaced with real API call)
+  const mockNews = [
+    {
+      title: `Report: ${symbol}'s H2O Chip Faces Supply Crunch in China Amid Soaring Demand`,
+      source: "GunFocus.com",
+      publishedAt: "8 minutes ago",
+      url: "#",
+      summary: `Recent reports indicate that ${symbol} is experiencing production constraints for its latest H2O chip in China markets due to unexpected demand. This could potentially impact Q2 earnings projections.`
+    },
+    {
+      title: `Brave Eagle CIO Says ${symbol} Valuation Offers Opportunity After Recent Decline`,
+      source: "GunFocus.com",
+      publishedAt: "1 hour ago",
+      url: "#",
+      summary: "Investment firm Brave Eagle believes the recent market correction presents a strategic buying opportunity as fundamentals remain strong."
+    },
+    {
+      title: `Wall Street Analysts Adore Amazon, Microsoft, and ${symbol}. Here's Why That's Problematic.`,
+      source: "Barrons.com",
+      publishedAt: "1 hour ago",
+      url: "#",
+      summary: "Concentration of institutional holdings in mega-cap tech companies raises concerns about market vulnerability and broader economic implications."
+    },
+    {
+      title: `${symbol}-Backed CoreWeave Slides In IPO Debut Amid Heightened AI Worries`,
+      source: "Investor's Business Daily",
+      publishedAt: "27 minutes ago",
+      url: "#",
+      summary: "The highly anticipated IPO of CoreWeave, backed by multiple tech giants including ${symbol}, saw a lukewarm reception as market sentiment shifts toward AI sustainability concerns."
+    }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Quote Card */}
-      <Card>
-        <CardContent className="p-6">
-          {isLoadingQuote ? (
-            <div className="flex justify-center items-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : quote ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Header and overview */}
+      {isLoadingQuote ? (
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : quote ? (
+        <>
+          {/* Stock Header */}
+          <div>
+            <div className="flex justify-between items-start mb-2">
               <div>
-                <div className="flex items-baseline">
-                  <h2 className="text-2xl font-bold">{quote.symbol}</h2>
-                  <span className="ml-2 text-muted-foreground">{quote.exchange}</span>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold">{symbol}</h1>
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {quote.exchange}
+                  </Badge>
                 </div>
-                <p className="text-muted-foreground">{quote.name}</p>
-                <div className="mt-4 flex items-baseline">
-                  <span className="text-3xl font-bold">{formatCurrency(quote.price)}</span>
-                  <span className={`ml-3 flex items-center ${quote.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {quote.change >= 0 ? (
-                      <TrendingUp className="mr-1 h-5 w-5" />
-                    ) : (
-                      <TrendingDown className="mr-1 h-5 w-5" />
-                    )}
-                    {formatCurrency(quote.change)} ({formatPercentage(quote.changePercent)})
-                  </span>
-                </div>
-
-                {quote.dataSource && (
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground flex items-center">
-                      <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                        quote.dataSource === 'alpaca' ? 'bg-green-500' : 
-                        quote.dataSource === 'yahoo' ? 'bg-yellow-500' : 
-                        quote.dataSource === 'alpaca-simulation' ? 'bg-blue-500' :
-                        'bg-gray-500'
-                      }`}></span>
-                      Source: {quote.dataSource === 'yahoo' ? 'Yahoo Finance' : 
-                               quote.dataSource === 'alpaca' ? 'Alpaca API' : 
-                               quote.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
-                               quote.dataSource === 'reference-data-fallback' ? 'Reference Data' :
-                               quote.dataSource}
-                      {quote.isSimulated && ' (Simulated)'}
-                    </span>
-                  </div>
+                <p className="text-lg text-muted-foreground">{quote.name}</p>
+              </div>
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm">
+                  <Bell className="h-4 w-4 mr-1" /> Alert
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Bookmark className="h-4 w-4 mr-1" /> Add to List
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="flex items-baseline space-x-3 mb-1">
+              <span className="text-4xl font-bold">{formatCurrency(quote.price)}</span>
+              <span className={`flex items-center text-lg ${quote.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {quote.change >= 0 ? (
+                  <TrendingUp className="mr-1 h-5 w-5" />
+                ) : (
+                  <TrendingDown className="mr-1 h-5 w-5" />
                 )}
-                
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Open</p>
-                    <p className="font-medium">{formatCurrency(quote.open)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Volume</p>
-                    <p className="font-medium">{formatLargeNumber(quote.volume)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">High</p>
-                    <p className="font-medium">{formatCurrency(quote.high)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Low</p>
-                    <p className="font-medium">{formatCurrency(quote.low)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Market Cap</p>
-                    <p className="font-medium">{formatLargeNumber(quote.marketCap)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">P/E Ratio</p>
-                    <p className="font-medium">{quote.peRatio.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">EPS</p>
-                    <p className="font-medium">{formatCurrency(quote.eps)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Dividend</p>
-                    <p className="font-medium">{formatCurrency(quote.dividend)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-x-2">
-                  <Button>Trade {quote.symbol}</Button>
-                  
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline">
-                        <Plus className="mr-2 h-4 w-4" /> Create Strategy
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create Strategy for {quote.symbol}</DialogTitle>
-                        <DialogDescription>
-                          Generate an AI-powered trading strategy for this asset
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="py-4">
-                        <p className="text-sm text-muted-foreground mb-4">
-                          We'll create a momentum-based strategy for {quote.symbol} that you can customize and backtest.
-                        </p>
-                        <div className="flex items-center space-x-2">
-                          <LineChartIcon className="h-12 w-12 text-primary" />
-                          <div>
-                            <h4 className="font-medium">Momentum Strategy</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Buy on breakouts, sell on pullbacks
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" asChild>
-                          <Link href="/bot-builder">Advanced Builder</Link>
-                        </Button>
-                        <Button 
-                          onClick={() => createStrategy.mutate(generateStrategyPrompt())}
-                          disabled={createStrategy.isPending}
-                        >
-                          {createStrategy.isPending ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
-                            </>
-                          ) : (
-                            "Generate Strategy"
-                          )}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
+                {formatCurrency(quote.change)} ({formatPercentage(quote.changePercent)})
+              </span>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No data available for {symbol}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            
+            <p className="text-sm text-muted-foreground">
+              As of {new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' })} EDT. Market {quote.change >= 0 ? 'Open' : 'Closed'}.
+              {quote.dataSource && (
+                <span className="ml-2 flex items-center inline-block">
+                  <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                    quote.dataSource === 'alpaca' ? 'bg-green-500' : 
+                    quote.dataSource === 'yahoo' ? 'bg-purple-500' : 
+                    quote.dataSource === 'alpaca-simulation' ? 'bg-blue-500' :
+                    'bg-gray-500'
+                  }`}></span>
+                  Data: {quote.dataSource === 'yahoo' ? 'Yahoo Finance' : 
+                         quote.dataSource === 'alpaca' ? 'Alpaca API' : 
+                         quote.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
+                         quote.dataSource === 'reference-data-fallback' ? 'Reference Data' :
+                         quote.dataSource}
+                  {quote.isSimulated && ' (Simulated)'}
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* Action Buttons */}  
+          <div className="flex gap-3 mt-2">
+            <Button>
+              <DollarSign className="h-4 w-4 mr-2" /> Trade {symbol}
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="h-4 w-4 mr-2" /> Create Strategy
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Strategy for {quote.symbol}</DialogTitle>
+                  <DialogDescription>
+                    Generate an AI-powered trading strategy for this asset
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    We'll create a momentum-based strategy for {quote.symbol} that you can customize and backtest.
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <LineChartIcon className="h-12 w-12 text-primary" />
+                    <div>
+                      <h4 className="font-medium">Momentum Strategy</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Buy on breakouts, sell on pullbacks
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" asChild>
+                    <Link href="/bot-builder">Advanced Builder</Link>
+                  </Button>
+                  <Button 
+                    onClick={() => createStrategy.mutate(generateStrategyPrompt())}
+                    disabled={createStrategy.isPending}
+                  >
+                    {createStrategy.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
+                      </>
+                    ) : (
+                      "Generate Strategy"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No data available for {symbol}</p>
+        </div>
+      )}
 
       {/* Price Chart */}
       <Card>
-        <CardContent className="p-6">
-          <h3 className="font-medium mb-4">Price History</h3>
+        <CardHeader>
+          <CardTitle className="text-xl">Price History</CardTitle>
+        </CardHeader>
+        <CardContent className="px-6 pb-6 pt-0">
           {isLoadingHistorical ? (
             <div className="flex justify-center items-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -588,6 +637,105 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Key Statistics */}
+      {quote && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Key Statistics</CardTitle>
+            </CardHeader>
+            <CardContent className="px-6 pb-6 pt-0">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Previous Close</p>
+                    <p className="font-medium">{formatCurrency(quote.previousClose || quote.open)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Day Range</p>
+                    <p className="font-medium">{quote.dayRange || `${formatCurrency(quote.low)} - ${formatCurrency(quote.high)}`}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">52 Week Range</p>
+                    <p className="font-medium">{quote.weekRange52 || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Market Cap</p>
+                    <p className="font-medium">{formatLargeNumber(quote.marketCap)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Volume</p>
+                    <p className="font-medium">{formatLargeNumber(quote.volume)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Average Volume</p>
+                    <p className="font-medium">{formatLargeNumber(quote.averageVolume || quote.volume)}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">P/E Ratio</p>
+                    <p className="font-medium">{quote.peRatio.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Forward P/E</p>
+                    <p className="font-medium">{quote.forwardPE?.toFixed(2) || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">EPS (TTM)</p>
+                    <p className="font-medium">{formatCurrency(quote.eps)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Dividend & Yield</p>
+                    <p className="font-medium">
+                      {formatCurrency(quote.dividend)} ({quote.dividendYield ? `${quote.dividendYield.toFixed(2)}%` : 'N/A'})
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Beta</p>
+                    <p className="font-medium">{quote.beta?.toFixed(2) || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Exchange</p>
+                    <p className="font-medium">{quote.exchange}</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent News */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Recent News</CardTitle>
+            </CardHeader>
+            <CardContent className="px-6 pb-6 pt-0">
+              <div className="space-y-4">
+                {mockNews.map((news, index) => (
+                  <div key={index} className={cn("pb-4", index < mockNews.length - 1 && "border-b border-border")}>
+                    <a 
+                      href={news.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group block"
+                    >
+                      <h4 className="font-medium group-hover:text-primary transition-colors">{news.title}</h4>
+                      <div className="flex items-center gap-2 mt-1 mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">{news.source}</span>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">{news.publishedAt}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{news.summary}</p>
+                    </a>
+                  </div>
+                ))}
+                <Button variant="outline" className="w-full mt-2">View More News</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
