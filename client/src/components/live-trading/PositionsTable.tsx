@@ -4,10 +4,12 @@ import { fetchData } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Search, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, Search, TrendingUp, TrendingDown, PenLine, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { TradeDialog } from "./TradeDialog";
 
 interface Position {
   symbol: string;
@@ -21,9 +23,16 @@ interface Position {
   currentPrice: number;
 }
 
-const PositionsTable = () => {
+export interface PositionsTableProps {
+  onSymbolSelect?: (symbol: string) => void;
+}
+
+const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
+  const [tradeAction, setTradeAction] = useState<"modify" | "exit" | null>(null);
+  const { toast } = useToast();
 
   // Fetch positions data
   const { data: positions = [], isLoading } = useQuery({
@@ -49,6 +58,18 @@ const PositionsTable = () => {
   // Format percentage
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+
+  // Handle trade confirmation
+  const handleTradeConfirm = (action: string, symbol: string, quantity: number, price: number | null, type: string) => {
+    // In a real implementation, this would call the API to execute the trade
+    toast({
+      title: `${action === 'exit' ? 'Position exit' : 'Position modification'} submitted`,
+      description: `${symbol}: ${quantity} shares at ${price ? formatCurrency(price) : 'market price'}`,
+    });
+    
+    // For demo purposes, we'll just show a toast notification
+    console.log('Trade submitted:', { action, symbol, quantity, price, type });
   };
 
   return (
@@ -100,7 +121,12 @@ const PositionsTable = () => {
                 {filteredPositions.map((position) => (
                   <TableRow key={position.symbol}>
                     <TableCell>
-                      <div className="font-medium">{position.symbol}</div>
+                      <div 
+                        className="font-medium cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => onSymbolSelect && onSymbolSelect(position.symbol)}
+                      >
+                        {position.symbol}
+                      </div>
                       <div className="text-xs text-muted-foreground">{position.assetName}</div>
                     </TableCell>
                     <TableCell>{position.quantity}</TableCell>
@@ -122,62 +148,51 @@ const PositionsTable = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setSelectedPosition(position)}
-                          >
-                            Details
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Position Details: {position.symbol}</DialogTitle>
-                          </DialogHeader>
-                          {selectedPosition && selectedPosition.symbol === position.symbol && (
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Asset Name</p>
-                                  <p className="font-medium">{position.assetName}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Quantity</p>
-                                  <p className="font-medium">{position.quantity}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Entry Price</p>
-                                  <p className="font-medium">{formatCurrency(position.averageEntryPrice)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Current Price</p>
-                                  <p className="font-medium">{formatCurrency(position.currentPrice)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Market Value</p>
-                                  <p className="font-medium">{formatCurrency(position.marketValue)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Cost Basis</p>
-                                  <p className="font-medium">{formatCurrency(position.costBasis)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Unrealized P&L</p>
-                                  <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                    {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex justify-end space-x-2">
-                                <Button variant="outline">Close Position</Button>
-                                <Button variant="outline">Modify Position</Button>
-                              </div>
-                            </div>
-                          )}
-                        </DialogContent>
-                      </Dialog>
+                      <div className="flex items-center justify-end space-x-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                onClick={() => {
+                                  setSelectedPosition(position);
+                                  setTradeAction("modify");
+                                  setTradeDialogOpen(true);
+                                }}
+                              >
+                                <PenLine className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Modify Position</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                                onClick={() => {
+                                  setSelectedPosition(position);
+                                  setTradeAction("exit");
+                                  setTradeDialogOpen(true);
+                                }}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Exit Position</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -186,6 +201,15 @@ const PositionsTable = () => {
           </div>
         )}
       </CardContent>
+      
+      {/* Trade Dialog */}
+      <TradeDialog
+        open={tradeDialogOpen}
+        onOpenChange={setTradeDialogOpen}
+        position={selectedPosition}
+        action={tradeAction}
+        onConfirm={handleTradeConfirm}
+      />
     </Card>
   );
 };

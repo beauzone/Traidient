@@ -6,7 +6,7 @@ interface TradingViewChartProps {
   interval?: string;
   theme?: 'light' | 'dark';
   autosize?: boolean;
-  height?: number;
+  height?: number | string;
   containerClass?: string;
 }
 

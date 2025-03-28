@@ -51,18 +51,8 @@ const MarketDataPage = () => {
         </div>
       </div>
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="md:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-lg">Search</CardTitle>
-              <CardDescription>Find assets to analyze</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StockSearch onSymbolSelect={handleSymbolSelect} watchlist={watchlist} />
-            </CardContent>
-          </Card>
-
-          <Card className="md:col-span-3">
+        <div className="grid grid-cols-1 gap-6">
+          <Card className="w-full">
             <CardContent className="pt-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
                 <TabsList className="mb-4">

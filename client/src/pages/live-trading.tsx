@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Plus } from "lucide-react";
 import StockSearch from "@/components/market-data/StockSearch";
-import PositionsTable from "@/components/dashboard/PositionsTable";
+import PositionsTable from "@/components/live-trading/PositionsTable";
 import OrdersTable from "@/components/live-trading/OrdersTable";
 import StrategyMonitor from "@/components/live-trading/StrategyMonitor";
 import DeploymentPanel from "@/components/live-trading/DeploymentPanel";
@@ -115,7 +115,7 @@ const LiveTradingPage = () => {
 
             <div className="flex-1 border rounded-md bg-background">
               <div className="py-3 px-4 border-b border-border">
-                <div className="text-sm font-medium">Your Watchlist</div>
+                <h2 className="text-base md:text-lg font-semibold">Watchlists</h2>
               </div>
               <div className="max-h-[calc(100vh-230px)] overflow-y-auto">
                 {displayedWatchlist.length === 0 ? (
@@ -153,7 +153,7 @@ const LiveTradingPage = () => {
             {/* Chart Area */}
             <div 
               className="relative rounded-lg overflow-hidden bg-muted border border-border mb-4 flex-grow" 
-              style={{ minHeight: '420px' }}
+              style={{ minHeight: '650px', height: 'calc(100vh - 300px)' }}
               ref={chartContainerRef}
             >
               <div className="w-full h-full">
@@ -162,7 +162,7 @@ const LiveTradingPage = () => {
                   interval="D"
                   theme="dark"
                   autosize={true}
-                  height={420}
+                  height="100%"
                 />
               </div>
             </div>
@@ -210,7 +210,7 @@ const LiveTradingPage = () => {
                 </TabsContent>
 
                 <TabsContent value="positions" className="h-full mt-0 pt-4 border-none">
-                  <PositionsTable />
+                  <PositionsTable onSymbolSelect={handleSymbolSelect} />
                 </TabsContent>
 
                 <TabsContent value="orders" className="h-full mt-0 pt-4 border-none">
