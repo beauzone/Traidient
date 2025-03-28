@@ -17,9 +17,9 @@ export default function LiveTrading() {
   const [timeRange, setTimeRange] = useState("1D");
   const [timeInterval, setTimeInterval] = useState("1min");
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
-  const [hideIndicators, setHideIndicators] = useState(true); // Added from original
+  const [hideIndicators, setHideIndicators] = useState(true);
 
-  // Queries (from original)
+  // Queries
   const { data: strategies = [] } = useQuery({
     queryKey: ['/api/strategies'],
     queryFn: () => fetchData<Strategy[]>('/api/strategies'),
@@ -95,7 +95,7 @@ export default function LiveTrading() {
               >
                 Indicators
               </Button>
-              
+
               {!hideIndicators && (
                 <Select
                   value={selectedIndicators[0] || ""}
@@ -128,8 +128,8 @@ export default function LiveTrading() {
             </Select>
 
             <Select
-              value={hideIndicators ? "hide" : "show"} // Modified to use hideIndicators state
-              onValueChange={(val) => setHideIndicators(val === "hide")} // Added from original
+              value={hideIndicators ? "hide" : "show"}
+              onValueChange={(val) => setHideIndicators(val === "hide")}
             >
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Indicators" />
@@ -201,6 +201,6 @@ export default function LiveTrading() {
       </div>
     </MainLayout>
   );
-};
+}
 
 export default LiveTrading;
