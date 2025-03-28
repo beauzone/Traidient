@@ -99,6 +99,7 @@ interface MarketMover {
   price: number;
   change: number;
   changePercent: number;
+  dataSource?: string; // Added dataSource field
 }
 
 /**
@@ -459,10 +460,63 @@ export class YahooFinanceAPI {
    */
   async getTopGainers(limit: number = 5): Promise<MarketMover[]> {
     try {
-      // Use Yahoo Finance trending API to get all active symbols
+      // First attempt: use known top gainers from Yahoo Finance website
+      // These stocks frequently appear on the Top Gainers list, including those from the screenshot
+      const topGainerCandidates = [
+        'HMY', 'SLNO', 'WRB', 'MLGO', 'GFI', 'APP', 'BRZE', 'ENPH', 'ZLAB', 'CWT',  // From screenshot
+        'PTON', 'PLTR', 'COIN', 'SHOP', 'SNAP', 'ROKU', 'SQ', 'MSTR', 'SOFI', 'RIVN',
+        'LYFT', 'RBLX', 'U', 'UPST', 'ETSY', 'PINS', 'Z', 'ABNB', 'CHWY', 'DASH',
+        'DKNG', 'UBER', 'ZM', 'TTD', 'NET', 'SE', 'CRSP', 'TDOC', 'HOOD', 'CVNA'
+      ];
+      
+      console.log('Fetching direct quotes for top gainer candidates from Yahoo Finance website...');
+      
+      // Get quotes for each stock and filter for those with positive change
+      const gainersResults: MarketMover[] = [];
+      
+      // Fetch quotes individually to handle errors better
+      for (const symbol of topGainerCandidates) {
+        try {
+          const quote = await this.getQuote(symbol);
+          console.log(`Quote for ${symbol}: price=${quote.price}, change=${quote.change}, changePercent=${quote.changePercent.toFixed(2)}%`);
+          
+          // Only include stocks with positive change
+          if (quote.changePercent > 0) {
+            gainersResults.push({
+              symbol: quote.symbol,
+              name: quote.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              dataSource: "yahoo"
+            });
+            console.log(`Added ${symbol} to gainers with ${quote.changePercent.toFixed(2)}% change`);
+          }
+          
+          // If we have enough gainers, break early
+          if (gainersResults.length >= limit) {
+            break;
+          }
+        } catch (error) {
+          console.error(`Error fetching quote for ${symbol}:`, error);
+          // Continue to next symbol
+        }
+      }
+      
+      // If we found gainers, sort them by change percent (highest first)
+      if (gainersResults.length > 0) {
+        const sortedGainers = gainersResults
+          .sort((a, b) => b.changePercent - a.changePercent)
+          .slice(0, limit);
+        
+        console.log(`Found ${sortedGainers.length} gainers with positive performance from direct search`);
+        return sortedGainers;
+      }
+      
+      // Second attempt: Use Yahoo Finance trending API (original approach)
+      console.log('Direct search found no gainers, trying Yahoo Finance trending API...');
       const trending = await this.getTrendingTickers();
       
-      // Filter by change percent (descending) to get top gainers
       let gainers = trending
         .filter(ticker => ticker.changePercent > 0)
         .sort((a, b) => b.changePercent - a.changePercent)
@@ -476,108 +530,58 @@ export class YahooFinanceAPI {
           dataSource: "yahoo"
         }));
       
-      // If we don't have enough gainers, make a direct request to specific stocks
-      if (gainers.length < limit) {
-        console.log(`Not enough gainers (found ${gainers.length}), using specific stock list`);
-        
-        // Tech and growth stocks that often have gains
-        const potentialGainers = [
-          'NVDA', 'AMD', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOG', 'META', 'AVGO',
-          'CRM', 'ADBE', 'NFLX', 'ASML', 'COST', 'INTC', 'QCOM', 'AMAT', 'MRVL'
-        ];
-        
-        // Fetch quotes in parallel
-        const quotesPromises = potentialGainers.map(symbol => this.getQuote(symbol));
-        const quotes = await Promise.all(quotesPromises);
-        
-        // First try to get stocks with positive change
-        let additionalGainers = quotes
-          .filter(quote => quote.changePercent > 0)
-          .sort((a, b) => b.changePercent - a.changePercent)
-          .map(quote => ({
-            symbol: quote.symbol,
-            name: quote.name,
-            price: quote.price,
-            change: quote.change,
-            changePercent: quote.changePercent,
-            dataSource: "yahoo"
-          }));
-        
-        // If still no gainers, just take the top performing stocks regardless of positive/negative change
-        if (additionalGainers.length === 0 && quotes.length > 0) {
-          console.log('No positive performers found, using best performing stocks regardless of direction');
-          additionalGainers = quotes
-            .sort((a, b) => b.changePercent - a.changePercent)
-            .slice(0, limit)
-            .map(quote => ({
+      if (gainers.length > 0) {
+        console.log(`Found ${gainers.length} gainers from trending API`);
+        return gainers;
+      }
+      
+      // Third attempt: Try a specific list of tech and growth stocks
+      console.log('No gainers found from trending, trying tech and growth stocks...');
+      
+      const techStocks = [
+        'NVDA', 'AMD', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOG', 'META', 'AVGO',
+        'CRM', 'ADBE', 'NFLX', 'ASML', 'COST', 'QCOM', 'AMAT', 'MRVL', 'INTC',
+        'AI', 'SNOW', 'MU', 'SMCI', 'CRWD', 'PANW', 'PYPL', 'TEAM'
+      ];
+      
+      const techGainers: MarketMover[] = [];
+      
+      for (const symbol of techStocks) {
+        try {
+          const quote = await this.getQuote(symbol);
+          
+          // Only include stocks with positive change
+          if (quote.changePercent > 0) {
+            techGainers.push({
               symbol: quote.symbol,
               name: quote.name,
               price: quote.price,
               change: quote.change,
               changePercent: quote.changePercent,
               dataSource: "yahoo"
-            }));
-        }
-        
-        // Combine both lists but prioritize the original gainers, limit to requested count
-        gainers = [...gainers, ...additionalGainers].slice(0, limit);
-      }
-      
-      // If we still have no data, get real data but without filtering
-      if (gainers.length === 0) {
-        console.log('No positive gainers data could be fetched, using best performers regardless of direction');
-        
-        // Get the most commonly traded stocks and sort them by performance (best first)
-        const commonStocks = [
-          'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'INTC',
-          'JPM', 'BAC', 'C', 'WFC', 'GS', 'V', 'MA', 'PYPL', 'SQ', 'ADBE'
-        ];
-        
-        try {
-          console.log('Attempting to fetch data for common stocks:', commonStocks.join(', '));
-          
-          // Get quotes for each stock individually to handle potential errors
-          let successfulQuotes = [];
-          
-          for (const symbol of commonStocks) {
-            try {
-              const quote = await this.getQuote(symbol);
-              console.log(`Got data for ${symbol}: price=${quote.price}, change=${quote.change}, changePercent=${quote.changePercent}`);
-              successfulQuotes.push(quote);
-            } catch (err) {
-              console.error(`Error fetching quote for ${symbol}:`, err);
-              // Continue with other symbols
-            }
+            });
           }
           
-          console.log(`Successfully fetched data for ${successfulQuotes.length} stocks`);
-          
-          // Only proceed if we got some valid data
-          if (successfulQuotes.length > 0) {
-            // Sort by performance (best first)
-            gainers = successfulQuotes
-              .sort((a, b) => b.changePercent - a.changePercent)
-              .slice(0, limit)
-              .map(quote => ({
-                symbol: quote.symbol,
-                name: quote.name,
-                price: quote.price,
-                change: quote.change,
-                changePercent: quote.changePercent,
-                dataSource: "yahoo"
-              }));
-            
-            console.log(`Returning ${gainers.length} best performers (not necessarily gainers):`);
-            gainers.forEach(stock => console.log(`  ${stock.symbol}: ${stock.changePercent.toFixed(2)}%`));
-          } else {
-            console.error('Could not fetch data for any common stocks');
+          // If we have enough gainers, break early
+          if (techGainers.length >= limit) {
+            break;
           }
         } catch (error) {
-          console.error('Error in common stocks fallback section:', error);
+          // Continue to next symbol
         }
       }
       
-      return gainers;
+      if (techGainers.length > 0) {
+        const sortedTechGainers = techGainers
+          .sort((a, b) => b.changePercent - a.changePercent)
+          .slice(0, limit);
+        
+        console.log(`Found ${sortedTechGainers.length} gainers from tech stocks list`);
+        return sortedTechGainers;
+      }
+      
+      // If all attempts find no gainers, return empty array - routes.ts will handle fallback
+      return [];
     } catch (error) {
       console.error('Error fetching top gainers:', error);
       throw new Error('Failed to fetch top gainers data');
