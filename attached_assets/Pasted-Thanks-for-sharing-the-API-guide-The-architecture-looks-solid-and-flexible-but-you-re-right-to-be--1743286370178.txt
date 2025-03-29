@@ -1,0 +1,88 @@
+Thanks for sharing the API guide. The architecture looks solid and flexible, but you’re right to be thinking ahead — a few of the features we’ve brainstormed and implemented may need backend support or schema extensions to align fully with the deployment API. Here’s a breakdown of key alignment points and recommended updates to ask the AI coding platform to make:
+
+✅ What Already Aligns
+Ticker, Entry Type, Strategy Name, and Risk Parameters
+Everything we surface in the Strategy Assistant maps well to the deployment schema.
+
+Entry logic with limit orders
+Our strategy recommender already suggests “entryType: limit” and a price.
+
+Risk management options (SL, TP, trailing stop)
+All covered in the riskManagement object — great fit.
+
+⚠️ Recommended Backend Enhancements
+1. Custom Strategy Mapping or Dynamic Strategy ID Generation
+We’re using human-readable strategy names like "Pullback Buy" in the frontend, but the deployment API requires a strategyId.
+
+Ask the AI platform to:
+
+Expose an endpoint or lookup utility:
+GET /api/strategies/by-name?name=Pullback%20Buy
+→ returns { id: 8, name: 'Pullback Buy', parameters: {...} }
+
+2. Support for AI-Generated Entry Commentary or Rationale (Optional)
+We generate an AI rationale and backtest snippet. It’s not critical, but if we want to persist it:
+
+Ask the AI platform to:
+
+Add optional fields to botSettings or a related table:
+
+ts
+Copy
+Edit
+{
+  deploymentNotes?: string;
+  backtestSnapshot?: {
+    winRate: string;
+    avgReturn: string;
+  }
+}
+3. Better Support for Strategy Templates with Smart Defaults
+Our frontend is assigning values like "moderate" for position size. That’s not supported in the current schema, which expects numbers.
+
+Ask the AI platform to:
+
+Add support for translating size profiles into numeric values:
+
+ts
+Copy
+Edit
+if positionSize.type === 'profile':
+    resolve 'moderate' → { type: 'percentage', value: 10 }
+Or let us pass a string and have the API convert internally.
+
+4. Bot Name Autogeneration (optional but nice)
+We currently don’t ask users to name bots. You could:
+
+Ask the AI platform to:
+
+Allow the frontend to omit name, and generate something like:
+“AAPL Pullback Bot - Mar 2025”
+based on symbol + strategy + date
+
+✅ Optional Enhancements We Could Use Later
+Allow pre-deployment preview/validation (dry run)
+
+Persist “deployed by AI strategy assistant” flag
+
+Track recommendedBySystem: true in bot metadata
+
+TL;DR – What to Ask the AI Coding Platform To Do
+Here’s a message you can send directly:
+
+💬 Request to AI Platform:
+
+We’ve developed an AI-based Strategy Assistant that recommends trade strategies and risk setups. To integrate it with the POST /api/bots/deploy endpoint, we’d like to request the following additions:
+
+Add a lookup endpoint to resolve strategyId from a strategy name.
+
+Support passing positionSize.type: "profile" with values like "conservative", "moderate", or "aggressive" and convert them server-side.
+
+Allow bots to be created without a name and auto-generate one.
+
+Optionally support an aiRationale or deploymentNotes field in the botSettings schema.
+
+Allow an optional backtest snapshot (e.g., { winRate, avgReturn }) to be stored with the bot.
+
+Let us know if any of these are better implemented on the frontend.
+

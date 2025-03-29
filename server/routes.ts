@@ -15,6 +15,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
 import webhookRoutes from './routes/webhooks';
+import botRoutes from './routes/bots';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -3680,6 +3681,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register webhook routes
   app.use('/api/webhooks', webhookRoutes);
+  
+  // Register bot routes
+  app.use('/api/bots', authMiddleware, botRoutes);
   
   // Process webhook triggers (public endpoint)
   app.post('/api/webhook-triggers/:token', async (req: Request, res: Response) => {

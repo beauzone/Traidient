@@ -1,6 +1,7 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, real, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, real, varchar, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from 'drizzle-orm';
 
 // Users
 export const users = pgTable("users", {
@@ -61,14 +62,29 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const apiIntegrations = pgTable("api_integrations", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  provider: text("provider").notNull(), // 'alpaca', 'polygon', 'openai', etc.
+  provider: text("provider").notNull(), // 'alpaca', 'polygon', 'openai', 'binance', 'coinbase', 'interactive_brokers', etc.
   type: text("type").notNull(), // 'exchange', 'data', 'ai'
+  assetClasses: jsonb("asset_classes").$type<string[]>().default(['stocks']), // 'stocks', 'options', 'futures', 'forex', 'crypto', etc.
   description: text("description"), // User-friendly name for the integration
   credentials: jsonb("credentials").$type<{
     apiKey: string;
     apiSecret?: string;
     additionalFields?: Record<string, string>;
   }>().notNull(),
+  capabilities: jsonb("capabilities").$type<{
+    trading: boolean;           // Can execute trades
+    marketData: boolean;        // Can retrieve market data
+    accountData: boolean;       // Can retrieve account info
+    supportedRegions?: string[]; // US, EU, APAC, Global
+    paperTrading?: boolean;     // Supports paper trading
+    liveTrading?: boolean;      // Supports live trading
+  }>().notNull().default({
+    trading: true,
+    marketData: true,
+    accountData: true,
+    paperTrading: true,
+    liveTrading: true
+  }),
   isActive: boolean("is_active").notNull().default(true),
   isPrimary: boolean("is_primary").notNull().default(false),
   lastUsed: timestamp("last_used"),
@@ -80,8 +96,10 @@ export const insertApiIntegrationSchema = createInsertSchema(apiIntegrations).pi
   userId: true,
   provider: true,
   type: true,
+  assetClasses: true,
   description: true,
   credentials: true,
+  capabilities: true,
   isActive: true,
   isPrimary: true,
   lastStatus: true,
@@ -527,3 +545,509 @@ export const insertScreenerSchema = createInsertSchema(screeners).pick({
 
 export type Screener = typeof screeners.$inferSelect;
 export type InsertScreener = z.infer<typeof insertScreenerSchema>;
+
+// Bot Instances
+export const botInstances = pgTable("bot_instances", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  strategyId: integer("strategy_id").notNull().references(() => strategies.id),
+  apiIntegrationId: integer("api_integration_id").notNull().references(() => apiIntegrations.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 20 }).notNull().default('idle'), // 'idle', 'running', 'paused', 'error'
+  type: varchar("type", { length: 20 }).notNull(), // 'strategy', 'webhook', 'ai-powered'
+  
+  // Multi-Exchange Trading Support
+  exchange: varchar("exchange", { length: 50 }).notNull(),  // 'alpaca', 'binance', 'coinbase', 'interactive_brokers', etc.
+  assetClass: varchar("asset_class", { length: 20 }).notNull().default('stocks'), // 'stocks', 'options', 'futures', 'forex', 'crypto', etc.
+  
+  // Trading Mode Configuration
+  tradingMode: varchar("trading_mode", { length: 20 }).notNull().default('manual'), // 'manual', 'semi-auto', 'full-auto'
+  symbols: jsonb("symbols").$type<string[]>().notNull().default([]),
+  
+  // Bot Configuration
+  configuration: jsonb("configuration").$type<{
+    capital: number;
+    positionSizing: {
+      type: 'fixed' | 'percentage' | 'risk-based' | 'volatility-based';
+      value: number; // shares, percentage, risk amount, or volatility factor
+      maxPositionSize?: number;
+      maxPositionValue?: number;
+    };
+    entrySettings: {
+      conditions: Record<string, any>;
+      limitOrders?: boolean;
+      limitPrice?: 'best_bid' | 'best_ask' | 'mid' | 'custom';
+      customPriceOffset?: number;
+    };
+    exitSettings: {
+      takeProfit?: number; // percentage or fixed amount
+      stopLoss?: number; // percentage or fixed amount
+      trailingStop?: boolean;
+      trailingStopDistance?: number;
+      timeBasedExit?: {
+        enabled: boolean;
+        maxHoldingPeriod?: number; // in hours
+      };
+    };
+    riskManagement: {
+      maxDrawdown?: number; // percentage
+      maxDailyLoss?: number; // percentage or fixed amount
+      maxPositionsCount?: number;
+      maxSectorExposure?: number; // percentage
+      correlationLimit?: number; // 0-1 value
+    };
+    hours: {
+      enabled: boolean;
+      timezone: string;
+      schedule: {
+        days: number[]; // 0-6 for days of week
+        startTime: string; // HH:MM in 24h format
+        endTime: string; // HH:MM in 24h format
+      }[];
+    };
+    alerts: {
+      performance?: boolean;
+      errors?: boolean;
+      trades?: boolean;
+      statusChanges?: boolean;
+    };
+  }>().notNull(),
+  
+  // Runtime data
+  runtime: jsonb("runtime").$type<{
+    lastHeartbeat?: string;
+    startedAt?: string;
+    pausedAt?: string;
+    uptime?: number; // in seconds
+    errors?: {
+      timestamp: string;
+      message: string;
+      stackTrace?: string;
+      resolved: boolean;
+    }[];
+    positions?: {
+      symbol: string;
+      quantity: number;
+      entryPrice: number;
+      currentPrice?: number;
+      unrealizedPnl?: number;
+      unrealizedPnlPercent?: number;
+      entryTime: string;
+      tags?: string[];
+    }[];
+    trades?: {
+      id: string;
+      symbol: string;
+      side: 'buy' | 'sell';
+      quantity: number;
+      price: number;
+      timestamp: string;
+      fees?: number;
+      pnl?: number;
+      pnlPercent?: number;
+      tags?: string[];
+    }[];
+  }>().notNull().default({}),
+  
+  // Performance metrics
+  performance: jsonb("performance").$type<{
+    startingCapital: number;
+    currentValue?: number;
+    profitLoss?: number;
+    profitLossPercent?: number;
+    totalTrades?: number;
+    winningTrades?: number;
+    losingTrades?: number;
+    winRate?: number;
+    averageWin?: number;
+    averageLoss?: number;
+    largestWin?: number;
+    largestLoss?: number;
+    maxDrawdown?: number;
+    sharpeRatio?: number;
+    dailyReturns?: {
+      date: string;
+      return: number;
+    }[];
+  }>().notNull().default({
+    startingCapital: 0
+  }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastActiveAt: timestamp("last_active_at"),
+});
+
+export const insertBotInstanceSchema = createInsertSchema(botInstances).pick({
+  userId: true,
+  strategyId: true,
+  apiIntegrationId: true,
+  name: true,
+  description: true,
+  type: true,
+  tradingMode: true,
+  symbols: true,
+  configuration: true,
+});
+
+// Market Condition Analysis
+export const marketConditions = pgTable("market_conditions", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  
+  // Market assessment
+  overallCondition: varchar("overall_condition", { length: 20 }).notNull(), // 'bullish', 'bearish', 'neutral', 'volatile'
+  confidence: real("confidence").notNull(), // 0-1 value indicating confidence in assessment
+  
+  // Market indicators
+  indicators: jsonb("indicators").$type<{
+    vix?: number;
+    marketBreadth?: {
+      advanceDeclineRatio?: number;
+      newHighsNewLows?: number;
+      percentAboveSMA50?: number;
+      percentAboveSMA200?: number;
+    };
+    sectorRotation?: {
+      leadingSectors?: string[];
+      laggingSectors?: string[];
+    };
+    technicalSummary?: {
+      spy?: {
+        rsi?: number;
+        macdHistogram?: number;
+        bollingerPosition?: number; // -1 to 1, where 0 is middle
+      };
+      qqq?: {
+        rsi?: number;
+        macdHistogram?: number;
+        bollingerPosition?: number;
+      };
+    };
+  }>().notNull().default({}),
+  
+  // Analysis
+  insights: jsonb("insights").$type<{
+    trend?: string;
+    volatility?: string;
+    tradingRecommendations?: string[];
+    warnings?: string[];
+    opportunities?: string[];
+  }>().notNull().default({}),
+  
+  // AI assessment
+  aiConfidenceScores: jsonb("ai_confidence_scores").$type<{
+    bullish: number; // 0-1
+    bearish: number; // 0-1
+    neutral: number; // 0-1
+    volatile: number; // 0-1
+    summary: string;
+  }>().notNull().default({
+    bullish: 0,
+    bearish: 0,
+    neutral: 0.5,
+    volatile: 0,
+    summary: "Insufficient data"
+  }),
+});
+
+// Symbol Insights (for AI-powered analysis)
+export const symbolInsights = pgTable("symbol_insights", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  
+  // Basic data
+  price: real("price"),
+  priceChange: real("price_change"),
+  priceChangePercent: real("price_change_percent"),
+  volume: real("volume"),
+  
+  // Technical indicators
+  technicals: jsonb("technicals").$type<{
+    rsi?: number;
+    macd?: {
+      macd?: number;
+      signal?: number;
+      histogram?: number;
+    };
+    bollingerBands?: {
+      upper?: number;
+      middle?: number;
+      lower?: number;
+      width?: number;
+      percentB?: number;
+    };
+    movingAverages?: {
+      sma20?: number;
+      sma50?: number;
+      sma200?: number;
+      ema13?: number;
+      ema26?: number;
+    };
+    supports?: number[];
+    resistances?: number[];
+    trendStrength?: number; // 0-1 value
+  }>().notNull().default({}),
+  
+  // AI-generated insights
+  insights: jsonb("insights").$type<{
+    summary?: string;
+    keyFactors?: string[];
+    sentiment?: {
+      overall: 'bullish' | 'bearish' | 'neutral';
+      score: number; // -1 to 1
+      shortTerm: 'bullish' | 'bearish' | 'neutral';
+      mediumTerm: 'bullish' | 'bearish' | 'neutral';
+      longTerm: 'bullish' | 'bearish' | 'neutral';
+    };
+    patterns?: {
+      name: string;
+      confidence: number;
+      significance: string;
+    }[];
+    predictions?: {
+      target?: number;
+      timeframe?: string;
+      confidence?: number;
+      rationale?: string;
+    };
+  }>().notNull().default({}),
+  
+  // AI confidence signals
+  confidenceSignals: jsonb("confidence_signals").$type<{
+    signals: {
+      name: string;
+      score: number; // 0-1
+      direction: 'buy' | 'sell' | 'hold';
+      timeframe: 'short' | 'medium' | 'long';
+      category: 'technical' | 'fundamental' | 'sentiment' | 'market';
+    }[];
+    aggregatedScore: number; // 0-1
+    recommendation: 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell';
+  }>().notNull().default({
+    signals: [],
+    aggregatedScore: 0.5,
+    recommendation: 'hold'
+  }),
+  
+  // Trade signals
+  signals: jsonb("signals").$type<{
+    entry?: {
+      signal: 'buy' | 'sell';
+      strength: number; // 0-1
+      reasons: string[];
+    };
+    exit?: {
+      signal: 'take_profit' | 'stop_loss' | 'trailing_stop' | 'time_based';
+      strength: number; // 0-1
+      reasons: string[];
+    };
+  }>().notNull().default({}),
+});
+
+// Bot Trading Activity
+export const botTrades = pgTable("bot_trades", {
+  id: serial("id").primaryKey(),
+  botInstanceId: integer("bot_instance_id").notNull().references(() => botInstances.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  
+  // Trade details
+  type: varchar("type", { length: 10 }).notNull(), // 'buy', 'sell'
+  executionType: varchar("execution_type", { length: 20 }).notNull(), // 'market', 'limit', 'stop', 'stop_limit'
+  quantity: real("quantity").notNull(),
+  price: real("price").notNull(),
+  amount: real("amount").notNull(), // price * quantity
+  fees: real("fees"),
+  
+  // Trade context
+  tradingMode: varchar("trading_mode", { length: 20 }).notNull(), // 'manual', 'semi-auto', 'full-auto'
+  strategy: varchar("strategy", { length: 100 }).notNull(),
+  strategyVersion: varchar("strategy_version", { length: 20 }),
+  signals: jsonb("signals").$type<{
+    primary: string;
+    secondary?: string[];
+    confidence: number; // 0-1
+    marketCondition?: string;
+  }>().notNull(),
+  
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  notes: text("notes"),
+  
+  // Performance data
+  profitLoss: real("profit_loss"),
+  profitLossPercent: real("profit_loss_percent"),
+  holdingPeriod: integer("holding_period"), // in minutes
+  
+  // Related trades
+  entryTradeId: integer("entry_trade_id"),  // Self-reference handled in relations
+  exitReason: varchar("exit_reason", { length: 50 }), // 'take_profit', 'stop_loss', 'manual', etc.
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertBotTradeSchema = createInsertSchema(botTrades).pick({
+  botInstanceId: true,
+  userId: true,
+  symbol: true,
+  type: true,
+  executionType: true,
+  quantity: true,
+  price: true,
+  amount: true,
+  fees: true,
+  tradingMode: true,
+  strategy: true,
+  strategyVersion: true,
+  signals: true,
+  tags: true,
+  notes: true,
+  profitLoss: true,
+  profitLossPercent: true,
+  holdingPeriod: true,
+  entryTradeId: true,
+  exitReason: true,
+});
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  apiIntegrations: many(apiIntegrations),
+  strategies: many(strategies),
+  backtests: many(backtests),
+  deployments: many(deployments),
+  watchlistItems: many(watchlist),
+  alertThresholds: many(alertThresholds),
+  notifications: many(notifications),
+  webhooks: many(webhooks),
+  screeners: many(screeners),
+  botInstances: many(botInstances),
+}));
+
+export const strategiesRelations = relations(strategies, ({ one, many }) => ({
+  user: one(users, {
+    fields: [strategies.userId],
+    references: [users.id],
+  }),
+  backtests: many(backtests),
+  deployments: many(deployments),
+  webhooks: many(webhooks),
+  botInstances: many(botInstances),
+}));
+
+export const apiIntegrationsRelations = relations(apiIntegrations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [apiIntegrations.userId],
+    references: [users.id],
+  }),
+  botInstances: many(botInstances),
+}));
+
+export const backtestsRelations = relations(backtests, ({ one }) => ({
+  user: one(users, {
+    fields: [backtests.userId],
+    references: [users.id],
+  }),
+  strategy: one(strategies, {
+    fields: [backtests.strategyId],
+    references: [strategies.id],
+  }),
+}));
+
+export const deploymentsRelations = relations(deployments, ({ one }) => ({
+  user: one(users, {
+    fields: [deployments.userId],
+    references: [users.id],
+  }),
+  strategy: one(strategies, {
+    fields: [deployments.strategyId],
+    references: [strategies.id],
+  }),
+}));
+
+export const watchlistRelations = relations(watchlist, ({ one }) => ({
+  user: one(users, {
+    fields: [watchlist.userId],
+    references: [users.id],
+  }),
+}));
+
+export const alertThresholdsRelations = relations(alertThresholds, ({ one, many }) => ({
+  user: one(users, {
+    fields: [alertThresholds.userId],
+    references: [users.id],
+  }),
+  notifications: many(notifications),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  alertThreshold: one(alertThresholds, {
+    fields: [notifications.thresholdId],
+    references: [alertThresholds.id],
+  }),
+}));
+
+export const webhooksRelations = relations(webhooks, ({ one }) => ({
+  user: one(users, {
+    fields: [webhooks.userId],
+    references: [users.id],
+  }),
+  strategy: one(strategies, {
+    fields: [webhooks.strategyId],
+    references: [strategies.id],
+  }),
+}));
+
+export const screenersRelations = relations(screeners, ({ one }) => ({
+  user: one(users, {
+    fields: [screeners.userId],
+    references: [users.id],
+  }),
+}));
+
+export const botInstancesRelations = relations(botInstances, ({ one, many }) => ({
+  user: one(users, {
+    fields: [botInstances.userId],
+    references: [users.id],
+  }),
+  strategy: one(strategies, {
+    fields: [botInstances.strategyId],
+    references: [strategies.id],
+  }),
+  apiIntegration: one(apiIntegrations, {
+    fields: [botInstances.apiIntegrationId],
+    references: [apiIntegrations.id],
+  }),
+  trades: many(botTrades),
+}));
+
+export const botTradesRelations = relations(botTrades, ({ one }) => ({
+  botInstance: one(botInstances, {
+    fields: [botTrades.botInstanceId],
+    references: [botInstances.id],
+  }),
+  user: one(users, {
+    fields: [botTrades.userId],
+    references: [users.id],
+  }),
+  // Self-reference handled differently to avoid circular dependency
+  entryTrade: one(botTrades, {
+    fields: [botTrades.entryTradeId],
+    references: [botTrades.id],
+  }),
+}));
+
+// Type Exports
+export type BotInstance = typeof botInstances.$inferSelect;
+export type InsertBotInstance = z.infer<typeof insertBotInstanceSchema>;
+
+export type MarketCondition = typeof marketConditions.$inferSelect;
+export type SymbolInsight = typeof symbolInsights.$inferSelect;
+export type BotTrade = typeof botTrades.$inferSelect;
+export type InsertBotTrade = z.infer<typeof insertBotTradeSchema>;
