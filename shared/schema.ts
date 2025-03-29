@@ -64,13 +64,29 @@ export const apiIntegrations = pgTable("api_integrations", {
   userId: integer("user_id").notNull().references(() => users.id),
   provider: text("provider").notNull(), // 'alpaca', 'polygon', 'openai', 'binance', 'coinbase', 'interactive_brokers', etc.
   type: text("type").notNull(), // 'exchange', 'data', 'ai'
-  assetClasses: jsonb("asset_classes").$type<string[]>().default(['stocks']), // 'stocks', 'options', 'futures', 'forex', 'crypto', etc.
+  
+  // Enhanced multi-asset classes support
+  assetClasses: jsonb("asset_classes").$type<string[]>().default(['stocks']), // 'stocks', 'options', 'futures', 'forex', 'crypto', 'etf', etc.
+  
+  // Enhanced multi-exchange support
+  exchanges: jsonb("exchanges").$type<string[]>().default(['NASDAQ']), // 'NASDAQ', 'NYSE', 'BINANCE', 'COINBASE', etc.
+  
+  // Enhanced account information
+  accountMode: text("account_mode").default('paper'), // 'paper', 'live'
+  accountName: text("account_name"), // User-defined name for the account
   description: text("description"), // User-friendly name for the integration
+  
+  // Enhanced credentials
   credentials: jsonb("credentials").$type<{
     apiKey: string;
     apiSecret?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    accountId?: string;
     additionalFields?: Record<string, string>;
   }>().notNull(),
+  
+  // Enhanced capabilities
   capabilities: jsonb("capabilities").$type<{
     trading: boolean;           // Can execute trades
     marketData: boolean;        // Can retrieve market data
@@ -78,13 +94,27 @@ export const apiIntegrations = pgTable("api_integrations", {
     supportedRegions?: string[]; // US, EU, APAC, Global
     paperTrading?: boolean;     // Supports paper trading
     liveTrading?: boolean;      // Supports live trading
+    supportsOptions?: boolean;  // Supports options trading
+    supportsFutures?: boolean;  // Supports futures trading
+    supportsForex?: boolean;    // Supports forex trading
+    supportsCrypto?: boolean;   // Supports crypto trading
+    marginTrading?: boolean;    // Supports margin trading
+    shortSelling?: boolean;     // Supports short selling
+    fractionalShares?: boolean; // Supports fractional shares
+    extendedHours?: boolean;    // Supports extended hours trading
+    advancedOrderTypes?: string[]; // Supported advanced order types
   }>().notNull().default({
     trading: true,
     marketData: true,
     accountData: true,
     paperTrading: true,
-    liveTrading: true
+    liveTrading: true,
+    supportsOptions: false,
+    supportsFutures: false, 
+    supportsForex: false,
+    supportsCrypto: false
   }),
+  
   isActive: boolean("is_active").notNull().default(true),
   isPrimary: boolean("is_primary").notNull().default(false),
   lastUsed: timestamp("last_used"),
@@ -97,6 +127,9 @@ export const insertApiIntegrationSchema = createInsertSchema(apiIntegrations).pi
   provider: true,
   type: true,
   assetClasses: true,
+  exchanges: true,
+  accountMode: true,
+  accountName: true,
   description: true,
   credentials: true,
   capabilities: true,
@@ -612,6 +645,33 @@ export const botInstances = pgTable("bot_instances", {
       trades?: boolean;
       statusChanges?: boolean;
     };
+    // Enhanced multi-asset and multi-exchange settings
+    assetSpecificSettings?: Record<string, {
+      assetClass: string;
+      exchange?: string;
+      symbols?: string[];
+      positionSizing?: {
+        type: 'fixed' | 'percentage' | 'risk-based' | 'volatility-based';
+        value: number;
+      };
+      takeProfit?: number;
+      stopLoss?: number;
+      trailingStop?: boolean;
+      trailingStopDistance?: number;
+    }>;
+    // Auto-tagging system for trades
+    autoTagging?: {
+      enabled: boolean;
+      rules: {
+        name: string;
+        tag: string;
+        conditions: {
+          field: string; // 'assetClass', 'exchange', 'symbol', 'tradingMode', 'timeOfDay', 'dayOfWeek', 'marketCondition'
+          operator: string; // 'equals', 'contains', 'startsWith', 'endsWith', 'greaterThan', 'lessThan', 'in'
+          value: any;
+        }[];
+      }[];
+    };
   }>().notNull(),
   
   // Runtime data
@@ -686,6 +746,8 @@ export const insertBotInstanceSchema = createInsertSchema(botInstances).pick({
   name: true,
   description: true,
   type: true,
+  exchange: true,
+  assetClass: true,
   tradingMode: true,
   symbols: true,
   configuration: true,
@@ -854,6 +916,11 @@ export const botTrades = pgTable("bot_trades", {
   userId: integer("user_id").notNull().references(() => users.id),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   
+  // Exchange and Asset information
+  exchange: varchar("exchange", { length: 50 }).notNull(),  // 'alpaca', 'binance', etc.
+  assetClass: varchar("asset_class", { length: 20 }).notNull().default('stocks'), // 'stocks', 'options', 'futures', 'forex', 'crypto', etc.
+  assetType: varchar("asset_type", { length: 20 }), // For crypto: 'spot', 'perpetual', 'futures'; For stocks: 'common', 'preferred', 'etf', etc.
+  
   // Trade details
   type: varchar("type", { length: 10 }).notNull(), // 'buy', 'sell'
   executionType: varchar("execution_type", { length: 20 }).notNull(), // 'market', 'limit', 'stop', 'stop_limit'
@@ -893,6 +960,9 @@ export const insertBotTradeSchema = createInsertSchema(botTrades).pick({
   botInstanceId: true,
   userId: true,
   symbol: true,
+  exchange: true,
+  assetClass: true,
+  assetType: true,
   type: true,
   executionType: true,
   quantity: true,
