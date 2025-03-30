@@ -8,6 +8,9 @@
 import { Router, Request, Response } from 'express';
 import { snapTradeService } from '../snaptradeService';
 import { storage } from '../storage';
+import { db } from '../db';
+import { users } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import { extractUserId } from '../utils';
 
 export const snaptradeRoutes = Router();
@@ -90,26 +93,85 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
       return res.status(401).json({ error: 'User ID not found in request' });
     }
     
+    // Check if we have a SnapTrade user record for this user
+    console.log(`Checking SnapTrade credentials in database for user ${userId}`);
+    
+    // First make sure user exists in the database
+    const [userRecord] = await db.select()
+      .from(users)
+      .where(eq(users.id, userId));
+      
+    if (!userRecord) {
+      console.error(`User record for user ${userId} not found in database`);
+      return res.status(500).json({ error: 'User not found in database' });
+    }
+    
+    console.log(`User record found for user ${userId}, checking for SnapTrade credentials`);
+    console.log(`User has snapTradeCredentials: ${!!userRecord.snapTradeCredentials}`);
+    
+    // If user doesn't have SnapTrade credentials, create an empty object
+    if (!userRecord.snapTradeCredentials) {
+      console.log(`No SnapTrade credentials for user ${userId}, creating empty field...`);
+      
+      try {
+        // Update user record with empty credentials to help initialize
+        await db.update(users)
+          .set({
+            snapTradeCredentials: {
+              isRegistered: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          })
+          .where(eq(users.id, userId));
+          
+        console.log(`Created empty SnapTrade credentials for user ${userId}`);
+      } catch (updateError) {
+        console.error(`Failed to create empty SnapTrade credentials for user ${userId}:`, updateError);
+      }
+    }
+    
     // Initialize SnapTrade for this user before generating the authorization URL
     console.log(`Initializing SnapTrade service for user ${userId} before connecting`);
     const initialized = await snapTradeService.initializeForUser(userId);
     
     if (!initialized) {
-      console.error(`Failed to initialize SnapTrade service for user ${userId}`);
-      return res.status(500).json({ error: 'Failed to initialize SnapTrade service' });
+      console.error(`Failed to initialize SnapTrade service for user ${userId}, attempting direct registration`);
+      
+      // Instead of failing, try direct registration
+      console.log(`Attempting direct registration for user ${userId}...`);
+      const registered = await snapTradeService.registerUser(userId);
+      
+      if (!registered) {
+        console.error(`Failed to register SnapTrade service for user ${userId}`);
+        return res.status(500).json({ error: 'Failed to register with SnapTrade service' });
+      }
+      
+      console.log(`Successfully registered user ${userId} with SnapTrade`);
     }
     
+    // Now generate the authorization URL
     const authUrl = await snapTradeService.generateAuthorizationUrl(redirectUri);
     
     if (!authUrl) {
+      console.error(`Failed to generate authorization URL for user ${userId}`);
       return res.status(500).json({ error: 'Failed to generate authorization URL' });
     }
+    
+    console.log(`Successfully generated authorization URL for user ${userId}: ${authUrl.substring(0, 50)}...`);
     
     res.json({
       redirectUrl: authUrl
     });
   } catch (error) {
     console.error('Error connecting to SnapTrade:', error);
+    // Add more detailed error logging
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      if (error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -82,6 +82,15 @@ export class SnapTradeService {
       const [userWithCredentials] = await db.select()
         .from(users)
         .where(eq(users.id, userId));
+      
+      // Log whether the user exists and has credentials  
+      console.log(`User record found: ${!!userWithCredentials}, Has snapTradeCredentials: ${!!(userWithCredentials?.snapTradeCredentials)}`);
+      
+      // Check if the user exists
+      if (!userWithCredentials) {
+        console.error(`User with ID ${userId} not found in database`);
+        return false;
+      }
         
       if (userWithCredentials?.snapTradeCredentials) {
         console.log(`Found SnapTrade credentials in user record for user ${userId}`);
@@ -90,10 +99,16 @@ export class SnapTradeService {
         this.snapTradeUserId = credentials.userId;
         this.userSecret = credentials.userSecret;
         
+        console.log(`Credential details: userId exists: ${!!this.snapTradeUserId}, userSecret exists: ${!!this.userSecret}`);
+        
         if (this.snapTradeUserId && this.userSecret) {
           console.log(`Successfully initialized SnapTrade with user ID: ${this.snapTradeUserId}`);
           return true;
+        } else {
+          console.error(`Invalid credentials for user ${userId}: missing userId or userSecret`);
         }
+      } else {
+        console.log(`No snapTradeCredentials found in user record ${userId}, attempting to register`);
       }
       
       // If no credentials in user record, look for an existing integration
@@ -223,7 +238,7 @@ export class SnapTradeService {
    * Register a new user with SnapTrade
    * @param userId Our internal user ID
    */
-  private async registerUser(userId: number): Promise<boolean> {
+  async registerUser(userId: number): Promise<boolean> {
     try {
       // Generate a unique ID for SnapTrade based on user ID
       // This ID needs to be unique and immutable per user (not using email)
