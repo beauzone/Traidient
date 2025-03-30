@@ -3690,9 +3690,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register SnapTrade routes
   // Create a separate router for public SnapTrade endpoints
   const publicSnapTradeRoutes = Router();
-  // Add the brokerages route to the public router
+  
+  // Add the public routes to the public router
+  // Add the brokerages route (available without login)
   publicSnapTradeRoutes.get('/brokerages', snaptradeRoutes.stack
     .find(layer => layer.route && layer.route.path === '/brokerages')!.handle);
+  
+  // Add the status route (available without login)
+  publicSnapTradeRoutes.get('/status', snaptradeRoutes.stack
+    .find(layer => layer.route && layer.route.path === '/status')!.handle);
   
   // Register public SnapTrade routes (without auth)
   app.use('/api/snaptrade', publicSnapTradeRoutes);
