@@ -42,23 +42,43 @@ export function SnaptradeConnector() {
   useEffect(() => {
     const url = new URL(window.location.href);
     
+    console.log('SnaptradeConnector useEffect checking URL:', url.pathname);
+    console.log('SnapTrade configured status:', isConfigured);
+    
     // Check if this is a callback from SnapTrade
     if (url.pathname === '/settings/connections/callback') {
       const code = url.searchParams.get('code');
       const brokerage = url.searchParams.get('brokerage');
       
+      console.log('SnapTrade callback parameters:', { code: code ? 'present' : 'missing', brokerage: brokerage || 'not provided' });
+      
       if (code) {
+        console.log('Handling SnapTrade callback with code:', code);
+        
         // Send the code to our backend to complete the connection
         handleCallback({ code, brokerage: brokerage || undefined });
         
         // Remove the parameters from the URL
         window.history.replaceState({}, document.title, '/settings');
+        console.log('Removed SnapTrade callback parameters from URL');
+      } else {
+        console.warn('Missing code parameter in SnapTrade callback URL');
       }
     }
-  }, [handleCallback]);
+  }, [handleCallback, isConfigured]);
 
+  console.log('SnapTrade component state:', {
+    isStatusLoading, 
+    isConfigured,
+    hasBrokerages: Array.isArray(brokerages) && brokerages.length > 0,
+    brokerageCount: Array.isArray(brokerages) ? brokerages.length : 0,
+    hasConnections,
+    connectionCount: Array.isArray(connections) ? connections.length : 0
+  });
+  
   // If SnapTrade is not configured, show a message
   if (!isStatusLoading && !isConfigured) {
+    console.log('SnapTrade is not configured, showing not configured message');
     return (
       <Card className="w-full">
         <CardHeader>

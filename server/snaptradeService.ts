@@ -820,6 +820,11 @@ export class SnapTradeService {
       .filter(key => key.includes('SNAP') || key.includes('API') || key.includes('KEY'))
       .map(key => `${key}: ${key.includes('KEY') || key.includes('SECRET') ? '(sensitive)' : 'present'}`));
     
+    // Add more debugging for the specific variables we need
+    console.log('SNAPTRADE_CLIENT_ID exists:', !!process.env.SNAPTRADE_CLIENT_ID);
+    console.log('SNAPTRADE_CONSUMER_KEY exists:', !!process.env.SNAPTRADE_CONSUMER_KEY);
+    console.log('API Endpoint being used:', apiEndpoint);
+    
     // Log the SnapTrade-specific configuration
     console.log('Initializing SnapTrade service with config:', {
       clientId: clientId ? `${clientId.substring(0, 3)}...${clientId.length}chars` : 'MISSING',

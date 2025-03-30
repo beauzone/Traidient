@@ -19,9 +19,17 @@ export function useSnapTrade() {
     retry: false,
   });
 
+  // Add debug logs for the status query
+  console.log('SnapTrade status query result:', configStatus);
+  if (statusError) {
+    console.error('SnapTrade status query error:', statusError);
+  }
+
   // Check if configStatus is a valid object with configured property
   const isConfigured = configStatus && typeof configStatus === 'object' && 'configured' in configStatus ? 
     configStatus.configured : false;
+  
+  console.log('SnapTrade isConfigured value:', isConfigured);
 
   // Query to get all available brokerages (non-authenticated)
   const {
@@ -76,17 +84,27 @@ export function useSnapTrade() {
   const connectMutation = useMutation({
     mutationFn: async () => {
       console.log('Making API request to /api/snaptrade/connect...');
-      return await apiRequest('/api/snaptrade/connect', 
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      const redirectUri = `${window.location.origin}/settings/connections/callback`;
+      console.log('Using redirectUri:', redirectUri);
+      
+      try {
+        const result = await apiRequest('/api/snaptrade/connect', 
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          }, 
+          {
+            redirectUri: redirectUri,
           }
-        }, 
-        {
-          redirectUri: `${window.location.origin}/settings/connections/callback`,
-        }
-      );
+        );
+        console.log('API request to /api/snaptrade/connect completed successfully with result:', result);
+        return result;
+      } catch (error) {
+        console.error('API request to /api/snaptrade/connect failed with error:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       console.log('Connect mutation succeeded with data:', data);
