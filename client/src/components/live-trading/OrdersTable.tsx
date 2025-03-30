@@ -287,6 +287,14 @@ const OrdersTable = () => {
             <CardDescription>
               Manage your trading orders
             </CardDescription>
+            {isReadOnly && (
+              <div className="flex items-center p-2 mt-2 text-blue-800 border border-blue-200 rounded-lg bg-blue-50 text-xs">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>
+                  SnapTrade is currently in read-only mode. Trading capabilities will be available after upgrading from the free plan.
+                </span>
+              </div>
+            )}
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>

@@ -88,7 +88,10 @@ export function SnaptradeConnector() {
               src={logoError ? "/images/snaptrade/fallback-logo.svg" : "/images/snaptrade/logo.svg"} 
               alt="SnapTrade" 
               className="h-6 mr-2" 
-              onError={() => setLogoError(true)}
+              onError={() => {
+                console.error("Failed to load SnapTrade logo image");
+                setLogoError(true);
+              }}
             />
             SnapTrade
             <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
@@ -117,7 +120,10 @@ export function SnaptradeConnector() {
             src={logoError ? "/images/snaptrade/fallback-logo.svg" : "/images/snaptrade/logo.svg"} 
             alt="SnapTrade" 
             className="h-6 mr-2" 
-            onError={() => setLogoError(true)}
+            onError={() => {
+              console.error("Failed to load SnapTrade logo image");
+              setLogoError(true);
+            }}
           />
           SnapTrade
           {isReadOnly && (
@@ -216,7 +222,10 @@ export function SnaptradeConnector() {
                 src={partnersError ? "/images/snaptrade/fallback-partners.svg" : "/images/snaptrade/partner-logos.png"} 
                 alt="Supported brokerages" 
                 className="max-w-full h-auto opacity-60 max-h-16" 
-                onError={() => setPartnersError(true)}
+                onError={() => {
+                  console.error("Failed to load SnapTrade partners image");
+                  setPartnersError(true);
+                }}
               />
             </div>
           </div>
