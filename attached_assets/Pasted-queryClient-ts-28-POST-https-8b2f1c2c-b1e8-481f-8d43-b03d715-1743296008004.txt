@@ -1,0 +1,103 @@
+queryClient.ts:28 
+            
+            
+           POST https://8b2f1c2c-b1e8-481f-8d43-b03d7154d647-00-3nym7i6tv79ds.janeway.replit.dev/api/integrations 500 (Internal Server Error)
+window.fetch @ Network.js:219
+apiRequest @ queryClient.ts:28
+apiRequest @ api.ts:13
+postData @ api.ts:39
+mutationFn @ integrations.tsx:105
+fn @ @tanstack_react-query.js?v=7d5d1c59:1189
+run @ @tanstack_react-query.js?v=7d5d1c59:494
+start @ @tanstack_react-query.js?v=7d5d1c59:536
+execute @ @tanstack_react-query.js?v=7d5d1c59:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7d5d1c59:2630
+(anonymous) @ @tanstack_react-query.js?v=7d5d1c59:3295
+onSubmit @ integrations.tsx:207
+(anonymous) @ chunk-YABUFNLM.js?v=382ec137:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=382ec137:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=382ec137:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=382ec137:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=382ec137:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=382ec137:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=382ec137:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=382ec137:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=382ec137:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=382ec137:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=382ec137:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=382ec137:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=382ec137:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=382ec137:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=382ec137:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=382ec137:5449
+Console.js:61 API error (POST /api/integrations): Error: 500: {"message":"Error creating API integration"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:52:5)
+    at async apiRequest (api.ts:13:22)
+Mt.forEach.n.<computed> @ Console.js:61
+apiRequest @ queryClient.ts:71
+await in apiRequest
+apiRequest @ api.ts:13
+postData @ api.ts:39
+mutationFn @ integrations.tsx:105
+fn @ @tanstack_react-query.js?v=7d5d1c59:1189
+run @ @tanstack_react-query.js?v=7d5d1c59:494
+start @ @tanstack_react-query.js?v=7d5d1c59:536
+execute @ @tanstack_react-query.js?v=7d5d1c59:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7d5d1c59:2630
+(anonymous) @ @tanstack_react-query.js?v=7d5d1c59:3295
+onSubmit @ integrations.tsx:207
+(anonymous) @ chunk-YABUFNLM.js?v=382ec137:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=382ec137:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=382ec137:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=382ec137:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=382ec137:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=382ec137:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=382ec137:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=382ec137:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=382ec137:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=382ec137:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=382ec137:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=382ec137:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=382ec137:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=382ec137:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=382ec137:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=382ec137:5449
+Console.js:61 API error (POST /api/integrations): Error: 500: {"message":"Error creating API integration"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:52:5)
+    at async apiRequest (api.ts:13:22)
+Mt.forEach.n.<computed> @ Console.js:61
+apiRequest @ api.ts:16
+await in apiRequest
+postData @ api.ts:39
+mutationFn @ integrations.tsx:105
+fn @ @tanstack_react-query.js?v=7d5d1c59:1189
+run @ @tanstack_react-query.js?v=7d5d1c59:494
+start @ @tanstack_react-query.js?v=7d5d1c59:536
+execute @ @tanstack_react-query.js?v=7d5d1c59:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=7d5d1c59:2630
+(anonymous) @ @tanstack_react-query.js?v=7d5d1c59:3295
+onSubmit @ integrations.tsx:207
+(anonymous) @ chunk-YABUFNLM.js?v=382ec137:1675
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=382ec137:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=382ec137:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=382ec137:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=382ec137:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=382ec137:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=382ec137:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=382ec137:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=382ec137:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=382ec137:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=382ec137:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=382ec137:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=382ec137:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=382ec137:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=382ec137:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=382ec137:5449

@@ -70,7 +70,6 @@ export const apiIntegrations = pgTable("api_integrations", {
   
   // Enhanced multi-exchange support
   exchanges: jsonb("exchanges").$type<string[]>().default(['NASDAQ']), // 'NASDAQ', 'NYSE', 'BINANCE', 'COINBASE', etc.
-  asset_classes: jsonb("asset_classes").$type<string[]>().default(['stocks']), // 'stocks', 'options', 'futures', 'forex', 'crypto', etc.
   
   // Enhanced account information
   accountMode: text("account_mode").default('paper'), // 'paper', 'live'
