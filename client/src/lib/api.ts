@@ -4,16 +4,16 @@ import { apiRequest as queryApiRequest } from "./queryClient";
  * Make an API request using fetch with proper error handling
  */
 export async function apiRequest<T = any>(
-  method: string,
   url: string,
+  options?: RequestInit,
   data?: unknown
 ): Promise<T> {
   try {
     // The queryApiRequest function already parses the JSON response
-    const response = await queryApiRequest(method, url, data);
+    const response = await queryApiRequest(url, options, data);
     return response as T;
   } catch (error) {
-    console.error(`API error (${method} ${url}):`, error);
+    console.error(`API error (${options?.method || 'GET'} ${url}):`, error);
     throw error;
   }
 }
@@ -22,7 +22,7 @@ export async function apiRequest<T = any>(
  * Fetch data from an API endpoint
  */
 export async function fetchData<T = any>(url: string): Promise<T> {
-  return apiRequest<T>("GET", url);
+  return apiRequest<T>(url, { method: "GET" } as RequestInit);
 }
 
 /**
@@ -36,14 +36,14 @@ export async function getData<T = any>(url: string): Promise<T> {
  * Post data to an API endpoint
  */
 export async function postData<T = any>(url: string, data: unknown): Promise<T> {
-  return apiRequest<T>("POST", url, data);
+  return apiRequest<T>(url, { method: "POST" } as RequestInit, data);
 }
 
 /**
  * Update data at an API endpoint
  */
 export async function updateData<T = any>(url: string, data: unknown): Promise<T> {
-  return apiRequest<T>("PUT", url, data);
+  return apiRequest<T>(url, { method: "PUT" } as RequestInit, data);
 }
 
 /**
@@ -52,7 +52,7 @@ export async function updateData<T = any>(url: string, data: unknown): Promise<T
  */
 export async function deleteData<T = any>(url: string): Promise<T> {
   try {
-    return await apiRequest<T>("DELETE", url);
+    return await apiRequest<T>(url, { method: "DELETE" } as RequestInit);
   } catch (error: any) {
     // If it's a 404 error for a DELETE request, consider it a success
     // (the resource was already deleted or doesn't exist)

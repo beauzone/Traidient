@@ -21,6 +21,10 @@ export function SnaptradeConnector() {
     retry: false,
   });
 
+  // Check if configStatus is a valid object with configured property
+  const isConfigured = configStatus && typeof configStatus === 'object' && 'configured' in configStatus ? 
+    configStatus.configured : false;
+
   // Query to get existing connections
   const { 
     data: connectionData, 
@@ -29,8 +33,25 @@ export function SnaptradeConnector() {
   } = useQuery({
     queryKey: ['/api/snaptrade/connections'],
     retry: false,
-    enabled: !!configStatus?.configured,
+    enabled: !!isConfigured,
   });
+    
+  // Function to check if connections exist and how many
+  const hasConnections = () => {
+    return connectionData && 
+           typeof connectionData === 'object' && 
+           'connections' in connectionData && 
+           Array.isArray(connectionData.connections) && 
+           connectionData.connections.length > 0;
+  };
+  
+  // Safe getter for connections array
+  const getConnections = () => {
+    if (hasConnections()) {
+      return (connectionData as any).connections;
+    }
+    return [];
+  };
 
   // Mutation for connecting to SnapTrade
   const connectMutation = useMutation({
@@ -162,7 +183,7 @@ export function SnaptradeConnector() {
   };
 
   // If SnapTrade is not configured, show a message
-  if (!isStatusLoading && configStatus && !configStatus.configured) {
+  if (!isStatusLoading && !isConfigured) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -201,7 +222,7 @@ export function SnaptradeConnector() {
             className="h-6 mr-2" 
           />
           SnapTrade
-          {connectionData?.connections?.length > 0 && (
+          {hasConnections() && (
             <Badge variant="outline" className="ml-2 bg-green-100 text-green-800">
               Connected
             </Badge>
@@ -214,12 +235,12 @@ export function SnaptradeConnector() {
           <div className="flex justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : connectionData?.connections?.length > 0 ? (
+        ) : hasConnections() ? (
           <div className="space-y-4">
             <div className="text-sm">
               Connected brokerages:
             </div>
-            {connectionData.connections.map((connection: any) => (
+            {getConnections().map((connection: any) => (
               <div 
                 key={connection.id} 
                 className="flex items-center justify-between p-3 border rounded-md bg-muted/20"
@@ -283,7 +304,7 @@ export function SnaptradeConnector() {
           ) : (
             <>
               <ExternalLink className="h-4 w-4 mr-2" />
-              {connectionData?.connections?.length > 0 
+              {hasConnections()
                 ? "Connect Another Brokerage" 
                 : "Connect to SnapTrade"
               }

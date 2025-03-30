@@ -109,7 +109,7 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   });
   
   // Count unread notifications
-  const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
+  const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0;
 
   // Apply theme to document
   useEffect(() => {
@@ -360,7 +360,7 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
                       </div>
                     )}
                     
-                    {!isLoadingNotifications && (notifications?.length === 0 || !notifications) && (
+                    {!isLoadingNotifications && (!Array.isArray(notifications) || notifications.length === 0) && (
                       <div className="py-6 px-4 text-center text-muted-foreground">
                         <div className="flex justify-center mb-2">
                           <Bell className="h-8 w-8 opacity-40" />
@@ -369,7 +369,7 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
                       </div>
                     )}
                     
-                    {!isLoadingNotifications && notifications && notifications.length > 0 && (
+                    {!isLoadingNotifications && Array.isArray(notifications) && notifications.length > 0 && (
                       <div>
                         {notifications.map((notification) => {
                           // Helper to get icon based on notification type
