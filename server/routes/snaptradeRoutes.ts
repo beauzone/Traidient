@@ -6,7 +6,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { snapTradeService } from '../snaptradeService';
+import { snapTradeSDKService } from '../snaptradeSDKService'; // Use the SDK service instead
 import { storage } from '../storage';
 import { db } from '../db';
 import { users } from '@shared/schema';
@@ -33,7 +33,7 @@ const snaptradeAuthMiddleware = async (req: Request, res: Response, next: Functi
     console.log(`SnapTrade auth middleware - Found user ID: ${userId}`);
     
     // Check if SnapTrade service is configured
-    if (!snapTradeService.isConfigured()) {
+    if (!snapTradeSDKService.isConfigured()) {
       console.error('SnapTrade auth middleware - Service is not properly configured');
       return res.status(500).json({ error: 'SnapTrade service is not properly configured' });
     }
@@ -65,7 +65,7 @@ const snaptradeAuthMiddleware = async (req: Request, res: Response, next: Functi
  */
 snaptradeRoutes.get('/status', async (_req: Request, res: Response) => {
   try {
-    const isConfigured = snapTradeService.isConfigured();
+    const isConfigured = snapTradeSDKService.isConfigured();
     
     res.json({
       configured: isConfigured
@@ -135,7 +135,7 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
     
     // Initialize SnapTrade for this user before generating the authorization URL
     console.log(`Initializing SnapTrade service for user ${userId} before connecting`);
-    const initialized = await snapTradeService.initializeForUser(userId);
+    const initialized = await snapTradeSDKService.initializeForUser(userId);
     
     // Log environment availability for diagnostics
     console.log('SnapTrade environment variables availability:');
@@ -147,7 +147,7 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
       
       // Instead of failing, try direct registration
       console.log(`Attempting direct registration for user ${userId}...`);
-      const registered = await snapTradeService.registerUser(userId);
+      const registered = await snapTradeSDKService.registerUser(userId);
       
       if (!registered) {
         console.error(`Failed to register SnapTrade service for user ${userId}`);
@@ -168,7 +168,7 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
     }
     
     // Now generate the authorization URL
-    const authUrl = await snapTradeService.generateAuthorizationUrl(redirectUri);
+    const authUrl = await snapTradeSDKService.generateAuthorizationUrl(redirectUri);
     
     if (!authUrl) {
       console.error(`Failed to generate authorization URL for user ${userId}`);
@@ -225,14 +225,14 @@ snaptradeRoutes.post('/callback', snaptradeAuthMiddleware, async (req: Request, 
     
     // Initialize SnapTrade for this user before handling callback
     console.log(`Initializing SnapTrade service for user ${userId} before handling callback`);
-    const initialized = await snapTradeService.initializeForUser(userId);
+    const initialized = await snapTradeSDKService.initializeForUser(userId);
     
     if (!initialized) {
       console.error(`Failed to initialize SnapTrade service for user ${userId}`);
       return res.status(500).json({ error: 'Failed to initialize SnapTrade service' });
     }
     
-    const success = await snapTradeService.handleAuthorizationCallback(code, brokerage);
+    const success = await snapTradeSDKService.handleAuthorizationCallback(code, brokerage);
     
     if (!success) {
       return res.status(500).json({ error: 'Failed to complete authorization' });
@@ -259,14 +259,14 @@ snaptradeRoutes.get('/connections', snaptradeAuthMiddleware, async (req: Request
     
     // Initialize SnapTrade for this user before getting connections
     console.log(`Initializing SnapTrade service for user ${userId} before fetching connections`);
-    const initialized = await snapTradeService.initializeForUser(userId);
+    const initialized = await snapTradeSDKService.initializeForUser(userId);
     
     if (!initialized) {
       console.error(`Failed to initialize SnapTrade service for user ${userId}`);
       return res.status(500).json({ error: 'Failed to initialize SnapTrade service' });
     }
     
-    const connections = await snapTradeService.getConnections();
+    const connections = await snapTradeSDKService.getConnections();
     
     res.json({
       connections
@@ -289,7 +289,7 @@ snaptradeRoutes.delete('/connections/:connectionId', snaptradeAuthMiddleware, as
       return res.status(400).json({ error: 'Missing connection ID' });
     }
     
-    const success = await snapTradeService.deleteConnection(connectionId);
+    const success = await snapTradeSDKService.deleteConnection(connectionId);
     
     if (!success) {
       return res.status(500).json({ error: 'Failed to delete connection' });
@@ -308,7 +308,7 @@ snaptradeRoutes.delete('/connections/:connectionId', snaptradeAuthMiddleware, as
  */
 snaptradeRoutes.get('/accounts', snaptradeAuthMiddleware, async (_req: Request, res: Response) => {
   try {
-    const accounts = await snapTradeService.getAccounts();
+    const accounts = await snapTradeSDKService.getAccounts();
     
     res.json({
       accounts
@@ -331,7 +331,7 @@ snaptradeRoutes.get('/accounts/:accountId/balances', snaptradeAuthMiddleware, as
       return res.status(400).json({ error: 'Missing account ID' });
     }
     
-    const balances = await snapTradeService.getAccountBalances(accountId);
+    const balances = await snapTradeSDKService.getAccountBalances(accountId);
     
     if (!balances) {
       return res.status(500).json({ error: 'Failed to get account balances' });
@@ -358,7 +358,7 @@ snaptradeRoutes.get('/accounts/:accountId/positions', snaptradeAuthMiddleware, a
       return res.status(400).json({ error: 'Missing account ID' });
     }
     
-    const positions = await snapTradeService.getAccountPositions(accountId);
+    const positions = await snapTradeSDKService.getAccountPositions(accountId);
     
     res.json({
       positions
@@ -381,7 +381,7 @@ snaptradeRoutes.get('/quote/:symbol', snaptradeAuthMiddleware, async (req: Reque
       return res.status(400).json({ error: 'Missing symbol' });
     }
     
-    const quote = await snapTradeService.getQuote(symbol);
+    const quote = await snapTradeSDKService.getQuote(symbol);
     
     if (!quote) {
       return res.status(500).json({ error: 'Failed to get quote' });
@@ -413,7 +413,7 @@ snaptradeRoutes.post('/accounts/:accountId/orders', snaptradeAuthMiddleware, asy
       return res.status(400).json({ error: 'Missing order details' });
     }
     
-    const result = await snapTradeService.placeOrder(accountId, order);
+    const result = await snapTradeSDKService.placeOrder(accountId, order);
     
     if (!result) {
       return res.status(500).json({ error: 'Failed to place order' });
@@ -437,7 +437,7 @@ snaptradeRoutes.post('/accounts/:accountId/orders', snaptradeAuthMiddleware, asy
 snaptradeRoutes.get('/brokerages', async (_req: Request, res: Response) => {
   try {
     // Check if SnapTrade service is configured before making the API call
-    if (!snapTradeService.isConfigured()) {
+    if (!snapTradeSDKService.isConfigured()) {
       console.error('SnapTrade service is not properly configured');
       return res.status(503).json({ 
         error: 'SnapTrade service is not properly configured',
@@ -447,7 +447,7 @@ snaptradeRoutes.get('/brokerages', async (_req: Request, res: Response) => {
 
     // Make the API call to get brokerages
     console.log('Making request to SnapTrade API for brokerages list');
-    const brokerages = await snapTradeService.getBrokerages();
+    const brokerages = await snapTradeSDKService.getBrokerages();
     
     res.json({
       brokerages
