@@ -1,148 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, RefreshCw, ExternalLink, Check, AlertCircle } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSnapTrade } from "@/hooks/useSnapTrade";
+import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * SnapTradeConnector component for connecting to SnapTrade
  * Allows users to connect to multiple brokerages through SnapTrade
  */
 export function SnaptradeConnector() {
-  const [isConnecting, setIsConnecting] = useState(false);
   const queryClient = useQueryClient();
-
-  // Query to check if SnapTrade is configured
-  const { data: configStatus, isLoading: isStatusLoading } = useQuery({
-    queryKey: ['/api/snaptrade/status'],
-    retry: false,
-  });
-
-  // Check if configStatus is a valid object with configured property
-  const isConfigured = configStatus && typeof configStatus === 'object' && 'configured' in configStatus ? 
-    configStatus.configured : false;
-
-  // Query to get existing connections
-  const { 
-    data: connectionData, 
-    isLoading: isConnectionsLoading,
-    refetch: refetchConnections
-  } = useQuery({
-    queryKey: ['/api/snaptrade/connections'],
-    retry: false,
-    enabled: !!isConfigured,
-  });
+  const {
+    // Status
+    isConfigured,
+    isStatusLoading,
     
-  // Function to check if connections exist and how many
-  const hasConnections = () => {
-    return connectionData && 
-           typeof connectionData === 'object' && 
-           'connections' in connectionData && 
-           Array.isArray(connectionData.connections) && 
-           connectionData.connections.length > 0;
-  };
-  
-  // Safe getter for connections array
-  const getConnections = () => {
-    if (hasConnections()) {
-      return (connectionData as any).connections;
-    }
-    return [];
-  };
-
-  // Mutation for connecting to SnapTrade
-  const connectMutation = useMutation({
-    mutationFn: async () => {
-      setIsConnecting(true);
-      console.log('Making API request to /api/snaptrade/connect...');
-      try {
-        const response = await apiRequest('/api/snaptrade/connect', 
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          }, 
-          {
-            redirectUri: `${window.location.origin}/settings/connections/callback`,
-          }
-        );
-        console.log('SnapTrade connect response:', response);
-        return response;
-      } catch (error) {
-        console.error('Error in connect mutation function:', error);
-        throw error; // Re-throw to be caught by onError
-      }
-    },
-    onSuccess: (data) => {
-      console.log('Connect mutation succeeded with data:', data);
-      // Redirect to the SnapTrade portal URL
-      if (data && data.redirectUrl) {
-        console.log('Redirecting to:', data.redirectUrl);
-        window.location.href = data.redirectUrl;
-      } else {
-        console.error('Missing redirectUrl in response data:', data);
-        toast({
-          title: "Connection Error",
-          description: "Failed to get connection URL from SnapTrade",
-          variant: "destructive",
-        });
-        setIsConnecting(false);
-      }
-    },
-    onError: (error: any) => {
-      console.error("Error connecting to SnapTrade:", error);
-      let errorDescription = "Failed to connect to SnapTrade.";
-      
-      // Try to extract more specific error information
-      if (error && typeof error === 'object') {
-        if (error.message) {
-          errorDescription += ` ${error.message}`;
-        }
-        
-        // Check for nested error details
-        if (error.response?.data?.error) {
-          errorDescription += ` Server says: ${error.response.data.error}`;
-        }
-      }
-      
-      toast({
-        title: "Connection Error",
-        description: errorDescription,
-        variant: "destructive",
-      });
-      setIsConnecting(false);
-    }
-  });
-
-  // Mutation for disconnecting from SnapTrade
-  const disconnectMutation = useMutation({
-    mutationFn: async (connectionId: string) => {
-      return await apiRequest(`/api/snaptrade/connections/${connectionId}`, {
-        method: 'DELETE',
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Disconnected from SnapTrade successfully",
-      });
-      // Refresh the connections list
-      refetchConnections();
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/connections'] });
-    },
-    onError: (error) => {
-      console.error("Error disconnecting from SnapTrade:", error);
-      toast({
-        title: "Disconnection Error",
-        description: "Failed to disconnect from SnapTrade. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
+    // Brokerages
+    brokerages,
+    isBrokeragesLoading,
+    
+    // Connections
+    connections,
+    hasConnections,
+    isConnectionsLoading,
+    refetchConnections,
+    
+    // Mutations
+    connect,
+    isConnecting,
+    disconnect,
+    isDisconnecting,
+    handleCallback
+  } = useSnapTrade();
 
   // Handle URL parameters if this component is rendered in the callback page
   useEffect(() => {
@@ -155,56 +46,13 @@ export function SnaptradeConnector() {
       
       if (code) {
         // Send the code to our backend to complete the connection
-        const completeConnection = async () => {
-          try {
-            await apiRequest('/api/snaptrade/callback', 
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                }
-              },
-              {
-                code,
-                brokerage,
-              }
-            );
-            
-            toast({
-              title: "Success",
-              description: "Connected to SnapTrade successfully",
-            });
-            
-            // Remove the parameters from the URL
-            window.history.replaceState({}, document.title, '/settings');
-            
-            // Refresh the connections list
-            refetchConnections();
-            queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/connections'] });
-          } catch (error) {
-            console.error("Error completing SnapTrade connection:", error);
-            toast({
-              title: "Connection Error",
-              description: "Failed to complete SnapTrade connection. Please try again.",
-              variant: "destructive",
-            });
-          }
-        };
+        handleCallback({ code, brokerage: brokerage || undefined });
         
-        completeConnection();
+        // Remove the parameters from the URL
+        window.history.replaceState({}, document.title, '/settings');
       }
     }
-  }, [queryClient, refetchConnections]);
-
-  // Connect to SnapTrade
-  const handleConnect = () => {
-    connectMutation.mutate();
-  };
-
-  // Disconnect from SnapTrade
-  const handleDisconnect = (connectionId: string) => {
-    disconnectMutation.mutate(connectionId);
-  };
+  }, [handleCallback]);
 
   // If SnapTrade is not configured, show a message
   if (!isStatusLoading && !isConfigured) {
@@ -246,7 +94,7 @@ export function SnaptradeConnector() {
             className="h-6 mr-2" 
           />
           SnapTrade
-          {hasConnections() && (
+          {hasConnections && (
             <Badge variant="outline" className="ml-2 bg-green-100 text-green-800">
               Connected
             </Badge>
@@ -259,12 +107,12 @@ export function SnaptradeConnector() {
           <div className="flex justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : hasConnections() ? (
+        ) : hasConnections ? (
           <div className="space-y-4">
             <div className="text-sm">
               Connected brokerages:
             </div>
-            {getConnections().map((connection: any) => (
+            {connections.map((connection: any) => (
               <div 
                 key={connection.id} 
                 className="flex items-center justify-between p-3 border rounded-md bg-muted/20"
@@ -281,10 +129,10 @@ export function SnaptradeConnector() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => handleDisconnect(connection.id)}
-                  disabled={disconnectMutation.isPending}
+                  onClick={() => disconnect(connection.id)}
+                  disabled={isDisconnecting}
                 >
-                  {disconnectMutation.isPending ? 
+                  {isDisconnecting ? 
                     <Loader2 className="h-4 w-4 animate-spin mr-1" /> : 
                     'Disconnect'
                   }
@@ -294,10 +142,35 @@ export function SnaptradeConnector() {
           </div>
         ) : (
           <div className="py-4 text-center">
-            <p className="mb-4 text-muted-foreground">
-              No brokerages connected. Connect to brokerages like Interactive Brokers, 
-              Questrade, TD Ameritrade and more through SnapTrade.
-            </p>
+            {!isBrokeragesLoading && brokerages && brokerages.length > 0 ? (
+              <div>
+                <p className="mb-4 text-muted-foreground">
+                  No brokerages connected. Connect to any of the {brokerages.length} supported brokerages.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
+                  {brokerages.slice(0, 6).map((brokerage: any, index: number) => (
+                    <Badge 
+                      key={index} 
+                      variant="outline" 
+                      className="py-1 px-2 bg-muted/20"
+                    >
+                      {brokerage.name}
+                    </Badge>
+                  ))}
+                  {brokerages.length > 6 && (
+                    <Badge variant="outline" className="py-1 px-2 bg-muted/20">
+                      +{brokerages.length - 6} more
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="mb-4 text-muted-foreground">
+                No brokerages connected. Connect to brokerages like Interactive Brokers, 
+                Questrade, TD Ameritrade and more through SnapTrade.
+              </p>
+            )}
+            
             <div className="flex justify-center">
               <img 
                 src="https://snaptrade.com/wp-content/uploads/2022/07/Partners-logos.png" 
@@ -317,7 +190,7 @@ export function SnaptradeConnector() {
           Refresh
         </Button>
         <Button 
-          onClick={handleConnect}
+          onClick={() => connect()}
           disabled={isConnecting}
         >
           {isConnecting ? (
@@ -328,7 +201,7 @@ export function SnaptradeConnector() {
           ) : (
             <>
               <ExternalLink className="h-4 w-4 mr-2" />
-              {hasConnections()
+              {hasConnections
                 ? "Connect Another Brokerage" 
                 : "Connect to SnapTrade"
               }

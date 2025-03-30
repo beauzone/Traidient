@@ -27,20 +27,18 @@ export class SnapTradeService {
    */
   constructor(config: SnapTradeConfig) {
     this.config = config;
-    // Based on SnapTrade documentation, the correct header format includes clientId and consumerKey
+    // Based on the SnapTrade SDK example and documentation
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Client-Id': this.config.clientId,
-      'Signature': this.config.consumerKey
+      'Consumer-Key': this.config.consumerKey
     };
     
     // Log the header structure for debugging (without showing the full key)
     console.log('Using SnapTrade authorization headers with format:', {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Client-Id': `${this.config.clientId ? `${this.config.clientId.substring(0, 5)}...` : 'Missing'}`,
-      'Signature': `${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
+      'Consumer-Key': `${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
     });
   }
 
@@ -138,38 +136,37 @@ export class SnapTradeService {
    */
   private async registerUser(userId: number): Promise<boolean> {
     try {
-      // Generate a unique ID for SnapTrade
+      // Generate a unique ID for SnapTrade based on user ID and timestamp
+      // This ID needs to be unique and immutable per user (not using email)
       const snapTradeUserId = `user-${userId}-${Date.now()}`;
       
-      // According to SnapTrade API docs, we need to include clientId and timestamp as query parameters
-      // Using seconds instead of milliseconds for the timestamp as SnapTrade API expects
-      const timestamp = Math.floor(Date.now() / 1000);
-      const queryParams = `clientId=${encodeURIComponent(this.config.clientId)}&timestamp=${timestamp}`;
-      const endpoint = `${this.config.apiEndpoint}/snapTrade/registerUser?${queryParams}`;
+      // Based on the SnapTrade documentation example, we need to handle authentication
+      // through headers and query parameters in a specific way
+      // The endpoint should include clientId as a query parameter
+      const endpoint = `${this.config.apiEndpoint}/snapTrade/registerUser?clientId=${encodeURIComponent(this.config.clientId)}`;
       console.log(`Registering user with SnapTrade: ${snapTradeUserId}`);
-      console.log(`Using API endpoint: ${endpoint} with Unix timestamp ${timestamp}`);
+      console.log(`Using API endpoint: ${endpoint}`);
       
+      // Simple request body with just the userId as shown in documentation
       const requestBody = {
         userId: snapTradeUserId
       };
       
-      const requestBodyString = JSON.stringify(requestBody);
-      console.log('Registration request body:', requestBodyString);
+      console.log('Registration request body:', JSON.stringify(requestBody));
       
-      // According to the SnapTrade API documentation, the signature is the consumerKey itself
-      // The consumer key is used directly as the Signature header
+      // Based on the SnapTrade documentation, we must pass:
+      // 1. clientId as a query parameter
+      // 2. consumerKey in a header for authentication
       const specialHeaders = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Client-Id': this.config.clientId,
-        'Signature': this.config.consumerKey
+        'Consumer-Key': this.config.consumerKey
       };
       
       console.log('Using updated SnapTrade headers with format:', {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Client-Id': this.config.clientId.substring(0, 5) + '...',
-        'Signature': this.config.consumerKey.substring(0, 5) + '...'
+        'Consumer-Key': this.config.consumerKey.substring(0, 5) + '...'
       });
       
       const response = await fetch(endpoint, {
@@ -592,11 +589,9 @@ export class SnapTradeService {
    */
   async getBrokerages(): Promise<any[]> {
     try {
-      // Using seconds instead of milliseconds for the timestamp as SnapTrade API expects
-      const timestamp = Math.floor(Date.now() / 1000);
-      // Construct query params with clientId and timestamp
-      const queryParams = `clientId=${encodeURIComponent(this.config.clientId)}&timestamp=${timestamp}`;
-      // Corrected the API endpoint path to match SnapTrade documentation and added query params
+      // Based on the SnapTrade documentation, we need to include clientId as a query parameter
+      const queryParams = `clientId=${encodeURIComponent(this.config.clientId)}`;
+      // API endpoint with query parameter
       const response = await fetch(`${this.config.apiEndpoint}/brokerages?${queryParams}`, {
         method: 'GET',
         headers: this.defaultHeaders

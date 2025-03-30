@@ -298,9 +298,22 @@ snaptradeRoutes.post('/accounts/:accountId/orders', snaptradeAuthMiddleware, asy
 /**
  * Get available brokerages
  * GET /api/snaptrade/brokerages
+ * This endpoint doesn't require full user authentication, but we need to check
+ * if SnapTrade is properly configured
  */
 snaptradeRoutes.get('/brokerages', async (_req: Request, res: Response) => {
   try {
+    // Check if SnapTrade service is configured before making the API call
+    if (!snapTradeService.isConfigured()) {
+      console.error('SnapTrade service is not properly configured');
+      return res.status(503).json({ 
+        error: 'SnapTrade service is not properly configured',
+        message: 'The SnapTrade API credentials are missing or invalid'
+      });
+    }
+
+    // Make the API call to get brokerages
+    console.log('Making request to SnapTrade API for brokerages list');
     const brokerages = await snapTradeService.getBrokerages();
     
     res.json({
@@ -308,6 +321,18 @@ snaptradeRoutes.get('/brokerages', async (_req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error getting SnapTrade brokerages:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    
+    // Return a more specific error message based on the error
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: 'Invalid or missing SnapTrade API credentials'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error retrieving brokerages'
+    });
   }
 });

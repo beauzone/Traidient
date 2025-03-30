@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { Router } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateStrategy, explainStrategy, optimizeStrategy, generateScreen, explainScreen } from "./openai";
@@ -3687,6 +3688,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/bots', authMiddleware, botRoutes);
   
   // Register SnapTrade routes
+  // Create a separate router for public SnapTrade endpoints
+  const publicSnapTradeRoutes = Router();
+  // Add the brokerages route to the public router
+  publicSnapTradeRoutes.get('/brokerages', snaptradeRoutes.stack
+    .find(layer => layer.route && layer.route.path === '/brokerages')!.handle);
+  
+  // Register public SnapTrade routes (without auth)
+  app.use('/api/snaptrade', publicSnapTradeRoutes);
+  
+  // Register authenticated SnapTrade routes
   app.use('/api/snaptrade', authMiddleware, snaptradeRoutes);
   
   // Process webhook triggers (public endpoint)
