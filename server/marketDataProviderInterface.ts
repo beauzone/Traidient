@@ -15,6 +15,7 @@ import {
   AlphaVantageDataProviderAdapter,
   TiingoDataProviderAdapter
 } from './marketDataProviderAdapters';
+import { SnapTradeDataProviderAdapter } from './snaptradeDataProviderAdapter';
 
 /**
  * Asset class types supported by market data providers
@@ -185,6 +186,18 @@ export const PROVIDER_CAPABILITIES: Record<string, ProviderCapabilities> = {
     supportedAssetClasses: ['stocks', 'crypto', 'etf'],
     supportedExchanges: ['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'BATS', 'IEX', 'CRYPTO']
   },
+  'snaptrade': {
+    realtime: true,
+    historicalData: false,
+    options: true,
+    futures: false,
+    forex: false,
+    crypto: true,
+    fundamentals: false,
+    news: false,
+    supportedAssetClasses: ['stocks', 'etf', 'options', 'crypto'],
+    supportedExchanges: ['NYSE', 'NASDAQ', 'AMEX', 'TSX', 'TSXV', 'NEO', 'CSE', 'ARCA', 'BATS', 'IEX', 'CRYPTO']
+  },
   'yahoo': {
     realtime: false,
     historicalData: true,
@@ -275,6 +288,9 @@ export class MarketDataProviderFactory {
     switch (normalizedProvider) {
       case 'alpaca':
         providerInstance = new AlpacaDataProviderAdapter(integration, assetClass, exchange);
+        break;
+      case 'snaptrade':
+        providerInstance = new SnapTradeDataProviderAdapter(integration, assetClass, exchange);
         break;
       case 'yahoo':
         providerInstance = new YahooFinanceDataProviderAdapter(assetClass, exchange);

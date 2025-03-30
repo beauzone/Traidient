@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon, AlertTriangle, ShoppingCart, BarChart, Info } from "lucide-react";
+import { Loader2, Bell, User, Database, BookOpenCheck, Server, LucideIcon, MonitorSmartphone, Sun, Moon, AlertTriangle, ShoppingCart, BarChart, Info, Link as LucideLink } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { updateData } from "@/lib/api";
@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
+import { SnaptradeConnector } from "@/components/integration/SnaptradeConnector";
 
 const profileSchema = z.object({
   name: z.string().min(2, {
@@ -790,6 +791,16 @@ const SettingsPage = () => {
                       <Database className="mr-2 h-4 w-4" />
                       Manage API Integrations
                     </Button>
+                  </div>
+                  
+                  <div className="space-y-4 mt-8 pt-8 border-t">
+                    <h3 className="text-lg font-medium">Brokerage Connections</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Connect to your brokerage accounts to enable live trading and portfolio tracking.
+                    </p>
+                    
+                    {/* SnapTrade Connector Component */}
+                    <SnaptradeConnector />
                   </div>
                 </TabsContent>
 

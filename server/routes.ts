@@ -16,6 +16,7 @@ import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
 import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
+import { snaptradeRoutes } from './routes/snaptradeRoutes';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -3684,6 +3685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register bot routes
   app.use('/api/bots', authMiddleware, botRoutes);
+  
+  // Register SnapTrade routes
+  app.use('/api/snaptrade', authMiddleware, snaptradeRoutes);
   
   // Process webhook triggers (public endpoint)
   app.post('/api/webhook-triggers/:token', async (req: Request, res: Response) => {

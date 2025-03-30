@@ -62,19 +62,24 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const apiIntegrations = pgTable("api_integrations", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  provider: text("provider").notNull(), // 'alpaca', 'polygon', 'openai', 'binance', 'coinbase', 'interactive_brokers', etc.
-  type: text("type").notNull(), // 'exchange', 'data', 'ai'
+  provider: text("provider").notNull(), // 'alpaca', 'polygon', 'openai', 'binance', 'coinbase', 'interactive_brokers', 'snaptrade', etc.
+  type: text("type").notNull(), // 'exchange', 'data', 'ai', 'brokerage'
   
   // Enhanced multi-asset classes support
   assetClasses: jsonb("asset_classes").$type<string[]>().default(['stocks']), // 'stocks', 'options', 'futures', 'forex', 'crypto', 'etf', etc.
   
   // Enhanced multi-exchange support
   exchanges: jsonb("exchanges").$type<string[]>().default(['NASDAQ']), // 'NASDAQ', 'NYSE', 'BINANCE', 'COINBASE', etc.
+  asset_classes: jsonb("asset_classes").$type<string[]>().default(['stocks']), // 'stocks', 'options', 'futures', 'forex', 'crypto', etc.
   
   // Enhanced account information
   accountMode: text("account_mode").default('paper'), // 'paper', 'live'
   accountName: text("account_name"), // User-defined name for the account
   description: text("description"), // User-friendly name for the integration
+  
+  // External provider identifiers - for services like SnapTrade that have their own user IDs
+  providerUserId: text("provider_user_id"), // ID of the user in the provider's system
+  providerAccountId: text("provider_account_id"), // ID of the account in the provider's system
   
   // Enhanced credentials
   credentials: jsonb("credentials").$type<{
@@ -83,6 +88,7 @@ export const apiIntegrations = pgTable("api_integrations", {
     accessToken?: string;
     refreshToken?: string;
     accountId?: string;
+    userSecret?: string; // For SnapTrade
     additionalFields?: Record<string, string>;
   }>().notNull(),
   
@@ -131,6 +137,8 @@ export const insertApiIntegrationSchema = createInsertSchema(apiIntegrations).pi
   accountMode: true,
   accountName: true,
   description: true,
+  providerUserId: true,
+  providerAccountId: true,
   credentials: true,
   capabilities: true,
   isActive: true,
@@ -461,6 +469,18 @@ export type InsertAlertThreshold = z.infer<typeof insertAlertThresholdSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// SnapTrade Connections Info type
+export interface SnapTradeConnectionInfo {
+  id: string;
+  brokerage: {
+    id: string;
+    name: string;
+    logo?: string;
+  };
+  createdAt: string;
+  status: string;
+}
 
 // TradingView Webhooks
 export const webhooks = pgTable("webhooks", {
