@@ -254,7 +254,8 @@ export class SnapTradeService {
       // Based on the SnapTrade documentation example, we need to handle authentication
       // through headers and query parameters in a specific way
       // The endpoint should include clientId as a query parameter
-      const url = this.createApiUrl('registerUser');
+      // FIXED: According to SnapTrade API docs, the endpoint is 'users' and the method is PUT (not POST)
+      const url = this.createApiUrl('users');
       
       // Output debugging information to console
       console.error('=============== SNAPTRADE DEBUGGING ===============');
@@ -276,8 +277,9 @@ export class SnapTradeService {
       }));
       console.error('================================================');
       
+      // FIXED: Changed method from POST to PUT according to API docs
       const response = await fetch(url, {
-        method: 'POST',
+        method: 'PUT',
         headers: this.defaultHeaders,
         body: JSON.stringify(requestBody)
       });
