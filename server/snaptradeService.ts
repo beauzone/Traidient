@@ -20,6 +20,27 @@ export class SnapTradeService {
   private snapTradeUserId: string | null = null;
   private userSecret: string | null = null;
   private defaultHeaders: Record<string, string>;
+  
+  /**
+   * Create a properly formatted API URL with clientId as a query parameter
+   * @param path The API path to append to the endpoint
+   * @param additionalParams Any additional query parameters to include
+   * @returns A properly formatted URL
+   */
+  private createApiUrl(path: string, additionalParams: Record<string, string> = {}): string {
+    // Start with the base endpoint and path
+    const url = new URL(`${this.config.apiEndpoint}/${path}`);
+    
+    // Always add clientId as a query parameter
+    url.searchParams.append('clientId', this.config.clientId);
+    
+    // Add any additional query parameters
+    Object.entries(additionalParams).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
+    
+    return url.toString();
+  }
 
   /**
    * Constructor
@@ -27,7 +48,7 @@ export class SnapTradeService {
    */
   constructor(config: SnapTradeConfig) {
     this.config = config;
-    // Based on SnapTrade API documentation, we need to format the Authorization header properly
+    // Based on SnapTrade API documentation, we need to format the Authorization header properly with Bearer prefix
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -38,7 +59,7 @@ export class SnapTradeService {
     console.log('Using SnapTrade authorization headers with format:', {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': `${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
+      'Authorization': `Bearer ${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
     });
   }
 
@@ -265,7 +286,8 @@ export class SnapTradeService {
       }
       
       // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/auth/authorizationUrl`, {
+      // Add clientId as a query parameter as required by SnapTrade docs
+      const response = await fetch(`${this.config.apiEndpoint}/auth/authorizationUrl?clientId=${encodeURIComponent(this.config.clientId)}`, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -299,7 +321,8 @@ export class SnapTradeService {
       }
       
       // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/auth/exchangeAuthorizationCode`, {
+      // Add clientId as a query parameter as required by SnapTrade docs
+      const response = await fetch(`${this.config.apiEndpoint}/auth/exchangeAuthorizationCode?clientId=${encodeURIComponent(this.config.clientId)}`, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -331,8 +354,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/connections`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl('connections');
+      console.log(`Fetching SnapTrade connections with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -589,10 +615,11 @@ export class SnapTradeService {
    */
   async getBrokerages(): Promise<any[]> {
     try {
-      // Based on the SnapTrade documentation, we need to include clientId as a query parameter
-      const queryParams = `clientId=${encodeURIComponent(this.config.clientId)}`;
-      // API endpoint with query parameter
-      const response = await fetch(`${this.config.apiEndpoint}/brokerages?${queryParams}`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl('brokerages');
+      console.log(`Fetching SnapTrade brokerages with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: this.defaultHeaders
       });
