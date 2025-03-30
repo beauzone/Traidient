@@ -8,8 +8,8 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
+  options?: RequestInit,
   data?: unknown | undefined,
 ): Promise<any> { // Change return type to any to handle JSON responses
   // TEMPORARY: In demo mode, we don't actually need to send tokens since auth is bypassed
@@ -17,18 +17,31 @@ export async function apiRequest(
   const token = localStorage.getItem('token');
   console.log(`API Request to ${url} - Token exists: ${!!token}`);
   
-  const headers: Record<string, string> = {
-    ...(data ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { "Authorization": `Bearer ${token}` } : {})
-  };
+  // Create headers object
+  const defaultHeaders: Record<string, string> = {};
+  if (data) defaultHeaders["Content-Type"] = "application/json";
+  if (token) defaultHeaders["Authorization"] = `Bearer ${token}`;
+  
+  // Add custom headers from options, ensuring they're all strings
+  const headersFromOptions: Record<string, string> = {};
+  if (options?.headers && typeof options.headers === 'object') {
+    for (const key in options.headers) {
+      const value = options.headers[key as keyof typeof options.headers];
+      if (value !== undefined && value !== null) {
+        headersFromOptions[key] = String(value);
+      }
+    }
+  }
+  
+  const headers = { ...defaultHeaders, ...headersFromOptions };
 
   console.log('Request headers:', headers);
 
   try {
     const res = await fetch(url, {
-      method,
+      ...(options || {}),
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : options?.body,
       // Adding credentials to ensure cookies are sent if applicable
       credentials: 'same-origin'
     });
@@ -68,7 +81,7 @@ export async function apiRequest(
       return {};
     }
   } catch (error) {
-    console.error(`API error (${method} ${url}):`, error);
+    console.error(`API error (${options?.method || 'GET'} ${url}):`, error);
     throw error;
   }
 }

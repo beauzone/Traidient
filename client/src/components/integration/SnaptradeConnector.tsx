@@ -36,15 +36,17 @@ export function SnaptradeConnector() {
   const connectMutation = useMutation({
     mutationFn: async () => {
       setIsConnecting(true);
-      const response = await apiRequest('/api/snaptrade/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await apiRequest('/api/snaptrade/connect', 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }, 
+        {
           redirectUri: `${window.location.origin}/settings/connections/callback`,
-        }),
-      });
+        }
+      );
       return response;
     },
     onSuccess: (data) => {
@@ -110,16 +112,18 @@ export function SnaptradeConnector() {
         // Send the code to our backend to complete the connection
         const completeConnection = async () => {
           try {
-            await apiRequest('/api/snaptrade/callback', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
+            await apiRequest('/api/snaptrade/callback', 
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                }
               },
-              body: JSON.stringify({
+              {
                 code,
                 brokerage,
-              }),
-            });
+              }
+            );
             
             toast({
               title: "Success",
