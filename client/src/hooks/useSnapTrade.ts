@@ -15,7 +15,7 @@ export function useSnapTrade() {
     isLoading: isStatusLoading,
     error: statusError
   } = useQuery({
-    queryKey: ['/api/snaptrade/status'],
+    queryKey: ['/api/snapTrade/status'],
     retry: false,
   });
 
@@ -30,7 +30,7 @@ export function useSnapTrade() {
     error: brokeragesError,
     refetch: refetchBrokerages
   } = useQuery({
-    queryKey: ['/api/snaptrade/brokerages'],
+    queryKey: ['/api/snapTrade/brokerages'],
     retry: false,
     enabled: !!isConfigured,
   });
@@ -50,7 +50,7 @@ export function useSnapTrade() {
     error: connectionsError,
     refetch: refetchConnections
   } = useQuery({
-    queryKey: ['/api/snaptrade/connections'],
+    queryKey: ['/api/snapTrade/connections'],
     retry: false,
     enabled: !!isConfigured,
   });
@@ -75,8 +75,8 @@ export function useSnapTrade() {
   // Mutation for connecting to SnapTrade
   const connectMutation = useMutation({
     mutationFn: async () => {
-      console.log('Making API request to /api/snaptrade/connect...');
-      return await apiRequest('/api/snaptrade/connect', 
+      console.log('Making API request to /api/snapTrade/connect...');
+      return await apiRequest('/api/snapTrade/connect', 
         {
           method: 'POST',
           headers: {
@@ -130,7 +130,7 @@ export function useSnapTrade() {
   // Mutation for disconnecting from SnapTrade
   const disconnectMutation = useMutation({
     mutationFn: async (connectionId: string) => {
-      return await apiRequest(`/api/snaptrade/connections/${connectionId}`, {
+      return await apiRequest(`/api/snapTrade/connections/${connectionId}`, {
         method: 'DELETE',
       });
     },
@@ -141,7 +141,7 @@ export function useSnapTrade() {
       });
       // Refresh the connections list
       refetchConnections();
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/connections'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/snapTrade/connections'] });
     },
     onError: (error) => {
       console.error("Error disconnecting from SnapTrade:", error);
@@ -156,7 +156,7 @@ export function useSnapTrade() {
   // Mutation for handling SnapTrade callback
   const handleCallbackMutation = useMutation({
     mutationFn: async ({ code, brokerage }: { code: string; brokerage?: string }) => {
-      return await apiRequest('/api/snaptrade/callback', 
+      return await apiRequest('/api/snapTrade/callback', 
         {
           method: 'POST',
           headers: {
@@ -174,7 +174,7 @@ export function useSnapTrade() {
       
       // Refresh the connections list
       refetchConnections();
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/connections'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/snapTrade/connections'] });
     },
     onError: (error) => {
       console.error("Error completing SnapTrade connection:", error);

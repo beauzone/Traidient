@@ -27,18 +27,18 @@ export class SnapTradeService {
    */
   constructor(config: SnapTradeConfig) {
     this.config = config;
-    // Based on the SnapTrade SDK example and documentation
+    // Based on our API tests, SnapTrade uses Authorization header with the Consumer Key
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Consumer-Key': this.config.consumerKey
+      'Authorization': this.config.consumerKey
     };
     
     // Log the header structure for debugging (without showing the full key)
     console.log('Using SnapTrade authorization headers with format:', {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Consumer-Key': `${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
+      'Authorization': `${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
     });
   }
 
@@ -154,19 +154,19 @@ export class SnapTradeService {
       
       console.log('Registration request body:', JSON.stringify(requestBody));
       
-      // Based on the SnapTrade documentation, we must pass:
+      // Based on our API testing, we must pass:
       // 1. clientId as a query parameter
-      // 2. consumerKey in a header for authentication
+      // 2. consumerKey in the Authorization header
       const specialHeaders = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Consumer-Key': this.config.consumerKey
+        'Authorization': this.config.consumerKey
       };
       
       console.log('Using updated SnapTrade headers with format:', {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Consumer-Key': this.config.consumerKey.substring(0, 5) + '...'
+        'Authorization': this.config.consumerKey.substring(0, 5) + '...'
       });
       
       const response = await fetch(endpoint, {
