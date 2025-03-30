@@ -49,19 +49,31 @@ export class SnapTradeService {
    */
   constructor(config: SnapTradeConfig) {
     this.config = config;
+    
     // Based on SnapTrade API documentation, we need to format the Authorization header properly with Bearer prefix
+    // Make sure we don't have a trailing/leading space in the key
+    const sanitizedConsumerKey = this.config.consumerKey ? this.config.consumerKey.trim() : '';
+    
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': `Bearer ${this.config.consumerKey}`
+      'Authorization': `Bearer ${sanitizedConsumerKey}`
     };
     
     // Log the header structure for debugging (without showing the full key)
     console.log('Using SnapTrade authorization headers with format:', {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': `Bearer ${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
+      'Authorization': `Bearer ${sanitizedConsumerKey ? `${sanitizedConsumerKey.substring(0, 5)}...` : 'Missing'}`
     });
+    
+    // Validate that we have the necessary credentials
+    if (!sanitizedConsumerKey) {
+      console.error('WARNING: SnapTrade Consumer Key is missing or empty!');
+    }
+    if (!this.config.clientId) {
+      console.error('WARNING: SnapTrade Client ID is missing or empty!');
+    }
   }
 
   /**
@@ -251,38 +263,65 @@ export class SnapTradeService {
       // As per SnapTrade documentation, userId should be unique and immutable
       const snapTradeUserId = `user-${userId}-${randomBytes(8).toString('hex')}`;
       
-      // Based on the SnapTrade documentation example, we need to handle authentication
-      // through headers and query parameters in a specific way
-      // The endpoint should include clientId as a query parameter
-      // FIXED: According to SnapTrade API docs, the endpoint is 'users' and the method is PUT (not POST)
-      const url = this.createApiUrl('users');
+      // Based on the SnapTrade documentation, the endpoint has a specific format with capitalization
+      // The correct endpoint from docs: snapTrade/registerUser (note the capital T)
+      
+      // Create the URL properly with the correct case
+      const baseUrl = `${this.config.apiEndpoint}`;
+      const urlWithParams = `${baseUrl}/snapTrade/registerUser?clientId=${encodeURIComponent(this.config.clientId)}`;
       
       // Output debugging information to console
-      console.error('=============== SNAPTRADE DEBUGGING ===============');
-      console.error(`Registering user with SnapTrade: ${snapTradeUserId}`);
-      console.error(`Using API endpoint: ${url}`);
-      console.error(`Client ID: ${this.config.clientId ? this.config.clientId.substring(0, 5) + '...' : 'MISSING'}`);
-      console.error(`Consumer Key present: ${!!this.config.consumerKey}`);
+      console.log('=============== SNAPTRADE DEBUGGING ===============');
+      console.log(`Registering user with SnapTrade: ${snapTradeUserId}`);
+      console.log(`Using API endpoint: ${urlWithParams}`);
+      console.log(`Client ID: ${this.config.clientId ? this.config.clientId.substring(0, 5) + '...' : 'MISSING'}`);
+      console.log(`Consumer Key present: ${!!this.config.consumerKey}`);
       
       // Simple request body with just the userId as shown in documentation
-      // Note: According to SnapTrade API docs, the parameter name is 'userId'
       const requestBody = {
         userId: snapTradeUserId
       };
       
-      console.error('Registration request body:', JSON.stringify(requestBody));
-      console.error('Headers being used:', JSON.stringify({
-        ...this.defaultHeaders,
+      console.log('Registration request body:', JSON.stringify(requestBody));
+      console.log('Headers being used:', JSON.stringify({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': `Bearer ${this.config.consumerKey ? 'CONSUMER_KEY_PRESENT' : 'MISSING'}`
       }));
-      console.error('================================================');
       
-      // FIXED: Changed method from POST to PUT according to API docs
-      const response = await fetch(url, {
-        method: 'PUT',
+      // Additional debug information - dump actual headers to verify what's being sent
+      console.log('Actual Authorization header:', this.defaultHeaders.Authorization);
+      console.log('================================================');
+      
+      // Use POST method based on documentation
+      let response = await fetch(urlWithParams, {
+        method: 'POST', 
         headers: this.defaultHeaders,
         body: JSON.stringify(requestBody)
       });
+      
+      // If the POST method fails, try additional endpoints as fallbacks
+      if (!response.ok && (response.status === 404 || response.status === 405)) {
+        // Try with users endpoint
+        const usersUrl = this.createApiUrl('users');
+        console.log('First attempt failed, trying users endpoint:', usersUrl);
+        response = await fetch(usersUrl, {
+          method: 'POST',
+          headers: this.defaultHeaders,
+          body: JSON.stringify(requestBody)
+        });
+      }
+      
+      // If that also fails, try legacy endpoint with PUT
+      if (!response.ok && (response.status === 404 || response.status === 405)) {
+        const usersUrl = this.createApiUrl('users');
+        console.log('Second attempt failed, trying users endpoint with PUT:', usersUrl);
+        response = await fetch(usersUrl, {
+          method: 'PUT',
+          headers: this.defaultHeaders,
+          body: JSON.stringify(requestBody)
+        });
+      }
       
       console.log(`Registration response status: ${response.status} ${response.statusText}`);
       

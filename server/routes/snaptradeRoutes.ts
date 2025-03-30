@@ -137,6 +137,11 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
     console.log(`Initializing SnapTrade service for user ${userId} before connecting`);
     const initialized = await snapTradeService.initializeForUser(userId);
     
+    // Log environment availability for diagnostics
+    console.log('SnapTrade environment variables availability:');
+    console.log('- SNAPTRADE_CLIENT_ID exists:', !!process.env.SNAPTRADE_CLIENT_ID);
+    console.log('- SNAPTRADE_CONSUMER_KEY exists:', !!process.env.SNAPTRADE_CONSUMER_KEY);
+    
     if (!initialized) {
       console.error(`Failed to initialize SnapTrade service for user ${userId}, attempting direct registration`);
       
@@ -146,7 +151,17 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
       
       if (!registered) {
         console.error(`Failed to register SnapTrade service for user ${userId}`);
-        return res.status(500).json({ error: 'Failed to register with SnapTrade service' });
+        
+        // Check if credentials are present to give more specific error messages
+        if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CONSUMER_KEY) {
+          return res.status(500).json({ 
+            error: 'Missing SnapTrade API credentials. Please ensure the SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY environment variables are set.' 
+          });
+        }
+        
+        return res.status(500).json({ 
+          error: 'Failed to register with SnapTrade service. Please check server logs for more details.' 
+        });
       }
       
       console.log(`Successfully registered user ${userId} with SnapTrade`);
@@ -173,8 +188,21 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
       if (error.stack) {
         console.error('Stack trace:', error.stack);
       }
+      
+      // Return a more descriptive error to the client
+      return res.status(500).json({ 
+        error: 'Error connecting to SnapTrade service', 
+        message: error.message,
+        // Include environment status to help diagnose issues
+        env: {
+          clientIdPresent: !!process.env.SNAPTRADE_CLIENT_ID,
+          consumerKeyPresent: !!process.env.SNAPTRADE_CONSUMER_KEY
+        }
+      });
     }
-    res.status(500).json({ error: 'Internal server error' });
+    
+    // Generic error response
+    res.status(500).json({ error: 'Internal server error connecting to SnapTrade' });
   }
 });
 
