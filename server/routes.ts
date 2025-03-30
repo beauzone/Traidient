@@ -3695,10 +3695,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .find(layer => layer.route && layer.route.path === '/brokerages')!.handle);
   
   // Register public SnapTrade routes (without auth)
-  app.use('/api/snapTrade', publicSnapTradeRoutes);
+  app.use('/api/snaptrade', publicSnapTradeRoutes);
   
   // Register authenticated SnapTrade routes
-  app.use('/api/snapTrade', authMiddleware, snaptradeRoutes);
+  app.use('/api/snaptrade', authMiddleware, snaptradeRoutes);
   
   // Process webhook triggers (public endpoint)
   app.post('/api/webhook-triggers/:token', async (req: Request, res: Response) => {

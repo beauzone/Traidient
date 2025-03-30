@@ -99,7 +99,7 @@ export function SnaptradeConnector() {
             onError={() => setLogoError(true)}
           />
           SnapTrade
-          {hasConnections && (
+          {hasConnections === true && (
             <Badge variant="outline" className="ml-2 bg-green-100 text-green-800">
               Connected
             </Badge>
