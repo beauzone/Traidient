@@ -19,6 +19,7 @@ export function SnaptradeConnector() {
     // Status
     isConfigured,
     isStatusLoading,
+    isReadOnly,
     
     // Brokerages
     brokerages,
@@ -119,6 +120,11 @@ export function SnaptradeConnector() {
             onError={() => setLogoError(true)}
           />
           SnapTrade
+          {isReadOnly && (
+            <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-800">
+              Read-Only
+            </Badge>
+          )}
           {hasConnections === true && (
             <Badge variant="outline" className="ml-2 bg-green-100 text-green-800">
               Connected
@@ -126,6 +132,15 @@ export function SnaptradeConnector() {
           )}
         </CardTitle>
         <CardDescription>Connect to multiple brokerages through a single integration</CardDescription>
+        {isReadOnly && (
+          <div className="flex items-center p-3 mt-3 text-blue-800 border border-blue-200 rounded-lg bg-blue-50">
+            <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+            <span className="text-sm">
+              You're currently using SnapTrade with a free plan which provides read-only access. 
+              Account connections and trading functionality will be available after upgrading.
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {isConnectionsLoading ? (

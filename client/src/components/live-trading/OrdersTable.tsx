@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, X } from "lucide-react";
+import { AlertCircle, Loader2, Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSnapTrade } from "@/hooks/useSnapTrade";
 import { 
   Form,
   FormControl,
@@ -152,6 +153,7 @@ const OrdersTable = () => {
   const [orderTab, setOrderTab] = useState("open");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { isReadOnly } = useSnapTrade();
 
   // Fetch orders
   const { data: orders = [], isLoading } = useQuery({
@@ -538,8 +540,21 @@ const OrdersTable = () => {
                     )}
                   />
 
+                  {isReadOnly && (
+                    <div className="flex items-center p-3 mb-4 text-blue-800 border border-blue-200 rounded-lg bg-blue-50">
+                      <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+                      <span className="text-sm">
+                        SnapTrade is currently in read-only mode. Orders can only be placed through direct integrations like Alpaca.
+                      </span>
+                    </div>
+                  )}
+                  
                   <DialogFooter>
-                    <Button type="submit" disabled={placeOrder.isPending}>
+                    <Button 
+                      type="submit" 
+                      disabled={placeOrder.isPending || isReadOnly}
+                      title={isReadOnly ? "SnapTrade is in read-only mode" : ""}
+                    >
                       {placeOrder.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Placing Order...

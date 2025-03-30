@@ -8,7 +8,10 @@ import { toast } from "@/hooks/use-toast";
  */
 export function useSnapTrade() {
   const queryClient = useQueryClient();
-
+  
+  // Configure read-only mode based on SnapTrade plan
+  const isReadOnly = true; // We're on the free plan which is read-only
+  
   // Query to check if SnapTrade is configured
   const { 
     data: configStatus, 
@@ -29,7 +32,7 @@ export function useSnapTrade() {
   const isConfigured = configStatus && typeof configStatus === 'object' && 'configured' in configStatus ? 
     configStatus.configured : false;
   
-  console.log('SnapTrade isConfigured value:', isConfigured);
+  console.log('SnapTrade isConfigured value:', isConfigured, 'Read-only mode:', isReadOnly);
 
   // Query to get all available brokerages (non-authenticated)
   const {
@@ -204,11 +207,19 @@ export function useSnapTrade() {
     }
   });
 
+  const noOpFn = () => {
+    toast({
+      title: "Read-Only Mode",
+      description: "Currently using SnapTrade in read-only mode. Account connections and trades are not available with the free plan.",
+    });
+  };
+
   return {
     // Status
     isConfigured,
     isStatusLoading,
     statusError,
+    isReadOnly,
     
     // Brokerages
     brokerages: getBrokerages(),
@@ -223,12 +234,12 @@ export function useSnapTrade() {
     connectionsError,
     refetchConnections,
     
-    // Mutations
-    connect: connectMutation.mutate,
+    // Mutations - use noOp function in read-only mode
+    connect: isReadOnly ? noOpFn : connectMutation.mutate,
     isConnecting: connectMutation.isPending,
-    disconnect: disconnectMutation.mutate,
+    disconnect: isReadOnly ? noOpFn : disconnectMutation.mutate,
     isDisconnecting: disconnectMutation.isPending,
-    handleCallback: handleCallbackMutation.mutate,
+    handleCallback: isReadOnly ? noOpFn : handleCallbackMutation.mutate,
     isHandlingCallback: handleCallbackMutation.isPending,
   };
 }
