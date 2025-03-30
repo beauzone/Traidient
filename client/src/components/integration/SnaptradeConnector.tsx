@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,9 @@ import { useQueryClient } from "@tanstack/react-query";
  */
 export function SnaptradeConnector() {
   const queryClient = useQueryClient();
+  const [logoError, setLogoError] = useState(false);
+  const [partnersError, setPartnersError] = useState(false);
+  
   const {
     // Status
     isConfigured,
@@ -61,9 +64,10 @@ export function SnaptradeConnector() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <img 
-              src="https://snaptrade.com/wp-content/uploads/2022/05/Logo-ST-Partial.svg" 
+              src={logoError ? "/images/snaptrade/fallback-logo.svg" : "/images/snaptrade/logo.svg"} 
               alt="SnapTrade" 
               className="h-6 mr-2" 
+              onError={() => setLogoError(true)}
             />
             SnapTrade
             <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
@@ -89,9 +93,10 @@ export function SnaptradeConnector() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <img 
-            src="https://snaptrade.com/wp-content/uploads/2022/05/Logo-ST-Partial.svg" 
+            src={logoError ? "/images/snaptrade/fallback-logo.svg" : "/images/snaptrade/logo.svg"} 
             alt="SnapTrade" 
             className="h-6 mr-2" 
+            onError={() => setLogoError(true)}
           />
           SnapTrade
           {hasConnections && (
@@ -173,9 +178,10 @@ export function SnaptradeConnector() {
             
             <div className="flex justify-center">
               <img 
-                src="https://snaptrade.com/wp-content/uploads/2022/07/Partners-logos.png" 
+                src={partnersError ? "/images/snaptrade/fallback-partners.svg" : "/images/snaptrade/partner-logos.png"} 
                 alt="Supported brokerages" 
                 className="max-w-full h-auto opacity-60 max-h-16" 
+                onError={() => setPartnersError(true)}
               />
             </div>
           </div>
