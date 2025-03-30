@@ -87,6 +87,9 @@ export function useSnapTrade() {
   const connectMutation = useMutation({
     mutationFn: async () => {
       console.log('Making API request to /api/snaptrade/connect...');
+      
+      // Create the callback URL - this must match EXACTLY with what the backend expects
+      // and what SnapTrade will redirect to after successful authorization
       const redirectUri = `${window.location.origin}/settings/connections/callback`;
       console.log('Using redirectUri:', redirectUri);
       
@@ -111,15 +114,20 @@ export function useSnapTrade() {
     },
     onSuccess: (data) => {
       console.log('Connect mutation succeeded with data:', data);
+      
       // Redirect to the SnapTrade portal URL
       if (data && data.redirectUrl) {
-        console.log('Redirecting to:', data.redirectUrl);
-        window.location.href = data.redirectUrl;
+        console.log('Redirecting to SnapTrade portal URL:', data.redirectUrl);
+        
+        // Use a timeout to ensure the log is seen before redirect
+        setTimeout(() => {
+          window.location.href = data.redirectUrl;
+        }, 100);
       } else {
         console.error('Missing redirectUrl in response data:', data);
         toast({
           title: "Connection Error",
-          description: "Failed to get connection URL from SnapTrade",
+          description: "Failed to get connection URL from SnapTrade. Please check the server logs for more details.",
           variant: "destructive",
         });
       }
@@ -137,6 +145,14 @@ export function useSnapTrade() {
         // Check for nested error details
         if (error.response?.data?.error) {
           errorDescription += ` Server says: ${error.response.data.error}`;
+        }
+        
+        // Check for environment variables status if provided
+        if (error.response?.data?.env) {
+          const env = error.response.data.env;
+          if (!env.clientIdPresent || !env.consumerKeyPresent) {
+            errorDescription += " SnapTrade API credentials may be missing.";
+          }
         }
       }
       

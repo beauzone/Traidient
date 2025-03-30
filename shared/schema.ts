@@ -51,7 +51,7 @@ export const users = pgTable("users", {
   }),
   // SnapTrade integration credentials
   snapTradeCredentials: jsonb("snaptrade_credentials").$type<{
-    userId: string; // SnapTrade's user ID (not our user ID)
+    snapTradeUserId: string; // SnapTrade's user ID (not our user ID)
     userSecret: string; // SnapTrade's user secret
     isRegistered: boolean;
     createdAt: string;

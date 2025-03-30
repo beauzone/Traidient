@@ -277,37 +277,43 @@ export class SnapTradeSDKService {
       }
       
       console.log(`Generating SnapTrade authorization URL for user ${this.snapTradeUserId}`);
+      console.log(`Using redirect URI: ${redirectUri}`);
       
-      // Use the SDK to generate the authorization URL
-      const result = await this.client.authentication.listBrokerages();
+      // Debug output of all inputs for this request
+      console.log('SnapTrade authorization URL parameters:');
+      console.log('- User ID:', this.snapTradeUserId);
+      console.log('- User Secret:', this.userSecret ? '[present]' : '[missing]');
+      console.log('- Redirect URI:', redirectUri);
       
-      if (!result.data) {
-        console.error('Failed to retrieve brokerages list');
+      // Use the SDK to generate an authorization URL directly, without listing brokerages first
+      try {
+        const authUrlResult = await this.client.authentication.generateAuthorizeUrl({
+          userId: this.snapTradeUserId,
+          userSecret: this.userSecret,
+          redirectUri,
+          broker: "ALL" // Allow user to select from all brokerages in the UI
+        });
+        
+        if (!authUrlResult.data || !authUrlResult.data.authorizeUrl) {
+          console.error('Failed to generate authorization URL - empty response data');
+          console.error('Response:', JSON.stringify(authUrlResult));
+          return null;
+        }
+        
+        console.log('Successfully generated authorization URL:', authUrlResult.data.authorizeUrl.substring(0, 50) + '...');
+        return authUrlResult.data.authorizeUrl;
+      } catch (authUrlError) {
+        console.error('Error generating authorization URL from SDK:', authUrlError);
+        if (authUrlError instanceof Error) {
+          console.error('Error details:', authUrlError.message);
+        }
         return null;
       }
-      
-      // Get the broker IDs from the first page
-      const brokerages = result.data;
-      
-      // Additional debug info for brokerage selection
-      console.log(`Found ${brokerages.length} available brokerages`);
-      
-      // Use the SDK to generate an authorization URL
-      const authUrlResult = await this.client.authentication.generateAuthorizeUrl({
-        userId: this.snapTradeUserId,
-        userSecret: this.userSecret,
-        redirectUri,
-        broker: "ALL" // Allow user to select from all brokerages in the UI
-      });
-      
-      if (!authUrlResult.data) {
-        console.error('Failed to generate authorization URL');
-        return null;
-      }
-      
-      return authUrlResult.data.authorizeUrl;
     } catch (error) {
-      console.error('Error generating SnapTrade authorization URL:', error);
+      console.error('Error in generateAuthorizationUrl method:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
       return null;
     }
   }

@@ -147,6 +147,32 @@ export function SnaptradeConnector() {
             </span>
           </div>
         )}
+        
+        {/* Connection status debugging information */}
+        <div className="flex items-center p-3 mt-3 text-gray-800 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
+          <div className="w-full">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-semibold">Connection Status</h4>
+              <Badge variant={isConfigured ? "default" : "destructive"} className={`text-xs ${isConfigured ? "bg-green-500 hover:bg-green-600" : ""}`}>
+                {isConfigured ? "API Connected" : "API Not Connected"}
+              </Badge>
+            </div>
+            <div className="text-xs">
+              <div className="flex justify-between mb-1">
+                <span>API Configuration:</span>
+                <span>{isStatusLoading ? "Checking..." : (isConfigured ? "✓ Active" : "✗ Failed")}</span>
+              </div>
+              <div className="flex justify-between mb-1">
+                <span>Brokerages Available:</span>
+                <span>{isBrokeragesLoading ? "Loading..." : (Array.isArray(brokerages) ? `${brokerages.length} found` : "None")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Account Connections:</span>
+                <span>{isConnectionsLoading ? "Loading..." : (Array.isArray(connections) ? `${connections.length} active` : "None")}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {isConnectionsLoading ? (
