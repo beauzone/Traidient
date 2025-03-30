@@ -143,7 +143,7 @@ export class SnapTradeService {
       // Based on the SnapTrade documentation example, we need to handle authentication
       // through headers and query parameters in a specific way
       // The endpoint should include clientId as a query parameter
-      const endpoint = `${this.config.apiEndpoint}/snapTrade/registerUser?clientId=${encodeURIComponent(this.config.clientId)}`;
+      const endpoint = `${this.config.apiEndpoint}/registerUser?clientId=${encodeURIComponent(this.config.clientId)}`;
       console.log(`Registering user with SnapTrade: ${snapTradeUserId}`);
       console.log(`Using API endpoint: ${endpoint}`);
       
