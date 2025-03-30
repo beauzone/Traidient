@@ -117,7 +117,7 @@ export function SnaptradeConnector() {
             <div className="text-sm">
               Connected brokerages:
             </div>
-            {connections.map((connection: any) => (
+            {Array.isArray(connections) && connections.map((connection: any) => (
               <div 
                 key={connection.id} 
                 className="flex items-center justify-between p-3 border rounded-md bg-muted/20"
@@ -147,13 +147,13 @@ export function SnaptradeConnector() {
           </div>
         ) : (
           <div className="py-4 text-center">
-            {!isBrokeragesLoading && brokerages && brokerages.length > 0 ? (
+            {!isBrokeragesLoading && Array.isArray(brokerages) && brokerages.length > 0 ? (
               <div>
                 <p className="mb-4 text-muted-foreground">
                   No brokerages connected. Connect to any of the {brokerages.length} supported brokerages.
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 mb-4">
-                  {brokerages.slice(0, 6).map((brokerage: any, index: number) => (
+                  {Array.isArray(brokerages) && brokerages.slice(0, 6).map((brokerage: any, index: number) => (
                     <Badge 
                       key={index} 
                       variant="outline" 
@@ -162,7 +162,7 @@ export function SnaptradeConnector() {
                       {brokerage.name}
                     </Badge>
                   ))}
-                  {brokerages.length > 6 && (
+                  {Array.isArray(brokerages) && brokerages.length > 6 && (
                     <Badge variant="outline" className="py-1 px-2 bg-muted/20">
                       +{brokerages.length - 6} more
                     </Badge>
