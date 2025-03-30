@@ -57,24 +57,34 @@ export function SnaptradeConnector() {
   const connectMutation = useMutation({
     mutationFn: async () => {
       setIsConnecting(true);
-      const response = await apiRequest('/api/snaptrade/connect', 
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      console.log('Making API request to /api/snaptrade/connect...');
+      try {
+        const response = await apiRequest('/api/snaptrade/connect', 
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          }, 
+          {
+            redirectUri: `${window.location.origin}/settings/connections/callback`,
           }
-        }, 
-        {
-          redirectUri: `${window.location.origin}/settings/connections/callback`,
-        }
-      );
-      return response;
+        );
+        console.log('SnapTrade connect response:', response);
+        return response;
+      } catch (error) {
+        console.error('Error in connect mutation function:', error);
+        throw error; // Re-throw to be caught by onError
+      }
     },
     onSuccess: (data) => {
+      console.log('Connect mutation succeeded with data:', data);
       // Redirect to the SnapTrade portal URL
-      if (data?.redirectUrl) {
+      if (data && data.redirectUrl) {
+        console.log('Redirecting to:', data.redirectUrl);
         window.location.href = data.redirectUrl;
       } else {
+        console.error('Missing redirectUrl in response data:', data);
         toast({
           title: "Connection Error",
           description: "Failed to get connection URL from SnapTrade",
@@ -83,11 +93,25 @@ export function SnaptradeConnector() {
         setIsConnecting(false);
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error connecting to SnapTrade:", error);
+      let errorDescription = "Failed to connect to SnapTrade.";
+      
+      // Try to extract more specific error information
+      if (error && typeof error === 'object') {
+        if (error.message) {
+          errorDescription += ` ${error.message}`;
+        }
+        
+        // Check for nested error details
+        if (error.response?.data?.error) {
+          errorDescription += ` Server says: ${error.response.data.error}`;
+        }
+      }
+      
       toast({
         title: "Connection Error",
-        description: "Failed to connect to SnapTrade. Please try again.",
+        description: errorDescription,
         variant: "destructive",
       });
       setIsConnecting(false);

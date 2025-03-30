@@ -17,24 +17,44 @@ export const snaptradeRoutes = Router();
  */
 const snaptradeAuthMiddleware = async (req: Request, res: Response, next: Function) => {
   try {
+    console.log('SnapTrade auth middleware running');
+    
     // Extract user ID from session or auth header
     const userId = extractUserId(req);
     
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      console.error('SnapTrade auth middleware - No user ID found in request');
+      return res.status(401).json({ error: 'Unauthorized - User ID not found' });
+    }
+    
+    console.log(`SnapTrade auth middleware - Found user ID: ${userId}`);
+    
+    // Check if SnapTrade service is configured
+    if (!snapTradeService.isConfigured()) {
+      console.error('SnapTrade auth middleware - Service is not properly configured');
+      return res.status(500).json({ error: 'SnapTrade service is not properly configured' });
     }
     
     // Initialize SnapTrade service for this user
+    console.log(`SnapTrade auth middleware - Initializing service for user ${userId}`);
     const initialized = await snapTradeService.initializeForUser(userId);
     
     if (!initialized) {
+      console.error(`SnapTrade auth middleware - Failed to initialize service for user ${userId}`);
       return res.status(500).json({ error: 'Failed to initialize SnapTrade service' });
     }
     
+    console.log(`SnapTrade auth middleware - Successfully initialized for user ${userId}`);
     next();
   } catch (error) {
     console.error('Error in SnapTrade auth middleware:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      if (error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+    }
+    res.status(500).json({ error: 'Internal server error in SnapTrade auth middleware' });
   }
 };
 

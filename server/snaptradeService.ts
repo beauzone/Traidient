@@ -27,11 +27,19 @@ export class SnapTradeService {
    */
   constructor(config: SnapTradeConfig) {
     this.config = config;
+    // According to SnapTrade API docs, the authorization header should not include 'Bearer'
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': `Bearer ${this.config.consumerKey}`
+      'Authorization': `${this.config.consumerKey}`
     };
+    
+    // Log the header structure for debugging (without showing the full key)
+    console.log('Using SnapTrade authorization headers with format:', {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': `${this.config.consumerKey ? `${this.config.consumerKey.substring(0, 5)}...` : 'Missing'}`
+    });
   }
 
   /**
@@ -40,10 +48,20 @@ export class SnapTradeService {
    */
   async initializeForUser(userId: number): Promise<boolean> {
     try {
+      console.log(`Initializing SnapTrade for user ID: ${userId}`);
+      
+      // Make sure API credentials are configured
+      if (!this.isConfigured()) {
+        console.error('SnapTrade API credentials not properly configured');
+        return false;
+      }
+      
       // Look for an existing integration
       const integration = await this.findUserIntegration(userId);
       
       if (integration) {
+        console.log(`Found existing SnapTrade integration for user ${userId}`);
+        
         // If found, extract the provider-specific user ID and secrets
         this.snapTradeUserId = integration.providerUserId || null;
         
@@ -52,13 +70,62 @@ export class SnapTradeService {
           this.userSecret = integration.credentials.userSecret;
         }
         
-        return !!this.snapTradeUserId && !!this.userSecret;
+        const hasRequiredFields = !!this.snapTradeUserId && !!this.userSecret;
+        if (!hasRequiredFields) {
+          console.error(`Missing required SnapTrade fields for user ${userId}:`, {
+            hasSnapTradeUserId: !!this.snapTradeUserId,
+            hasUserSecret: !!this.userSecret
+          });
+          
+          console.log(`Invalid SnapTrade integration detected for user ${userId}, re-registering...`);
+          
+          // Delete the invalid integration
+          try {
+            await this.deleteInvalidIntegration(userId, integration.id);
+            console.log(`Deleted invalid SnapTrade integration for user ${userId}`);
+          } catch (deleteError) {
+            console.error(`Failed to delete invalid integration for user ${userId}:`, deleteError);
+          }
+          
+          // Register a new user with SnapTrade
+          return await this.registerUser(userId);
+        }
+        return true;
       } else {
+        console.log(`No existing SnapTrade integration found for user ${userId}, registering new user`);
         // If not found, register the user with SnapTrade
         return await this.registerUser(userId);
       }
     } catch (error) {
       console.error('Error initializing SnapTrade for user:', error);
+      // Add more context to the error
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.stack) {
+          console.error('Stack trace:', error.stack);
+        }
+      }
+      return false;
+    }
+  }
+  
+  /**
+   * Delete an invalid integration
+   * @param userId The user ID
+   * @param integrationId The integration ID
+   */
+  private async deleteInvalidIntegration(userId: number, integrationId: number): Promise<boolean> {
+    try {
+      await db.delete(apiIntegrations)
+        .where(
+          and(
+            eq(apiIntegrations.userId, userId),
+            eq(apiIntegrations.id, integrationId)
+          )
+        );
+      return true;
+    } catch (error) {
+      console.error('Error deleting invalid integration:', error);
       return false;
     }
   }
@@ -72,25 +139,58 @@ export class SnapTradeService {
       // Generate a unique ID for SnapTrade
       const snapTradeUserId = `user-${userId}-${Date.now()}`;
       
-      // Register with SnapTrade
-      // The API endpoint path should be "/user", not "/snapTrade/registerUser"
-      const response = await fetch(`${this.config.apiEndpoint}/user`, {
-        method: 'POST',
-        headers: this.defaultHeaders,
-        body: JSON.stringify({
-          userId: snapTradeUserId
-        })
+      // According to SnapTrade API docs and the error message, we need to provide clientId in the URL query params
+      const endpoint = `${this.config.apiEndpoint}/snapTrade/registerUser?clientId=${encodeURIComponent(this.config.clientId)}`;
+      console.log(`Registering user with SnapTrade: ${snapTradeUserId}`);
+      console.log(`Using API endpoint: ${endpoint}`);
+      
+      const requestBody = {
+        userId: snapTradeUserId
+      };
+      
+      console.log('Registration request body:', JSON.stringify(requestBody));
+      
+      // Try format based on error message and docs
+      const specialHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': this.config.consumerKey
+      };
+      
+      console.log('Using updated SnapTrade headers with format:', {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': this.config.consumerKey.substring(0, 5) + '...'
       });
       
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: specialHeaders,
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log(`Registration response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
-        throw new Error(`Error registering user with SnapTrade: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error registering user with SnapTrade (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
+      console.log('Registration response data received');
       
       if (!data.userSecret) {
         throw new Error('User secret not received from SnapTrade');
       }
+      
+      console.log(`Successfully registered user with SnapTrade, received userSecret`);
       
       // Save the integration
       await db.insert(apiIntegrations).values({
@@ -111,6 +211,8 @@ export class SnapTradeService {
           liveTrading: true
         }
       });
+      
+      console.log(`Saved SnapTrade integration to database for user ${userId}`);
       
       this.snapTradeUserId = snapTradeUserId;
       this.userSecret = data.userSecret;
@@ -506,6 +608,24 @@ export class SnapTradeService {
     const clientId = process.env.SNAPTRADE_CLIENT_ID || '';
     const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY || '';
     const apiEndpoint = process.env.SNAPTRADE_API_ENDPOINT || 'https://api.snaptrade.com/api/v1';
+    
+    // First log the environment variables keys available
+    console.log('Environment variables available:', Object.keys(process.env)
+      .filter(key => key.includes('SNAP') || key.includes('API') || key.includes('KEY'))
+      .map(key => `${key}: ${key.includes('KEY') || key.includes('SECRET') ? '(sensitive)' : 'present'}`));
+    
+    // Log the SnapTrade-specific configuration
+    console.log('Initializing SnapTrade service with config:', {
+      clientId: clientId ? `${clientId.substring(0, 3)}...${clientId.length}chars` : 'MISSING',
+      consumerKey: consumerKey ? `${consumerKey.substring(0, 3)}...${consumerKey.length}chars` : 'MISSING',
+      apiEndpoint
+    });
+    
+    // Clear warning if credentials are missing
+    if (!clientId || !consumerKey) {
+      console.error('SnapTrade credentials missing! The integration will not work without valid credentials.');
+      console.error('Please ensure SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY environment variables are set.');
+    }
     
     return new SnapTradeService({
       clientId,
