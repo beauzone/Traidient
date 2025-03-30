@@ -6,8 +6,9 @@
  */
 
 import { db } from './db';
-import { apiIntegrations, type SnapTradeConnectionInfo } from '@shared/schema';
+import { apiIntegrations, users, type SnapTradeConnectionInfo } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 
 interface SnapTradeConfig {
   clientId: string;
@@ -77,7 +78,25 @@ export class SnapTradeService {
         return false;
       }
       
-      // Look for an existing integration
+      // First, check if the user has SnapTrade credentials in the users table
+      const [userWithCredentials] = await db.select()
+        .from(users)
+        .where(eq(users.id, userId));
+        
+      if (userWithCredentials?.snapTradeCredentials) {
+        console.log(`Found SnapTrade credentials in user record for user ${userId}`);
+        
+        const credentials = userWithCredentials.snapTradeCredentials;
+        this.snapTradeUserId = credentials.userId;
+        this.userSecret = credentials.userSecret;
+        
+        if (this.snapTradeUserId && this.userSecret) {
+          console.log(`Successfully initialized SnapTrade with user ID: ${this.snapTradeUserId}`);
+          return true;
+        }
+      }
+      
+      // If no credentials in user record, look for an existing integration
       const integration = await this.findUserIntegration(userId);
       
       if (integration) {
@@ -111,6 +130,20 @@ export class SnapTradeService {
           // Register a new user with SnapTrade
           return await this.registerUser(userId);
         }
+        
+        // Only store the credentials if we have valid ones
+        if (this.snapTradeUserId && this.userSecret) {
+          // Store the credentials in the user record for future use
+          const stored = await this.storeUserCredentials(userId, this.snapTradeUserId, this.userSecret);
+          if (stored) {
+            console.log(`Successfully stored SnapTrade credentials for user ${userId}`);
+          } else {
+            console.warn(`Failed to store SnapTrade credentials for user ${userId}`);
+          }
+        } else {
+          console.warn(`Cannot store SnapTrade credentials for user ${userId}: missing userId or userSecret`);
+        }
+        
         return true;
       } else {
         console.log(`No existing SnapTrade integration found for user ${userId}, registering new user`);
@@ -126,6 +159,41 @@ export class SnapTradeService {
           console.error('Stack trace:', error.stack);
         }
       }
+      return false;
+    }
+  }
+  
+  /**
+   * Store SnapTrade credentials in the user record
+   * @param userId Our internal user ID
+   * @param snapTradeUserId The SnapTrade user ID
+   * @param userSecret The SnapTrade user secret
+   */
+  private async storeUserCredentials(userId: number, snapTradeUserId: string | null, userSecret: string | null): Promise<boolean> {
+    try {
+      // Validate inputs
+      if (!snapTradeUserId || !userSecret) {
+        console.error('Cannot store SnapTrade credentials: missing userId or userSecret');
+        return false;
+      }
+      
+      // Update the user record with SnapTrade credentials
+      await db.update(users)
+        .set({
+          snapTradeCredentials: {
+            userId: snapTradeUserId,
+            userSecret: userSecret,
+            isRegistered: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        })
+        .where(eq(users.id, userId));
+        
+      console.log(`Stored SnapTrade credentials in user record for user ${userId}`);
+      return true;
+    } catch (error) {
+      console.error('Error storing SnapTrade credentials:', error);
       return false;
     }
   }
@@ -157,16 +225,17 @@ export class SnapTradeService {
    */
   private async registerUser(userId: number): Promise<boolean> {
     try {
-      // Generate a unique ID for SnapTrade based on user ID and timestamp
+      // Generate a unique ID for SnapTrade based on user ID
       // This ID needs to be unique and immutable per user (not using email)
-      const snapTradeUserId = `user-${userId}-${Date.now()}`;
+      // As per SnapTrade documentation, userId should be unique and immutable
+      const snapTradeUserId = `user-${userId}-${randomBytes(8).toString('hex')}`;
       
       // Based on the SnapTrade documentation example, we need to handle authentication
       // through headers and query parameters in a specific way
       // The endpoint should include clientId as a query parameter
-      const endpoint = `${this.config.apiEndpoint}/registerUser?clientId=${encodeURIComponent(this.config.clientId)}`;
+      const url = this.createApiUrl('registerUser');
       console.log(`Registering user with SnapTrade: ${snapTradeUserId}`);
-      console.log(`Using API endpoint: ${endpoint}`);
+      console.log(`Using API endpoint: ${url}`);
       
       // Simple request body with just the userId as shown in documentation
       const requestBody = {
@@ -175,24 +244,9 @@ export class SnapTradeService {
       
       console.log('Registration request body:', JSON.stringify(requestBody));
       
-      // Based on our API testing, we must pass:
-      // 1. clientId as a query parameter
-      // 2. consumerKey in the Authorization header with Bearer format
-      const specialHeaders = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${this.config.consumerKey}`
-      };
-      
-      console.log('Using updated SnapTrade headers with format:', {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${this.config.consumerKey.substring(0, 5)}...`
-      });
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch(url, {
         method: 'POST',
-        headers: specialHeaders,
+        headers: this.defaultHeaders,
         body: JSON.stringify(requestBody)
       });
       
@@ -241,6 +295,9 @@ export class SnapTradeService {
       
       console.log(`Saved SnapTrade integration to database for user ${userId}`);
       
+      // Store the credentials in the user record for future use
+      await this.storeUserCredentials(userId, snapTradeUserId, data.userSecret);
+      
       this.snapTradeUserId = snapTradeUserId;
       this.userSecret = data.userSecret;
       
@@ -285,9 +342,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      // Add clientId as a query parameter as required by SnapTrade docs
-      const response = await fetch(`${this.config.apiEndpoint}/auth/authorizationUrl?clientId=${encodeURIComponent(this.config.clientId)}`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl('auth/authorizationUrl');
+      console.log(`Generating SnapTrade authorization URL with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -298,7 +357,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error generating authorization URL: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error generating authorization URL (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -320,9 +387,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      // Add clientId as a query parameter as required by SnapTrade docs
-      const response = await fetch(`${this.config.apiEndpoint}/auth/exchangeAuthorizationCode?clientId=${encodeURIComponent(this.config.clientId)}`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl('auth/exchangeAuthorizationCode');
+      console.log(`Exchanging authorization code with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -334,10 +403,19 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error exchanging authorization code: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error exchanging authorization code (${response.status}): ${responseText}`);
       }
       
       // Successful connection
+      console.log('Successfully exchanged authorization code with SnapTrade');
       return true;
     } catch (error) {
       console.error('Error handling SnapTrade callback:', error);
@@ -368,7 +446,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error retrieving connections: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error retrieving connections (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -389,8 +475,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/connections/${connectionId}`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl(`connections/${connectionId}`);
+      console.log(`Deleting SnapTrade connection ${connectionId} with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           ...this.defaultHeaders,
@@ -400,7 +489,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error deleting connection: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error deleting connection (${response.status}): ${responseText}`);
       }
       
       return true;
@@ -419,8 +516,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/accounts`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl('accounts');
+      console.log(`Fetching SnapTrade accounts with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -430,7 +530,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error retrieving accounts: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error retrieving accounts (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -451,8 +559,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/accounts/${accountId}/balances`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl(`accounts/${accountId}/balances`);
+      console.log(`Fetching SnapTrade account balances with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -462,7 +573,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error retrieving account balances: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error retrieving account balances (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -483,8 +602,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/accounts/${accountId}/positions`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl(`accounts/${accountId}/positions`);
+      console.log(`Fetching SnapTrade account positions with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -494,7 +616,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error retrieving account positions: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error retrieving account positions (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -515,8 +645,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/quotes/${encodeURIComponent(symbol)}`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl(`quotes/${encodeURIComponent(symbol)}`);
+      console.log(`Fetching SnapTrade quote for symbol ${symbol} with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -526,7 +659,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error retrieving quote: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error retrieving quote (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -547,8 +688,12 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/symbols/search?q=${encodeURIComponent(query)}`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      // Add the search query parameter
+      const url = this.createApiUrl('symbols/search', { q: query });
+      console.log(`Searching SnapTrade symbols with query "${query}" and URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -558,7 +703,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error searching symbols: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error searching symbols (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();
@@ -580,8 +733,11 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      // Corrected the API endpoint path to match SnapTrade documentation
-      const response = await fetch(`${this.config.apiEndpoint}/accounts/${accountId}/orders`, {
+      // Use the createApiUrl helper to ensure clientId is always included
+      const url = this.createApiUrl(`accounts/${accountId}/orders`);
+      console.log(`Placing SnapTrade order for account ${accountId} with URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           ...this.defaultHeaders,
@@ -592,7 +748,15 @@ export class SnapTradeService {
       });
       
       if (!response.ok) {
-        throw new Error(`Error placing order: ${response.statusText}`);
+        // Try to get response text for more details
+        let responseText = '';
+        try {
+          responseText = await response.text();
+        } catch (e) {
+          responseText = 'Could not read response body';
+        }
+        
+        throw new Error(`Error placing order (${response.status}): ${responseText}`);
       }
       
       const data = await response.json();

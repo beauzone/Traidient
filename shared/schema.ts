@@ -49,6 +49,14 @@ export const users = pgTable("users", {
     defaultAssets: ['AAPL', 'MSFT', 'GOOGL', 'AMZN'],
     backtestDataProvider: 'yahoo'
   }),
+  // SnapTrade integration credentials
+  snapTradeCredentials: jsonb("snaptrade_credentials").$type<{
+    userId: string; // SnapTrade's user ID (not our user ID)
+    userSecret: string; // SnapTrade's user secret
+    isRegistered: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
