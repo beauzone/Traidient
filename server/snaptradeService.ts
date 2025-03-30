@@ -73,7 +73,8 @@ export class SnapTradeService {
       const snapTradeUserId = `user-${userId}-${Date.now()}`;
       
       // Register with SnapTrade
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/registerUser`, {
+      // The API endpoint path should be "/user", not "/snapTrade/registerUser"
+      const response = await fetch(`${this.config.apiEndpoint}/user`, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -155,7 +156,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/authorizationUrl`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/auth/authorizationUrl`, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -188,7 +190,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/exchangeAuthorizationCode`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/auth/exchangeAuthorizationCode`, {
         method: 'POST',
         headers: this.defaultHeaders,
         body: JSON.stringify({
@@ -220,7 +223,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/brokerage-connections`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/connections`, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -251,7 +255,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/brokerage-connections/${connectionId}`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/connections/${connectionId}`, {
         method: 'DELETE',
         headers: {
           ...this.defaultHeaders,
@@ -280,7 +285,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/accounts`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/accounts`, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -311,7 +317,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/accounts/${accountId}/balances`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/accounts/${accountId}/balances`, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -342,7 +349,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/accounts/${accountId}/positions`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/accounts/${accountId}/positions`, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -373,7 +381,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/quotes/${symbol}`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/quotes/${encodeURIComponent(symbol)}`, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -404,7 +413,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/symbols/search?query=${encodeURIComponent(query)}`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/symbols/search?q=${encodeURIComponent(query)}`, {
         method: 'GET',
         headers: {
           ...this.defaultHeaders,
@@ -436,7 +446,8 @@ export class SnapTradeService {
         throw new Error('SnapTrade service not initialized for user');
       }
       
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/accounts/${accountId}/orders`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/accounts/${accountId}/orders`, {
         method: 'POST',
         headers: {
           ...this.defaultHeaders,
@@ -470,7 +481,8 @@ export class SnapTradeService {
    */
   async getBrokerages(): Promise<any[]> {
     try {
-      const response = await fetch(`${this.config.apiEndpoint}/snapTrade/brokerages`, {
+      // Corrected the API endpoint path to match SnapTrade documentation
+      const response = await fetch(`${this.config.apiEndpoint}/brokerages`, {
         method: 'GET',
         headers: this.defaultHeaders
       });
