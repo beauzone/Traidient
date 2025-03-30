@@ -255,8 +255,13 @@ export class SnapTradeService {
       // through headers and query parameters in a specific way
       // The endpoint should include clientId as a query parameter
       const url = this.createApiUrl('registerUser');
-      console.log(`Registering user with SnapTrade: ${snapTradeUserId}`);
-      console.log(`Using API endpoint: ${url}`);
+      
+      // Output debugging information to console
+      console.error('=============== SNAPTRADE DEBUGGING ===============');
+      console.error(`Registering user with SnapTrade: ${snapTradeUserId}`);
+      console.error(`Using API endpoint: ${url}`);
+      console.error(`Client ID: ${this.config.clientId ? this.config.clientId.substring(0, 5) + '...' : 'MISSING'}`);
+      console.error(`Consumer Key present: ${!!this.config.consumerKey}`);
       
       // Simple request body with just the userId as shown in documentation
       // Note: According to SnapTrade API docs, the parameter name is 'userId'
@@ -264,11 +269,12 @@ export class SnapTradeService {
         userId: snapTradeUserId
       };
       
-      console.log('Registration request body:', JSON.stringify(requestBody));
-      console.log('Headers being used:', JSON.stringify({
+      console.error('Registration request body:', JSON.stringify(requestBody));
+      console.error('Headers being used:', JSON.stringify({
         ...this.defaultHeaders,
         'Authorization': `Bearer ${this.config.consumerKey ? 'CONSUMER_KEY_PRESENT' : 'MISSING'}`
       }));
+      console.error('================================================');
       
       const response = await fetch(url, {
         method: 'POST',
