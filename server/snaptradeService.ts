@@ -240,6 +240,12 @@ export class SnapTradeService {
    */
   async registerUser(userId: number): Promise<boolean> {
     try {
+      // Check if API credentials are configured
+      if (!this.isConfigured()) {
+        console.error('Cannot register user: SnapTrade API credentials not properly configured');
+        return false;
+      }
+      
       // Generate a unique ID for SnapTrade based on user ID
       // This ID needs to be unique and immutable per user (not using email)
       // As per SnapTrade documentation, userId should be unique and immutable
@@ -253,11 +259,16 @@ export class SnapTradeService {
       console.log(`Using API endpoint: ${url}`);
       
       // Simple request body with just the userId as shown in documentation
+      // Note: According to SnapTrade API docs, the parameter name is 'userId'
       const requestBody = {
         userId: snapTradeUserId
       };
       
       console.log('Registration request body:', JSON.stringify(requestBody));
+      console.log('Headers being used:', JSON.stringify({
+        ...this.defaultHeaders,
+        'Authorization': `Bearer ${this.config.consumerKey ? 'CONSUMER_KEY_PRESENT' : 'MISSING'}`
+      }));
       
       const response = await fetch(url, {
         method: 'POST',
@@ -270,19 +281,47 @@ export class SnapTradeService {
       if (!response.ok) {
         // Try to get response text for more details
         let responseText = '';
+        let responseJson = null;
+        
         try {
-          responseText = await response.text();
+          // Try to parse as JSON first
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            responseJson = await response.json();
+            responseText = JSON.stringify(responseJson);
+            console.error('API Error Response:', responseJson);
+          } else {
+            responseText = await response.text();
+            console.error('API Error Response (text):', responseText);
+          }
         } catch (e) {
           responseText = 'Could not read response body';
+          console.error('Failed to parse error response:', e);
         }
         
         throw new Error(`Error registering user with SnapTrade (${response.status}): ${responseText}`);
       }
       
-      const data = await response.json();
-      console.log('Registration response data received');
+      // Parse the response
+      let data;
+      try {
+        data = await response.json();
+        console.log('Registration response data received');
+      } catch (e) {
+        console.error('Failed to parse JSON response:', e);
+        throw new Error('Invalid JSON response from SnapTrade registration');
+      }
+      
+      // Check response structure
+      if (!data || typeof data !== 'object') {
+        console.error('Unexpected response format:', data);
+        throw new Error('Unexpected response format from SnapTrade');
+      }
+      
+      console.log('Registration response structure:', Object.keys(data));
       
       if (!data.userSecret) {
+        console.error('User secret missing from response:', data);
         throw new Error('User secret not received from SnapTrade');
       }
       

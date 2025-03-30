@@ -118,6 +118,8 @@ snaptradeRoutes.post('/connect', snaptradeAuthMiddleware, async (req: Request, r
         await db.update(users)
           .set({
             snapTradeCredentials: {
+              userId: '',      // Will be populated during registration
+              userSecret: '',  // Will be populated during registration
               isRegistered: false,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
