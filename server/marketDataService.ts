@@ -12,6 +12,21 @@ import PolygonAPI from './polygon';
 import AlphaVantageAPI from './alphavantage';
 import TiingoAPI from './tiingo';
 
+/**
+ * Checks if a date is in Daylight Saving Time
+ * This is a simplified check - a production system would use a timezone library
+ */
+function isDateInDST(date: Date): boolean {
+  // Roughly approximate DST for US
+  const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+  const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+  
+  // If timezone offset in January and July are different, DST is observed
+  // If the current offset equals the smaller of the two offsets, it's DST
+  return Math.max(jan, jul) !== Math.min(jan, jul) && 
+         date.getTimezoneOffset() === Math.min(jan, jul);
+}
+
 // Maps to store active simulation intervals by user and connection
 const marketDataSimulations = new Map<number, Map<WebSocket, NodeJS.Timeout>>();
 
@@ -96,12 +111,29 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       // Get the most accurate market status information
       let isMarketOpen = false;
 
-      // For the demo environment, always show market as open on weekdays
+      // Properly check if the market is open based on the day and time
       const now = new Date();
       const day = now.getDay();
-
-      // Market is open on weekdays (Monday-Friday)
-      isMarketOpen = (day >= 1 && day <= 5);
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      
+      // Convert to US Eastern Time (ET)
+      const isDST = isDateInDST(now);
+      const etOffset = isDST ? -4 : -5; // EDT is UTC-4, EST is UTC-5
+      
+      // Get current hour in ET
+      // Get timezone offset in minutes and convert to hours
+      const tzOffsetHours = now.getTimezoneOffset() / 60; // Browser's timezone offset in hours
+      const etHour = (hour + 24 + etOffset + tzOffsetHours) % 24;
+      
+      // Market is closed on weekends (Saturday = 6, Sunday = 0)
+      if (day === 0 || day === 6) {
+        isMarketOpen = false;
+      } else {
+        // Regular market hours: 9:30 AM - 4:00 PM ET
+        isMarketOpen = (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
+      }
+      
       console.log(`Market status (fixed): ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
 
       // Try to use available providers just for logging purposes, but don't change isMarketOpen
@@ -220,13 +252,30 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
 
     // Only send update if there are changes
     if (updates.length > 0) {
-      // For the demo environment, always show market as open on weekdays
-      // This ensures we correctly show "Market Open" on the UI
+      // Properly check if the market is open based on the day and time
       const now = new Date();
       const day = now.getDay();
-
-      // Market is open on weekdays (Monday-Friday)
-      const marketOpen = (day >= 1 && day <= 5);
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      
+      // Convert to US Eastern Time (ET)
+      const isDST = isDateInDST(now);
+      const etOffset = isDST ? -4 : -5; // EDT is UTC-4, EST is UTC-5
+      
+      // Get current hour in ET
+      // Get timezone offset in minutes and convert to hours
+      const tzOffsetHours = now.getTimezoneOffset() / 60; // Browser's timezone offset in hours
+      const etHour = (hour + 24 + etOffset + tzOffsetHours) % 24;
+      
+      // Market is closed on weekends (Saturday = 6, Sunday = 0)
+      let marketOpen = false;
+      if (day === 0 || day === 6) {
+        marketOpen = false;
+      } else {
+        // Regular market hours: 9:30 AM - 4:00 PM ET
+        marketOpen = (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
+      }
+      
       console.log(`Market status (fixed): ${marketOpen ? 'OPEN' : 'CLOSED'}`);
 
       // Get the primary data source being used and label it properly
@@ -287,7 +336,7 @@ export async function getHistoricalMarketData(
     // Try Yahoo Finance first for historical data
     try {
       const yahooProvider = new YahooFinanceAPI();
-      const data = await yahooProvider.getHistoricalData(symbol, timeframe, limit);
+      const data = await yahooProvider.getHistoricalData(symbol, timeframe, String(limit));
       if (data && data.bars && data.bars.length > 0) {
         return {
           ...data,
