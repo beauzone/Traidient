@@ -285,9 +285,10 @@ export class YahooFinanceAPI {
    * @returns Boolean indicating if the market is open
    */
   isMarketOpen(): boolean {
-    // For demo purposes, let's use a simplified approach and make the market always open during weekdays
     const now = new Date();
     const day = now.getDay();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
     
     console.log(`Current date for market status check: ${now.toISOString()}, day of week: ${day}`);
     
@@ -297,10 +298,36 @@ export class YahooFinanceAPI {
       return false;
     }
     
-    // For the demo, we'll consider the market always open during weekdays
-    // This ensures we correctly show "Market Open" on the UI during demo
-    console.log("It's a weekday during regular hours, market is open");
-    return true;
+    // Convert current time to Eastern Time
+    // Note: This is a simplified calculation
+    const isDST = this.isDateInDST(now);
+    const easternOffset = isDST ? -4 : -5; // EDT or EST offset from UTC
+    
+    // Calculate hours in Eastern Time
+    // Note: JavaScript getHours() returns hours in local time
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    // Calculate hours and minutes in Eastern Time
+    let easternHours = (utcHours + 24 + easternOffset) % 24;
+    const easternMinutes = utcMinutes;
+    
+    // Calculate total minutes since midnight in Eastern Time
+    const easternTimeInMinutes = (easternHours * 60) + easternMinutes;
+    
+    // Market hours: 9:30 AM - 4:00 PM Eastern Time
+    const marketOpenInMinutes = (9 * 60) + 30;  // 9:30 AM
+    const marketCloseInMinutes = (16 * 60);     // 4:00 PM
+    
+    const isMarketOpenNow = 
+      easternTimeInMinutes >= marketOpenInMinutes && 
+      easternTimeInMinutes < marketCloseInMinutes;
+    
+    console.log(`Current time in Eastern: ${easternHours}:${easternMinutes.toString().padStart(2, '0')} (${isDST ? 'EDT' : 'EST'})`);
+    console.log(`Market hours: 9:30 AM - 4:00 PM Eastern Time`);
+    console.log(`Market is ${isMarketOpenNow ? 'OPEN' : 'CLOSED'} based on Eastern Time check`);
+    
+    return isMarketOpenNow;
   }
   
   /**
