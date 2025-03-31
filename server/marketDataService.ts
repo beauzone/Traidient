@@ -14,17 +14,59 @@ import TiingoAPI from './tiingo';
 
 /**
  * Checks if a date is in Daylight Saving Time
- * This is a simplified check - a production system would use a timezone library
+ * This is a more accurate check for US DST rules
  */
 function isDateInDST(date: Date): boolean {
-  // Roughly approximate DST for US
-  const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
-  const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+  // DST in the US starts on the second Sunday in March
+  // and ends on the first Sunday in November
+  const year = date.getFullYear();
+  const march = new Date(year, 2, 1); // March 1
+  const november = new Date(year, 10, 1); // November 1
   
-  // If timezone offset in January and July are different, DST is observed
-  // If the current offset equals the smaller of the two offsets, it's DST
-  return Math.max(jan, jul) !== Math.min(jan, jul) && 
-         date.getTimezoneOffset() === Math.min(jan, jul);
+  // Find second Sunday in March
+  const daysUntilSecondSundayInMarch = (14 - march.getDay()) % 7;
+  const secondSundayInMarch = new Date(year, 2, 1 + daysUntilSecondSundayInMarch + 7);
+  secondSundayInMarch.setHours(2); // DST starts at 2 AM local time
+  
+  // Find first Sunday in November
+  const daysUntilFirstSundayInNov = (7 - november.getDay()) % 7;
+  const firstSundayInNov = new Date(year, 10, 1 + daysUntilFirstSundayInNov);
+  firstSundayInNov.setHours(2); // DST ends at 2 AM local time
+  
+  // Check if current date is in DST period
+  const isDST = date >= secondSundayInMarch && date < firstSundayInNov;
+  
+  return isDST;
+}
+
+/**
+ * Check if the US stock market is currently open
+ * Normal market hours are 9:30 AM - 4:00 PM Eastern Time, Monday-Friday
+ * @returns boolean indicating if the market is open
+ */
+export function isMarketCurrentlyOpen(): boolean {
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  
+  // Market is closed on weekends (Saturday = 6, Sunday = 0)
+  if (day === 0 || day === 6) {
+    return false;
+  }
+  
+  // Convert to US Eastern Time (ET)
+  const isDST = isDateInDST(now);
+  const etOffset = isDST ? -4 : -5; // EDT is UTC-4, EST is UTC-5
+  
+  // Get timezone offset in minutes and convert to hours
+  const tzOffsetHours = now.getTimezoneOffset() / 60; // Local timezone offset in hours
+  
+  // Get current hour in ET
+  const etHour = (hour + 24 + etOffset + tzOffsetHours) % 24;
+  
+  // Regular market hours: 9:30 AM - 4:00 PM ET
+  return (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
 }
 
 // Maps to store active simulation intervals by user and connection
@@ -109,32 +151,8 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
 
 
       // Get the most accurate market status information
-      let isMarketOpen = false;
-
-      // Properly check if the market is open based on the day and time
-      const now = new Date();
-      const day = now.getDay();
-      const hour = now.getHours();
-      const minute = now.getMinutes();
-      
-      // Convert to US Eastern Time (ET)
-      const isDST = isDateInDST(now);
-      const etOffset = isDST ? -4 : -5; // EDT is UTC-4, EST is UTC-5
-      
-      // Get current hour in ET
-      // Get timezone offset in minutes and convert to hours
-      const tzOffsetHours = now.getTimezoneOffset() / 60; // Browser's timezone offset in hours
-      const etHour = (hour + 24 + etOffset + tzOffsetHours) % 24;
-      
-      // Market is closed on weekends (Saturday = 6, Sunday = 0)
-      if (day === 0 || day === 6) {
-        isMarketOpen = false;
-      } else {
-        // Regular market hours: 9:30 AM - 4:00 PM ET
-        isMarketOpen = (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
-      }
-      
-      console.log(`Market status (fixed): ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
+      const isMarketOpen = isMarketCurrentlyOpen();
+      console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
 
       // Try to use available providers just for logging purposes, but don't change isMarketOpen
       try {
@@ -252,31 +270,9 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
 
     // Only send update if there are changes
     if (updates.length > 0) {
-      // Properly check if the market is open based on the day and time
-      const now = new Date();
-      const day = now.getDay();
-      const hour = now.getHours();
-      const minute = now.getMinutes();
-      
-      // Convert to US Eastern Time (ET)
-      const isDST = isDateInDST(now);
-      const etOffset = isDST ? -4 : -5; // EDT is UTC-4, EST is UTC-5
-      
-      // Get current hour in ET
-      // Get timezone offset in minutes and convert to hours
-      const tzOffsetHours = now.getTimezoneOffset() / 60; // Browser's timezone offset in hours
-      const etHour = (hour + 24 + etOffset + tzOffsetHours) % 24;
-      
-      // Market is closed on weekends (Saturday = 6, Sunday = 0)
-      let marketOpen = false;
-      if (day === 0 || day === 6) {
-        marketOpen = false;
-      } else {
-        // Regular market hours: 9:30 AM - 4:00 PM ET
-        marketOpen = (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
-      }
-      
-      console.log(`Market status (fixed): ${marketOpen ? 'OPEN' : 'CLOSED'}`);
+      // Check if market is open
+      const marketOpen = isMarketCurrentlyOpen();
+      console.log(`Market status: ${marketOpen ? 'OPEN' : 'CLOSED'}`);
 
       // Get the primary data source being used and label it properly
       let primarySource = "yahoo";

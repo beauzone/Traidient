@@ -67,15 +67,36 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // ALWAYS try to serve the app on port 5000 first
   // this serves both the API and the client.
   // This is the port that Replit workflow system expects
-  const port = 5000;
+  const preferredPort = 5000;
+  const fallbackPort = 5001;
+  
+  // Try to listen on the preferred port first
   server.listen({
-    port,
+    port: preferredPort,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  })
+  .on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      // Port 5000 is in use, try the fallback port
+      log(`Port ${preferredPort} is already in use, trying fallback port ${fallbackPort}`);
+      server.listen({
+        port: fallbackPort,
+        host: "0.0.0.0",
+        reusePort: true,
+      }, () => {
+        log(`⚠️ Serving on fallback port ${fallbackPort}. Some features may not work as expected.`);
+      });
+    } else {
+      // Some other error occurred
+      log(`Failed to start server: ${err.message}`);
+      throw err;
+    }
+  })
+  .on('listening', () => {
+    log(`Serving on preferred port ${preferredPort}`);
   });
 })();
