@@ -15,8 +15,11 @@ import {
   Deployment,
   InsertDeployment,
   watchlist,
+  watchlists,
   WatchlistItem,
+  Watchlist,
   InsertWatchlistItem,
+  InsertWatchlist,
   alertThresholds,
   AlertThreshold,
   InsertAlertThreshold,
@@ -102,6 +105,14 @@ export interface IStorage {
   getWatchlistItems(userId: number): Promise<WatchlistItem[]>;
   addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem>;
   removeFromWatchlist(id: number): Promise<boolean>;
+  
+  // Multiple Watchlists
+  getWatchlist(id: number): Promise<Watchlist | undefined>;
+  getWatchlistsByUser(userId: number): Promise<Watchlist[]>;
+  createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist>;
+  updateWatchlist(id: number, watchlist: Partial<Watchlist>): Promise<Watchlist | undefined>;
+  deleteWatchlist(id: number): Promise<boolean>;
+  getWatchlistItemsByWatchlistId(watchlistId: number): Promise<WatchlistItem[]>;
   
   // Alert Thresholds
   getAlertThreshold(id: number): Promise<AlertThreshold | undefined>;
@@ -384,16 +395,158 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem> {
+    // If watchlistId is not provided, find or create a default watchlist
+    if (!item.watchlistId) {
+      // Find the default watchlist first
+      const defaultWatchlists = await db
+        .select()
+        .from(watchlists)
+        .where(and(
+          eq(watchlists.userId, item.userId),
+          eq(watchlists.isDefault, true)
+        ));
+      
+      let watchlistId: number;
+      
+      // If we have a default watchlist, use it
+      if (defaultWatchlists.length > 0) {
+        watchlistId = defaultWatchlists[0].id;
+      } else {
+        // Otherwise, create a new default watchlist
+        const [newWatchlist] = await db.insert(watchlists).values({
+          userId: item.userId,
+          name: 'Default Watchlist',
+          isDefault: true,
+          displayOrder: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).returning();
+        
+        watchlistId = newWatchlist.id;
+      }
+      
+      // Add the watchlistId to the item
+      item = { ...item, watchlistId };
+    }
+    
     const [newItem] = await db.insert(watchlist).values({
       ...item,
       createdAt: new Date()
     }).returning();
+    
     return newItem;
   }
 
   async removeFromWatchlist(id: number): Promise<boolean> {
+    // First get the item to check that it exists
+    const items = await db.select().from(watchlist).where(eq(watchlist.id, id));
+    if (items.length === 0) {
+      return false;
+    }
+    
+    // Delete the watchlist item
     const result = await db.delete(watchlist).where(eq(watchlist.id, id));
     return result.count > 0;
+  }
+  
+  // Multiple Watchlists methods
+  async getWatchlist(id: number): Promise<Watchlist | undefined> {
+    const result = await db.select().from(watchlists).where(eq(watchlists.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getWatchlistsByUser(userId: number): Promise<Watchlist[]> {
+    return await db
+      .select()
+      .from(watchlists)
+      .where(eq(watchlists.userId, userId))
+      .orderBy(asc(watchlists.displayOrder));
+  }
+  
+  async createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist> {
+    const now = new Date();
+    
+    // If this is the first watchlist or marked as default
+    if (watchlist.isDefault) {
+      // Set all other watchlists for this user to non-default
+      await db.update(watchlists)
+        .set({ isDefault: false })
+        .where(and(
+          eq(watchlists.userId, watchlist.userId),
+          eq(watchlists.isDefault, true)
+        ));
+    }
+    
+    // Insert the new watchlist
+    const [newWatchlist] = await db.insert(watchlists).values({
+      ...watchlist,
+      createdAt: now,
+      updatedAt: now
+    }).returning();
+    
+    return newWatchlist;
+  }
+  
+  async updateWatchlist(id: number, watchlistData: Partial<Watchlist>): Promise<Watchlist | undefined> {
+    const now = new Date();
+    
+    // If updating to make this default
+    if (watchlistData.isDefault) {
+      // Get the watchlist first to check the user ID
+      const currentWatchlist = await this.getWatchlist(id);
+      if (currentWatchlist) {
+        // Set all other watchlists for this user to non-default
+        await db.update(watchlists)
+          .set({ isDefault: false })
+          .where(and(
+            eq(watchlists.userId, currentWatchlist.userId),
+            eq(watchlists.isDefault, true),
+            eq(watchlists.id, id).not() // Don't update the current one
+          ));
+      }
+    }
+    
+    // Update the watchlist
+    const [updatedWatchlist] = await db.update(watchlists)
+      .set({
+        ...watchlistData,
+        updatedAt: now
+      })
+      .where(eq(watchlists.id, id))
+      .returning();
+    
+    return updatedWatchlist;
+  }
+  
+  async deleteWatchlist(id: number): Promise<boolean> {
+    // First, get the watchlist to be deleted
+    const watchlistToDelete = await this.getWatchlist(id);
+    if (!watchlistToDelete) {
+      return false;
+    }
+    
+    // Delete all watchlist items associated with this watchlist
+    await db.delete(watchlist).where(eq(watchlist.watchlistId, id));
+    
+    // Delete the watchlist itself
+    const result = await db.delete(watchlists).where(eq(watchlists.id, id));
+    
+    // If this was the default watchlist, set another one as default if available
+    if (watchlistToDelete.isDefault) {
+      const remainingWatchlists = await this.getWatchlistsByUser(watchlistToDelete.userId);
+      if (remainingWatchlists.length > 0) {
+        await this.updateWatchlist(remainingWatchlists[0].id, { isDefault: true });
+      }
+    }
+    
+    return result.count > 0;
+  }
+  
+  async getWatchlistItemsByWatchlistId(watchlistId: number): Promise<WatchlistItem[]> {
+    return await db
+      .select()
+      .from(watchlist)
+      .where(eq(watchlist.watchlistId, watchlistId));
   }
   
   // Alert Threshold methods
