@@ -359,7 +359,28 @@ export class DatabaseStorage implements IStorage {
 
   // Watchlist methods
   async getWatchlistItems(userId: number): Promise<WatchlistItem[]> {
-    return await db.select().from(watchlist).where(eq(watchlist.userId, userId));
+    // Find the default watchlist first
+    const defaultWatchlists = await db
+      .select()
+      .from(watchlists)
+      .where(and(
+        eq(watchlists.userId, userId),
+        eq(watchlists.isDefault, true)
+      ));
+    
+    // If we have a default watchlist, get its items
+    if (defaultWatchlists.length > 0) {
+      return await db
+        .select()
+        .from(watchlist)
+        .where(and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.watchlistId, defaultWatchlists[0].id)
+        ));
+    }
+    
+    // Otherwise, just return an empty array
+    return [];
   }
 
   async addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem> {

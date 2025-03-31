@@ -18,6 +18,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
+import { watchlistRoutes } from './routes/watchlistRoutes';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -214,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const marketDataSimulations = new Map<number, Map<WebSocket, NodeJS.Timeout>>();
   
   // Function to start real/simulated market data updates
-  function startMarketDataSimulation(userId: number, ws: WebSocket, symbols: Set<string>) {
+  function startMarketDataStream(userId: number, ws: WebSocket, symbols: Set<string>) {
     // Make sure we have a mapping for this user
     if (!marketDataSimulations.has(userId)) {
       marketDataSimulations.set(userId, new Map());
@@ -474,14 +475,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only send update if there are changes
       if (updates.length > 0) {
-        ws.send(JSON.stringify({
-          type: 'market_data',
-          data: updates,
-          marketStatus: {
+        // Process each update individually for better client-side handling
+        updates.forEach(update => {
+          ws.send(JSON.stringify({
+            type: 'marketData',
+            symbol: update.symbol,
+            price: update.price,
+            change: update.change,
+            percentChange: update.changePercent,
+            volume: Math.floor(100000 + Math.random() * 1000000), // Simulated volume
+            timestamp: update.timestamp,
             isMarketOpen,
-            dataSource: isMarketOpen ? "alpaca-simulation" : "yahoo"
-          }
-        }));
+            dataSource: update.dataSource
+          }));
+        });
       }
     }, isMarketOpen ? 1000 : 5000); // Update every 1 second during market hours, every 5 seconds otherwise
     
@@ -3705,6 +3712,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register authenticated SnapTrade routes
   app.use('/api/snaptrade', authMiddleware, snaptradeRoutes);
+  
+  // Register watchlist routes (all are authenticated)
+  app.use('/api/watchlists', authMiddleware, watchlistRoutes);
   
   // Process webhook triggers (public endpoint)
   app.post('/api/webhook-triggers/:token', async (req: Request, res: Response) => {

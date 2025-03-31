@@ -1040,6 +1040,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   strategies: many(strategies),
   backtests: many(backtests),
   deployments: many(deployments),
+  watchlists: many(watchlists),
   watchlistItems: many(watchlist),
   alertThresholds: many(alertThresholds),
   notifications: many(notifications),

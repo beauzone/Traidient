@@ -15,6 +15,7 @@ import Strategies from "@/pages/strategies"; // Renamed from bot-builder to stra
 import EditStrategy from "@/pages/edit-strategy";
 import Screeners from "@/pages/screeners"; // New screeners page
 import StrategyScreener from "@/pages/strategy-screener"; // New fixed strategy screener page
+import Watchlist from "@/pages/watchlist"; // New watchlist page with multiple lists support
 import Backtest from "@/pages/backtest";
 import Bots from "@/pages/bots"; // New bots (deployment & automation) page
 import LiveTrading from "@/pages/live-trading";
@@ -123,6 +124,14 @@ function AppRoutes() {
       {/* Live Trading Monitor */}
       <Route path="/live-trading">
         <ProtectedRoute component={LiveTrading} />
+      </Route>
+      
+      {/* Watchlists */}
+      <Route path="/watchlist">
+        <ProtectedRoute component={Watchlist} />
+      </Route>
+      <Route path="/watchlists">
+        <ProtectedRoute component={Watchlist} />
       </Route>
       
       {/* Market Data */}
