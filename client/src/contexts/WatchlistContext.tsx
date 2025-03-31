@@ -20,6 +20,7 @@ interface WatchlistContextType {
   removeFromWatchlist: (watchlistId: number, itemId: number) => Promise<void>;
   reorderWatchlists: (orderedLists: { id: number, displayOrder: number }[]) => Promise<Watchlist[]>;
   reorderWatchlistItems: (watchlistId: number, orderedItems: { id: number, displayOrder: number }[]) => Promise<WatchlistItem[]>;
+  createDefaultWatchlist: () => Promise<WatchlistWithItems>;
 }
 
 // Create context
@@ -43,13 +44,26 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
     },
   });
 
+  // Query for default watchlist (create it if it doesn't exist)
+  const { data: defaultWatchlist } = useQuery({
+    queryKey: ['/api/watchlists/default'],
+    enabled: watchlists.length === 0, // Only run this query if no watchlists were found initially
+  });
+
   // Set current watchlist to default one if not already set
   useEffect(() => {
+    // First check regular watchlists
     if (watchlists.length > 0 && !currentWatchlist) {
       const defaultWatchlist = watchlists.find(w => w.isDefault) || watchlists[0];
       setCurrentWatchlist(defaultWatchlist);
     }
-  }, [watchlists, currentWatchlist]);
+    // If no regular watchlists but we have a default one
+    else if (watchlists.length === 0 && defaultWatchlist && !currentWatchlist) {
+      setCurrentWatchlist(defaultWatchlist);
+      // Invalidate watchlists query to include the new default
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+    }
+  }, [watchlists, currentWatchlist, defaultWatchlist, queryClient]);
   
   // Create watchlist mutation
   const createWatchlistMutation = useMutation({
@@ -284,6 +298,32 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
     return reorderWatchlistItemsMutation.mutateAsync({ watchlistId, orderedItems });
   };
 
+  // Default watchlist mutation
+  const createDefaultWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('/api/watchlists/default', {
+        method: 'GET'
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      setCurrentWatchlist(data);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating default watchlist",
+        description: error.message || "Failed to create default watchlist",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Create default watchlist
+  const createDefaultWatchlist = async () => {
+    return createDefaultWatchlistMutation.mutateAsync();
+  };
+
   const value = {
     watchlists,
     currentWatchlist,
@@ -297,6 +337,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
     removeFromWatchlist,
     reorderWatchlists,
     reorderWatchlistItems,
+    createDefaultWatchlist,
   };
 
   return (

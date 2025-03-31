@@ -7,6 +7,58 @@ import { z } from 'zod';
 
 const router = Router();
 
+// Create or get default watchlist
+router.get('/default', async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find the default watchlist first
+    const defaultWatchlists = await db
+      .select()
+      .from(watchlists)
+      .where(and(
+        eq(watchlists.userId, userId),
+        eq(watchlists.isDefault, true)
+      ));
+    
+    // If default watchlist exists, return it with its items
+    if (defaultWatchlists.length > 0) {
+      const items = await db
+        .select()
+        .from(watchlist)
+        .where(and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.watchlistId, defaultWatchlists[0].id)
+        ))
+        .orderBy(watchlist.displayOrder);
+      
+      return res.json({
+        ...defaultWatchlists[0],
+        items
+      });
+    }
+    
+    // Otherwise, create a new default watchlist
+    const [newWatchlist] = await db.insert(watchlists).values({
+      userId,
+      name: 'My Watchlist',
+      isDefault: true,
+      displayOrder: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    
+    // Return the new watchlist with empty items array
+    return res.json({
+      ...newWatchlist,
+      items: []
+    });
+  } catch (error) {
+    console.error('Error getting or creating default watchlist:', error);
+    res.status(500).json({ error: 'Failed to get or create default watchlist' });
+  }
+});
+
 // Get all watchlists for the user
 router.get('/', async (req: any, res) => {
   try {

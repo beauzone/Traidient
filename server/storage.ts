@@ -390,7 +390,36 @@ export class DatabaseStorage implements IStorage {
         ));
     }
     
-    // Otherwise, just return an empty array
+    // If no default watchlist exists, try to get the first watchlist for this user
+    const userWatchlists = await db
+      .select()
+      .from(watchlists)
+      .where(eq(watchlists.userId, userId))
+      .orderBy(watchlists.displayOrder);
+    
+    if (userWatchlists.length > 0) {
+      // Get items from the first watchlist
+      return await db
+        .select()
+        .from(watchlist)
+        .where(and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.watchlistId, userWatchlists[0].id)
+        ));
+    }
+    
+    // If no watchlists at all, create a default one
+    const [newWatchlist] = await db
+      .insert(watchlists)
+      .values({
+        name: 'My Watchlist',
+        userId,
+        isDefault: true,
+        displayOrder: 0
+      })
+      .returning();
+    
+    // Return empty array since the new watchlist has no items yet
     return [];
   }
 
@@ -415,7 +444,7 @@ export class DatabaseStorage implements IStorage {
         // Otherwise, create a new default watchlist
         const [newWatchlist] = await db.insert(watchlists).values({
           userId: item.userId,
-          name: 'Default Watchlist',
+          name: 'My Watchlist',
           isDefault: true,
           displayOrder: 0,
           createdAt: new Date(),
@@ -427,6 +456,35 @@ export class DatabaseStorage implements IStorage {
       
       // Add the watchlistId to the item
       item = { ...item, watchlistId };
+    }
+    
+    // Check if this symbol already exists in the watchlist to avoid duplicates
+    const existingItems = await db
+      .select()
+      .from(watchlist)
+      .where(and(
+        eq(watchlist.watchlistId, item.watchlistId),
+        eq(watchlist.symbol, item.symbol)
+      ));
+    
+    // If the item already exists, just return it
+    if (existingItems.length > 0) {
+      return existingItems[0];
+    }
+    
+    // Get highest display order to place item at the end
+    const existingWatchlistItems = await db
+      .select()
+      .from(watchlist)
+      .where(eq(watchlist.watchlistId, item.watchlistId));
+    
+    const highestOrder = existingWatchlistItems.length > 0
+      ? Math.max(...existingWatchlistItems.map(i => i.displayOrder || 0))
+      : -1;
+    
+    // Set display order if not already set
+    if (item.displayOrder === undefined) {
+      item = { ...item, displayOrder: highestOrder + 1 };
     }
     
     const [newItem] = await db.insert(watchlist).values({
