@@ -39,16 +39,42 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   } = useQuery({
     queryKey: ['/api/watchlists'],
     select: (data: WatchlistWithItems[]) => {
+      console.log('Received watchlists data:', data);
       // Sort by display order
       return [...data].sort((a, b) => a.displayOrder - b.displayOrder);
-    },
+    }
   });
 
+  // Log errors from watchlist query
+  useEffect(() => {
+    if (error) {
+      console.error('Error fetching watchlists:', error);
+      toast({
+        title: "Couldn't load watchlists",
+        description: error instanceof Error ? error.message : "There was a problem loading your watchlists",
+        variant: "destructive"
+      });
+    }
+  }, [error]);
+
   // Query for default watchlist (create it if it doesn't exist)
-  const { data: defaultWatchlist } = useQuery({
+  const { 
+    data: defaultWatchlist,
+    error: defaultWatchlistError
+  } = useQuery({
     queryKey: ['/api/watchlists/default'],
-    enabled: watchlists.length === 0, // Only run this query if no watchlists were found initially
+    enabled: watchlists.length === 0 // Only run this query if no watchlists were found initially
   });
+  
+  // Log default watchlist data and errors
+  useEffect(() => {
+    if (defaultWatchlist) {
+      console.log('Received default watchlist data:', defaultWatchlist);
+    }
+    if (defaultWatchlistError) {
+      console.error('Error fetching default watchlist:', defaultWatchlistError);
+    }
+  }, [defaultWatchlist, defaultWatchlistError]);
 
   // Set current watchlist to default one if not already set
   useEffect(() => {

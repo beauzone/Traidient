@@ -63,8 +63,13 @@ router.get('/default', async (req: any, res) => {
     ];
     
     // Add the items to the new watchlist
-    const items = await Promise.all(defaultStocks.map(async (stock, index) => {
-      const [newItem] = await db.insert(watchlist).values({
+    console.log(`Creating default watchlist with ID ${newWatchlist.id} for user ${userId}`);
+    
+    let watchlistItems = [];
+    
+    try {
+      // Batched insert for better performance
+      const itemsToInsert = defaultStocks.map((stock, index) => ({
         userId,
         watchlistId: newWatchlist.id,
         symbol: stock.symbol,
@@ -73,14 +78,41 @@ router.get('/default', async (req: any, res) => {
         exchange: stock.exchange,
         displayOrder: index,
         createdAt: new Date()
-      }).returning();
-      return newItem;
-    }));
+      }));
+      
+      watchlistItems = await db.insert(watchlist).values(itemsToInsert).returning();
+      console.log(`Successfully inserted ${watchlistItems.length} default items into watchlist ${newWatchlist.id}`);
+    } catch (insertError) {
+      console.error('Error inserting default watchlist items:', insertError);
+      
+      // Fallback to sequential insert if batch insert fails
+      const items = await Promise.all(defaultStocks.map(async (stock, index) => {
+        try {
+          const [newItem] = await db.insert(watchlist).values({
+            userId,
+            watchlistId: newWatchlist.id,
+            symbol: stock.symbol,
+            name: stock.name,
+            type: stock.type,
+            exchange: stock.exchange,
+            displayOrder: index,
+            createdAt: new Date()
+          }).returning();
+          return newItem;
+        } catch (singleInsertError) {
+          console.error(`Error inserting item ${stock.symbol}:`, singleInsertError);
+          return null;
+        }
+      }));
+      
+      // Filter out any null items (failed inserts)
+      watchlistItems = items.filter(item => item !== null);
+    }
     
     // Return the new watchlist with default items
     return res.json({
       ...newWatchlist,
-      items
+      items: watchlistItems
     });
   } catch (error) {
     console.error('Error getting or creating default watchlist:', error);
