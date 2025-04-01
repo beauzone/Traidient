@@ -5,6 +5,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccountProvider } from "@/context/AccountContext";
+import { WatchlistProvider } from "@/contexts/WatchlistContext";
 import { useAuth } from "@/hooks/useAuth";
 
 // Pages
@@ -188,8 +189,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AccountProvider>
-          <AppRoutes />
-          <Toaster />
+          <WatchlistProvider>
+            <AppRoutes />
+            <Toaster />
+          </WatchlistProvider>
         </AccountProvider>
       </AuthProvider>
     </QueryClientProvider>

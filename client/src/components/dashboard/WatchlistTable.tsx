@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,27 +29,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { X, Plus } from "lucide-react";
-import { fetchData, postData, deleteData } from "@/lib/api";
-import { queryClient } from "@/lib/queryClient";
-
-interface WatchlistItem {
-  id: number;
-  userId: number;
-  watchlistId: number;
-  symbol: string;
-  name: string;
-  exchange: string;
-  type: string;
-  displayOrder: number;
-  createdAt: string;
-  // Optional fields that we'll need to get from the market data service
-  lastPrice?: string;
-  change?: string;
-  changePercent?: string;
-  volume?: string;
-  marketCap?: string;
-  isPositive?: boolean;
-}
+import { useWatchlist } from "@/contexts/WatchlistContext";
+import type { WatchlistItem } from "@shared/schema";
 
 interface AddWatchlistFormData {
   symbol: string;
@@ -68,17 +49,32 @@ const WatchlistTable = () => {
   });
   const { toast } = useToast();
 
-  // Query to fetch watchlist items
-  const { data: watchlist = [], isLoading } = useQuery({
-    queryKey: ['/api/watchlist'],
-    queryFn: () => fetchData<WatchlistItem[]>('/api/watchlist')
-  });
+  // Use the watchlist context instead of direct API queries
+  const { 
+    currentWatchlist, 
+    isLoading, 
+    addToWatchlist: addToWatchlistContext,
+    removeFromWatchlist: removeFromWatchlistContext
+  } = useWatchlist();
+  
+  // Get items from the current watchlist
+  const watchlist = currentWatchlist?.items || [];
 
   // Mutation to add item to watchlist
   const addToWatchlist = useMutation({
-    mutationFn: (data: AddWatchlistFormData) => postData('/api/watchlist', data),
+    mutationFn: async (data: AddWatchlistFormData) => {
+      if (!currentWatchlist) {
+        throw new Error("No watchlist selected");
+      }
+      
+      return addToWatchlistContext(currentWatchlist.id, {
+        symbol: data.symbol,
+        name: data.name,
+        exchange: data.exchange,
+        type: data.type
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
       setIsAddDialogOpen(false);
       setFormData({
         symbol: "",
@@ -102,9 +98,14 @@ const WatchlistTable = () => {
 
   // Mutation to remove item from watchlist
   const removeFromWatchlist = useMutation({
-    mutationFn: (id: number) => deleteData(`/api/watchlist/${id}`),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
+    mutationFn: async (itemId: number) => {
+      if (!currentWatchlist) {
+        throw new Error("No watchlist selected");
+      }
+      
+      return removeFromWatchlistContext(currentWatchlist.id, itemId);
+    },
+    onSuccess: () => {
       toast({
         title: "Symbol removed",
         description: "The symbol has been removed from your watchlist.",

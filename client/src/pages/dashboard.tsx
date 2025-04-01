@@ -8,6 +8,7 @@ import AssetAllocation from "@/components/dashboard/AssetAllocation";
 import PositionsTable from "@/components/dashboard/PositionsTable";
 import StrategyTable from "@/components/dashboard/StrategyTable";
 import WatchlistTable from "@/components/dashboard/WatchlistTable";
+import { WatchlistSelector } from "@/components/watchlist/WatchlistSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useAccountContext } from "@/context/AccountContext";
 
@@ -461,7 +462,16 @@ const Dashboard = () => {
       />
 
       {/* Watchlist */}
-      <WatchlistTable />
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Watchlists</h3>
+          <div className="flex items-center space-x-2">
+            {/* Include WatchlistSelector here */}
+            <WatchlistSelector />
+          </div>
+        </div>
+        <WatchlistTable />
+      </div>
     </MainLayout>
   );
 };
