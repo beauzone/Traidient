@@ -1910,7 +1910,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
+      // Use the modified storage.getWatchlistItems which now properly handles default watchlist creation and item fetching
       const watchlistItems = await storage.getWatchlistItems(req.user.id);
+      
+      // If no items were found, try to get or create the default watchlist from the new API
+      if (watchlistItems.length === 0) {
+        try {
+          // Forward the request to our new API endpoint that handles default watchlist creation
+          const defaultResponse = await fetch(`http://localhost:5000/api/watchlists/default`, {
+            headers: {
+              'Authorization': req.headers.authorization || '',
+            },
+          });
+          
+          if (defaultResponse.ok) {
+            const defaultWatchlist = await defaultResponse.json();
+            // Return the items from the default watchlist
+            return res.json(defaultWatchlist.items || []);
+          }
+        } catch (defaultError) {
+          console.error('Error fetching default watchlist:', defaultError);
+          // Continue with empty array if default watchlist fetch fails
+        }
+      }
+      
       res.json(watchlistItems);
     } catch (error) {
       console.error('Get watchlist error:', error);
@@ -1929,8 +1952,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.user.id
       });
       
-      const watchlistItem = await storage.addToWatchlist(validatedData);
-      res.status(201).json(watchlistItem);
+      // First, check if we have a default watchlist
+      try {
+        // First, try to find the default watchlist for the user
+        const getUserWatchlistsResponse = await fetch(`http://localhost:5000/api/watchlists`, {
+          headers: {
+            'Authorization': req.headers.authorization || '',
+          },
+        });
+        
+        let defaultWatchlistId: number;
+        
+        if (getUserWatchlistsResponse.ok) {
+          const userWatchlists = await getUserWatchlistsResponse.json();
+          // Look for a default watchlist
+          const defaultWatchlist = userWatchlists.find((w: any) => w.isDefault);
+          
+          if (defaultWatchlist) {
+            defaultWatchlistId = defaultWatchlist.id;
+          } else if (userWatchlists.length > 0) {
+            // If no default but watchlists exist, use the first one
+            defaultWatchlistId = userWatchlists[0].id;
+          } else {
+            // No watchlists at all, create default
+            throw new Error('No watchlists found');
+          }
+        } else {
+          throw new Error('Failed to get user watchlists');
+        }
+        
+        // Add the item to the selected watchlist
+        const newItemResponse = await fetch(`http://localhost:5000/api/watchlists/${defaultWatchlistId}/items`, {
+          method: 'POST',
+          headers: {
+            'Authorization': req.headers.authorization || '',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            symbol: validatedData.symbol,
+            name: validatedData.name,
+            type: validatedData.type,
+            exchange: validatedData.exchange || 'NYSE'
+          })
+        });
+        
+        if (newItemResponse.ok) {
+          const newItem = await newItemResponse.json();
+          return res.status(201).json(newItem);
+        } else {
+          throw new Error('Failed to add item to watchlist');
+        }
+      } catch (error) {
+        console.error('Error with multiple watchlists API:', error);
+        // Fall back to legacy method if watchlist API fails
+        const watchlistItem = await storage.addToWatchlist(validatedData);
+        res.status(201).json(watchlistItem);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Validation error', errors: error.errors });

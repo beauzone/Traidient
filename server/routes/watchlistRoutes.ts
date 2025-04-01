@@ -38,7 +38,7 @@ router.get('/default', async (req: any, res) => {
       });
     }
     
-    // Otherwise, create a new default watchlist
+    // Otherwise, create a new default watchlist with some default stocks
     const [newWatchlist] = await db.insert(watchlists).values({
       userId,
       name: 'My Watchlist',
@@ -48,10 +48,39 @@ router.get('/default', async (req: any, res) => {
       updatedAt: new Date()
     }).returning();
     
-    // Return the new watchlist with empty items array
+    // Insert some default stocks
+    const defaultStocks = [
+      { symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'MSFT', name: 'Microsoft Corporation', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'AMZN', name: 'Amazon.com Inc.', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'TSLA', name: 'Tesla Inc.', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'META', name: 'Meta Platforms Inc.', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation', type: 'stock', exchange: 'NASDAQ' },
+      { symbol: 'V', name: 'Visa Inc.', type: 'stock', exchange: 'NYSE' },
+      { symbol: 'JNJ', name: 'Johnson & Johnson', type: 'stock', exchange: 'NYSE' },
+      { symbol: 'WMT', name: 'Walmart Inc.', type: 'stock', exchange: 'NYSE' }
+    ];
+    
+    // Add the items to the new watchlist
+    const items = await Promise.all(defaultStocks.map(async (stock, index) => {
+      const [newItem] = await db.insert(watchlist).values({
+        userId,
+        watchlistId: newWatchlist.id,
+        symbol: stock.symbol,
+        name: stock.name,
+        type: stock.type,
+        exchange: stock.exchange,
+        displayOrder: index,
+        createdAt: new Date()
+      }).returning();
+      return newItem;
+    }));
+    
+    // Return the new watchlist with default items
     return res.json({
       ...newWatchlist,
-      items: []
+      items
     });
   } catch (error) {
     console.error('Error getting or creating default watchlist:', error);
