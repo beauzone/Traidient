@@ -325,7 +325,8 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                 </Button>
                 <AddToWatchlistButton 
                   symbol={symbol} 
-                  companyName={getName()} 
+                  companyName={getName()}
+                  className="h-8 px-2" 
                 />
                 <Button variant="outline" size="sm">
                   <Share2 className="h-4 w-4" />
