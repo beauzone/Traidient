@@ -1910,14 +1910,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       
-      // Use the modified storage.getWatchlistItems which now properly handles default watchlist creation and item fetching
-      const watchlistItems = await storage.getWatchlistItems(req.user.id);
-      
-      // If no items were found, try to get or create the default watchlist from the new API
-      if (watchlistItems.length === 0) {
-        try {
-          // Forward the request to our new API endpoint that handles default watchlist creation
-          const defaultResponse = await fetch(`http://localhost:5000/api/watchlists/default`, {
+      // Directly fetch from the default watchlist endpoint
+      try {
+        console.log('Legacy /api/watchlist endpoint called - fetching default watchlist');
+        
+        // Get all user's watchlists
+        const watchlists = await storage.getWatchlistsByUser(req.user.id);
+        
+        // If no watchlists exist, create a default one with the /api/watchlists/default endpoint
+        if (watchlists.length === 0) {
+          console.log('No watchlists found, redirecting to default watchlist creation');
+          const defaultResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/watchlists/default`, {
             headers: {
               'Authorization': req.headers.authorization || '',
             },
@@ -1926,15 +1929,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (defaultResponse.ok) {
             const defaultWatchlist = await defaultResponse.json();
             // Return the items from the default watchlist
+            console.log(`Created default watchlist with ${defaultWatchlist.items?.length || 0} items`);
             return res.json(defaultWatchlist.items || []);
+          } else {
+            console.error('Error response from default watchlist creation:', await defaultResponse.text());
+            return res.json([]);
           }
-        } catch (defaultError) {
-          console.error('Error fetching default watchlist:', defaultError);
-          // Continue with empty array if default watchlist fetch fails
         }
+        
+        // Find the default watchlist or use the first one
+        const defaultWatchlist = watchlists.find(w => w.isDefault) || watchlists[0];
+        
+        // Get items for this watchlist
+        const items = await storage.getWatchlistItemsByWatchlistId(defaultWatchlist.id);
+        console.log(`Found ${items.length} items in default/first watchlist (ID: ${defaultWatchlist.id})`);
+        
+        return res.json(items);
+      } catch (error) {
+        console.error('Error in legacy watchlist endpoint:', error);
+        return res.json([]);
       }
-      
-      res.json(watchlistItems);
     } catch (error) {
       console.error('Get watchlist error:', error);
       res.status(500).json({ message: 'Error fetching watchlist' });
