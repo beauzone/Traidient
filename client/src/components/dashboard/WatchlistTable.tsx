@@ -34,14 +34,21 @@ import { queryClient } from "@/lib/queryClient";
 
 interface WatchlistItem {
   id: number;
+  userId: number;
+  watchlistId: number;
   symbol: string;
   name: string;
-  lastPrice: string;
-  change: string;
-  changePercent: string;
-  volume: string;
-  marketCap: string;
-  isPositive: boolean;
+  exchange: string;
+  type: string;
+  displayOrder: number;
+  createdAt: string;
+  // Optional fields that we'll need to get from the market data service
+  lastPrice?: string;
+  change?: string;
+  changePercent?: string;
+  volume?: string;
+  marketCap?: string;
+  isPositive?: boolean;
 }
 
 interface AddWatchlistFormData {
@@ -256,23 +263,23 @@ const WatchlistTable = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{item.lastPrice}</div>
+                      <div className="text-sm">{item.lastPrice || '—'}</div>
                     </TableCell>
                     <TableCell>
                       <div className={`text-sm font-medium ${item.isPositive ? 'text-secondary' : 'text-negative'}`}>
-                        {item.change}
+                        {item.change || '—'}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className={`text-sm font-medium ${item.isPositive ? 'text-secondary' : 'text-negative'}`}>
-                        {item.changePercent}
+                        {item.changePercent || '—'}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{item.volume}</div>
+                      <div className="text-sm">{item.volume || '—'}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{item.marketCap}</div>
+                      <div className="text-sm">{item.marketCap || '—'}</div>
                     </TableCell>
                     <TableCell className="space-x-3">
                       <Button variant="link" size="sm">Trade</Button>
