@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { getData, postData, updateData, deleteData } from '@/lib/api';
 import type { Watchlist, WatchlistItem } from '@shared/schema';
 import { toast } from '@/hooks/use-toast';
 
@@ -104,13 +104,10 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   const createWatchlistMutation = useMutation({
     mutationFn: async (name: string) => {
       console.log('Creating watchlist with data:', { name });
-      const response = await apiRequest('/api/watchlists', {
-        method: 'POST',
-        data: { 
-          name,
-          isDefault: false,
-          displayOrder: 0
-        }
+      const response = await postData('/api/watchlists', { 
+        name,
+        isDefault: false,
+        displayOrder: 0
       });
       return response;
     },
@@ -134,10 +131,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Update watchlist mutation
   const updateWatchlistMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: Partial<Watchlist> }) => {
-      const response = await apiRequest(`/api/watchlists/${id}`, {
-        method: 'PUT',
-        data
-      });
+      const response = await updateData(`/api/watchlists/${id}`, data);
       return response;
     },
     onSuccess: () => {
@@ -159,9 +153,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Delete watchlist mutation
   const deleteWatchlistMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest(`/api/watchlists/${id}`, {
-        method: 'DELETE'
-      });
+      const response = await deleteData(`/api/watchlists/${id}`);
       return response;
     },
     onSuccess: (_, id) => {
@@ -201,10 +193,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
         displayOrder?: number;
       } 
     }) => {
-      const response = await apiRequest(`/api/watchlists/${watchlistId}/items`, {
-        method: 'POST',
-        data: item
-      });
+      const response = await postData(`/api/watchlists/${watchlistId}/items`, item);
       return response;
     },
     onSuccess: (_, { watchlistId }) => {
@@ -235,9 +224,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Remove item from watchlist mutation
   const removeFromWatchlistMutation = useMutation({
     mutationFn: async ({ watchlistId, itemId }: { watchlistId: number, itemId: number }) => {
-      const response = await apiRequest(`/api/watchlists/${watchlistId}/items/${itemId}`, {
-        method: 'DELETE'
-      });
+      const response = await deleteData(`/api/watchlists/${watchlistId}/items/${itemId}`);
       return response;
     },
     onSuccess: () => {
@@ -259,9 +246,8 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Reorder watchlists mutation
   const reorderWatchlistsMutation = useMutation({
     mutationFn: async (orderedLists: { id: number, displayOrder: number }[]) => {
-      const response = await apiRequest('/api/watchlists/reorder', {
-        method: 'POST',
-        data: { lists: orderedLists }
+      const response = await postData('/api/watchlists/reorder', { 
+        lists: orderedLists 
       });
       return response;
     },
@@ -286,9 +272,8 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
       watchlistId: number, 
       orderedItems: { id: number, displayOrder: number }[] 
     }) => {
-      const response = await apiRequest(`/api/watchlists/${watchlistId}/reorder`, {
-        method: 'POST',
-        data: { items: orderedItems }
+      const response = await postData(`/api/watchlists/${watchlistId}/reorder`, {
+        items: orderedItems
       });
       return response;
     },
@@ -354,9 +339,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Default watchlist mutation
   const createDefaultWatchlistMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/watchlists/default', {
-        method: 'GET'
-      });
+      const response = await getData('/api/watchlists/default');
       return response;
     },
     onSuccess: (data) => {

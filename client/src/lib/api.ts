@@ -1,19 +1,30 @@
 import { apiRequest as queryApiRequest } from "./queryClient";
 
+// Define the RequestOptions type to match queryClient.ts
+interface RequestOptions extends RequestInit {
+  data?: unknown;
+}
+
 /**
  * Make an API request using fetch with proper error handling
  */
 export async function apiRequest<T = any>(
+  method: string,
   url: string,
-  options?: RequestInit,
   data?: unknown
 ): Promise<T> {
   try {
+    // Create options object with method and data
+    const options: RequestOptions = {
+      method,
+      data
+    };
+    
     // The queryApiRequest function already parses the JSON response
-    const response = await queryApiRequest(url, options, data);
+    const response = await queryApiRequest(url, options);
     return response as T;
   } catch (error) {
-    console.error(`API error (${options?.method || 'GET'} ${url}):`, error);
+    console.error(`API error (${method} ${url}):`, error);
     throw error;
   }
 }
@@ -22,7 +33,7 @@ export async function apiRequest<T = any>(
  * Fetch data from an API endpoint
  */
 export async function fetchData<T = any>(url: string): Promise<T> {
-  return apiRequest<T>(url, { method: "GET" } as RequestInit);
+  return apiRequest<T>("GET", url);
 }
 
 /**
@@ -36,14 +47,14 @@ export async function getData<T = any>(url: string): Promise<T> {
  * Post data to an API endpoint
  */
 export async function postData<T = any>(url: string, data: unknown): Promise<T> {
-  return apiRequest<T>(url, { method: "POST" } as RequestInit, data);
+  return apiRequest<T>("POST", url, data);
 }
 
 /**
  * Update data at an API endpoint
  */
 export async function updateData<T = any>(url: string, data: unknown): Promise<T> {
-  return apiRequest<T>(url, { method: "PUT" } as RequestInit, data);
+  return apiRequest<T>("PUT", url, data);
 }
 
 /**
@@ -52,7 +63,7 @@ export async function updateData<T = any>(url: string, data: unknown): Promise<T
  */
 export async function deleteData<T = any>(url: string): Promise<T> {
   try {
-    return await apiRequest<T>(url, { method: "DELETE" } as RequestInit);
+    return await apiRequest<T>("DELETE", url);
   } catch (error: any) {
     // If it's a 404 error for a DELETE request, consider it a success
     // (the resource was already deleted or doesn't exist)

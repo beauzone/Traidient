@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, ReactNode } from "react";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, updateData } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 
 interface User {
@@ -230,7 +230,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const updateUser = async (userData: Partial<User>) => {
     try {
       // The apiRequest in lib/api.ts already processes the response to JSON
-      const updatedUser = await apiRequest('PUT', '/api/users/profile', userData);
+      const updatedUser = await updateData('/api/users/profile', userData);
       setUser(updatedUser);
     } catch (error) {
       console.error('User update failed:', error);
