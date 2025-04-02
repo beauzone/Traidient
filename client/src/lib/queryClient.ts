@@ -7,15 +7,22 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Adding custom RequestOptions interface with data property
+interface RequestOptions extends RequestInit {
+  data?: unknown;
+}
+
 export async function apiRequest(
   url: string,
-  options?: RequestInit,
-  data?: unknown | undefined,
+  options?: RequestOptions,
 ): Promise<any> { // Change return type to any to handle JSON responses
   // TEMPORARY: In demo mode, we don't actually need to send tokens since auth is bypassed
   // But we'll still include the demo token in the headers for consistency
   const token = localStorage.getItem('token');
   console.log(`API Request to ${url} - Token exists: ${!!token}`);
+  
+  // Extract data from options
+  const data = options?.data;
   
   // Create headers object
   const defaultHeaders: Record<string, string> = {};
@@ -36,6 +43,7 @@ export async function apiRequest(
   const headers = { ...defaultHeaders, ...headersFromOptions };
 
   console.log('Request headers:', headers);
+  if (data) console.log('Request data:', data);
 
   try {
     const res = await fetch(url, {

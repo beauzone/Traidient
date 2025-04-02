@@ -91,18 +91,26 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
     // If no regular watchlists but we have a default one
     else if (watchlists.length === 0 && defaultWatchlist && !currentWatchlist) {
-      setCurrentWatchlist(defaultWatchlist);
-      // Invalidate watchlists query to include the new default
-      queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      // Make sure we have a valid WatchlistWithItems to set
+      if (defaultWatchlist && typeof defaultWatchlist === 'object') {
+        setCurrentWatchlist(defaultWatchlist as WatchlistWithItems);
+        // Invalidate watchlists query to include the new default
+        queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
+      }
     }
   }, [watchlists, currentWatchlist, defaultWatchlist, queryClient]);
   
   // Create watchlist mutation
   const createWatchlistMutation = useMutation({
     mutationFn: async (name: string) => {
+      console.log('Creating watchlist with data:', { name });
       const response = await apiRequest('/api/watchlists', {
         method: 'POST',
-        data: { name }
+        data: { 
+          name,
+          isDefault: false,
+          displayOrder: 0
+        }
       });
       return response;
     },
@@ -114,6 +122,7 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
       });
     },
     onError: (error: any) => {
+      console.error('Error details:', error);
       toast({
         title: "Error creating watchlist",
         description: error.message || "Failed to create watchlist",
