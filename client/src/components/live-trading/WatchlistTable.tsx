@@ -24,6 +24,7 @@ import { X, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchData, postData, deleteData } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import { WatchlistSelector } from "@/components/watchlist/WatchlistSelector";
 
 interface WatchlistItem {
   id: number;
@@ -184,6 +185,9 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
     <Card className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-lg font-medium">Watchlists</h3>
+        <div className="flex items-center space-x-2">
+          <WatchlistSelector />
+        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
