@@ -234,6 +234,15 @@ router.put('/:id', async (req: any, res) => {
       });
     }
 
+    // Make sure we have at least one field to update
+    if (Object.keys(validation.data).length === 0) {
+      return res.status(400).json({
+        error: 'No data provided for update'
+      });
+    }
+
+    console.log('Updating watchlist with data:', validation.data);
+
     // If making this watchlist default, unset default on all others
     if (validation.data.isDefault) {
       await db.update(watchlists)
@@ -421,6 +430,15 @@ router.put('/:watchlistId/items/:itemId', async (req: any, res) => {
         details: validation.error.format()
       });
     }
+
+    // Make sure we have at least one field to update
+    if (Object.keys(validation.data).length === 0) {
+      return res.status(400).json({
+        error: 'No data provided for update'
+      });
+    }
+
+    console.log('Updating watchlist item with data:', validation.data);
 
     const [updatedItem] = await db.update(watchlist)
       .set(validation.data)

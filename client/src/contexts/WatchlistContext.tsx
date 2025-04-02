@@ -16,7 +16,13 @@ interface WatchlistContextType {
   createWatchlist: (name: string) => Promise<Watchlist>;
   updateWatchlist: (id: number, data: Partial<Watchlist>) => Promise<Watchlist>;
   deleteWatchlist: (id: number) => Promise<void>;
-  addToWatchlist: (watchlistId: number, item: Omit<WatchlistItem, 'id' | 'userId' | 'watchlistId' | 'createdAt' | 'displayOrder'>) => Promise<WatchlistItem>;
+  addToWatchlist: (watchlistId: number, item: {
+    symbol: string;
+    name: string;
+    exchange: string;
+    type: string;
+    displayOrder?: number;
+  }) => Promise<WatchlistItem>;
   removeFromWatchlist: (watchlistId: number, itemId: number) => Promise<void>;
   reorderWatchlists: (orderedLists: { id: number, displayOrder: number }[]) => Promise<Watchlist[]>;
   reorderWatchlistItems: (watchlistId: number, orderedItems: { id: number, displayOrder: number }[]) => Promise<WatchlistItem[]>;
@@ -178,7 +184,13 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
       item 
     }: { 
       watchlistId: number, 
-      item: Omit<WatchlistItem, 'id' | 'userId' | 'watchlistId' | 'createdAt' | 'displayOrder'> 
+      item: { 
+        symbol: string;
+        name: string;
+        exchange: string;
+        type: string;
+        displayOrder?: number;
+      } 
     }) => {
       const response = await apiRequest(`/api/watchlists/${watchlistId}/items`, {
         method: 'POST',
@@ -301,7 +313,13 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Add item to watchlist
   const addToWatchlist = async (
     watchlistId: number, 
-    item: Omit<WatchlistItem, 'id' | 'userId' | 'watchlistId' | 'createdAt' | 'displayOrder'>
+    item: {
+      symbol: string;
+      name: string;
+      exchange: string;
+      type: string;
+      displayOrder?: number;
+    }
   ) => {
     return addToWatchlistMutation.mutateAsync({ watchlistId, item });
   };

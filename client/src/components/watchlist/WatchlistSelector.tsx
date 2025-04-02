@@ -62,7 +62,14 @@ export const WatchlistSelector = () => {
     if (!activeWatchlist || !editWatchlistName.trim()) return;
     
     try {
-      await updateWatchlist(activeWatchlist.id, { name: editWatchlistName.trim() });
+      // Make sure we're sending valid update data
+      const updateData = {
+        name: editWatchlistName.trim()
+      };
+      
+      console.log('Updating watchlist:', activeWatchlist.id, 'with data:', updateData);
+      await updateWatchlist(activeWatchlist.id, updateData);
+      
       setEditWatchlistName('');
       setEditDialogOpen(false);
       setActiveWatchlist(null);

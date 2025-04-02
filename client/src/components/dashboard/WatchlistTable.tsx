@@ -71,7 +71,8 @@ const WatchlistTable = () => {
         symbol: data.symbol,
         name: data.name,
         exchange: data.exchange,
-        type: data.type
+        type: data.type,
+        displayOrder: watchlist.length // Add at the end of the list
       });
     },
     onSuccess: () => {

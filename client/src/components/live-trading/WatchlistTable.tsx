@@ -153,11 +153,13 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
       
       console.log('Adding to watchlist:', currentWatchlist.id, data);
       
+      // Include only the required fields
       return addToWatchlistContext(currentWatchlist.id, {
         symbol: data.symbol,
         name: data.name,
         exchange: data.exchange,
-        type: data.type
+        type: data.type,
+        displayOrder: watchlist.length // Add at the end of the list
       });
     },
     onSuccess: () => {

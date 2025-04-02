@@ -356,6 +356,7 @@ export const watchlist = pgTable("watchlist", {
   type: varchar("type", { length: 20 }).notNull(), // 'stock', 'crypto', 'etf', etc.
   displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertWatchlistItemSchema = createInsertSchema(watchlist).pick({

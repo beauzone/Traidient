@@ -123,7 +123,8 @@ export const WatchlistTable = () => {
         symbol: newSymbol.trim().toUpperCase(),
         name: newSymbol.trim().toUpperCase(), // We can update this with company name later
         type: symbolType,
-        exchange: exchange
+        exchange: exchange,
+        displayOrder: currentWatchlist.items.length // Add at the end of the list
       });
       
       setNewSymbol('');
