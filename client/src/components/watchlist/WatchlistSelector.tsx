@@ -43,10 +43,15 @@ export const WatchlistSelector = () => {
     if (!newWatchlistName.trim()) return;
     
     try {
+      console.log('Creating new watchlist with name:', newWatchlistName.trim());
       const newWatchlist = await createWatchlist(newWatchlistName.trim());
       setNewWatchlistName('');
       setCreateDialogOpen(false);
-      setCurrentWatchlist(newWatchlist as any); // Type assertion as the items array will be populated on refresh
+      // Add empty items array before setting as current watchlist
+      setCurrentWatchlist({
+        ...newWatchlist,
+        items: []
+      });
     } catch (error) {
       console.error('Failed to create watchlist:', error);
     }

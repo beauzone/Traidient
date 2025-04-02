@@ -151,6 +151,8 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
         throw new Error("No watchlist selected");
       }
       
+      console.log('Adding to watchlist:', currentWatchlist.id, data);
+      
       return addToWatchlistContext(currentWatchlist.id, {
         symbol: data.symbol,
         name: data.name,
@@ -172,6 +174,9 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
       });
     },
     onError: (error) => {
+      // Log detailed error for debugging
+      console.error("Error adding symbol to watchlist:", error);
+      
       toast({
         title: "Failed to add symbol",
         description: error instanceof Error ? error.message : "An error occurred.",
@@ -199,6 +204,9 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
       });
     },
     onError: (error) => {
+      // Log the error to help with debugging
+      console.error("Error removing symbol from watchlist:", error);
+      
       toast({
         title: "Failed to remove symbol",
         description: error instanceof Error ? error.message : "An error occurred.",
