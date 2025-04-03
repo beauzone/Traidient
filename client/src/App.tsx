@@ -43,7 +43,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   }
 
   if (!isAuthenticated) {
-    return <Redirect to="/login" />;
+    return <Redirect to="/api/login" />;
   }
 
   return <Component {...rest} />;
@@ -187,14 +187,13 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AccountProvider>
-          <WatchlistProvider>
-            <AppRoutes />
-            <Toaster />
-          </WatchlistProvider>
-        </AccountProvider>
-      </AuthProvider>
+      {/* Note: AuthProvider is no longer needed since we're using the Replit auth directly */}
+      <AccountProvider>
+        <WatchlistProvider>
+          <AppRoutes />
+          <Toaster />
+        </WatchlistProvider>
+      </AccountProvider>
     </QueryClientProvider>
   );
 }

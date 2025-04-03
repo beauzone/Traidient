@@ -73,6 +73,16 @@ app.use((req, res, next) => {
   const preferredPort = 5000;
   const fallbackPort = 5001;
   
+  // Kill any existing process on port 5000
+  try {
+    const killCommand = `lsof -t -i:${preferredPort} | xargs kill -9 || true`;
+    log(`Attempting to release port ${preferredPort}: ${killCommand}`);
+    require('child_process').execSync(killCommand);
+    log(`Port ${preferredPort} released successfully`);
+  } catch (e) {
+    log(`Warning: Failed to release port ${preferredPort}: ${e}`);
+  }
+  
   // Try to listen on the preferred port first
   server.listen({
     port: preferredPort,

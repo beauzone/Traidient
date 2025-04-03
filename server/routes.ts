@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { Router } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateStrategy, explainStrategy, optimizeStrategy, generateScreen, explainScreen } from "./openai";
 import { AlpacaAPI } from "./alpaca";
 import { YahooFinanceAPI } from "./yahoo";
@@ -19,6 +20,7 @@ import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
 import { watchlistRoutes } from './routes/watchlistRoutes';
+import { type AuthRequest, createAuthHandler } from './middleware/auth';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -71,15 +73,12 @@ const authMiddleware = async (req: Request, res: Response, next: Function) => {
   }
 };
 
-// Type for requests with user
-interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    [key: string]: any;
-  };
-}
+// Using AuthRequest from middleware/auth.ts
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication with Replit
+  await setupAuth(app);
+  
   const httpServer = createServer(app);
   
   // Initialize WebSocket server on a different path than Vite's HMR
@@ -577,12 +576,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/auth/me', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const user = await storage.getUser(req.user.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -599,11 +594,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // USER ROUTES
-  app.put('/api/users/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.put('/api/users/profile', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
       
       // Update user profile
       const updatedUser = await storage.updateUser(req.user.id, req.body);
@@ -619,13 +611,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Update profile error:', error);
       res.status(500).json({ message: 'Error updating user profile' });
     }
-  });
+  }));
 
-  app.put('/api/users/settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.put('/api/users/settings', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
       
       // Update user settings
       const updatedUser = await storage.updateUser(req.user.id, {
@@ -641,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Update settings error:', error);
       res.status(500).json({ message: 'Error updating user settings' });
     }
-  });
+  }));
 
   // API INTEGRATION ROUTES
   app.get('/api/integrations', authMiddleware, async (req: AuthRequest, res: Response) => {

@@ -43,8 +43,13 @@ import {
   SymbolInsight,
   InsertScreener
 } from "@shared/schema";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 
 export interface IStorage {
+  // Session Management
+  sessionStore: session.SessionStore;
+  
   // User management
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -157,6 +162,20 @@ import { db } from './db';
 import { eq, and, desc, SQL, asc } from 'drizzle-orm';
 
 export class DatabaseStorage implements IStorage {
+  // Session Store
+  sessionStore: session.SessionStore;
+  
+  constructor() {
+    // Initialize PostgreSQL session store
+    const PostgresStore = connectPgSimple(session);
+    this.sessionStore = new PostgresStore({
+      conString: process.env.DATABASE_URL,
+      schemaName: 'public', // Using the default schema
+      tableName: 'sessions', // You can customize this table name
+      createTableIfMissing: true,
+    });
+  }
+
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));

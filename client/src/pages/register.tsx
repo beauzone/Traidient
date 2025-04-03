@@ -1,7 +1,15 @@
-import { Link } from "wouter";
-import RegisterForm from "@/components/auth/RegisterForm";
+import { Link, useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 const Register = () => {
+  const [_, navigate] = useLocation();
+
+  useEffect(() => {
+    // Redirect to Replit login on component mount
+    window.location.href = "/api/login";
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col justify-center bg-background px-6 py-12">
       <div className="mx-auto w-full max-w-md">
@@ -18,11 +26,16 @@ const Register = () => {
           Create Your TradeBrain AI Account
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          Sign up to start building automated trading strategies
+          Redirecting to Replit authentication...
         </p>
         
-        <div className="mt-8">
-          <RegisterForm />
+        <div className="mt-8 flex justify-center">
+          <Button 
+            className="w-full" 
+            onClick={() => window.location.href = "/api/login"}
+          >
+            Sign up with Replit
+          </Button>
         </div>
         
         <p className="mt-10 text-center text-sm text-muted-foreground">
