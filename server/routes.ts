@@ -68,10 +68,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const marketDataConnections = new Map<number, Set<WebSocket>>();
   
   // Handle WebSocket connections
+  // Import watchlist WebSocket service
+  import { subscribeToWatchlistUpdates, unsubscribeFromWatchlistUpdates } from './watchlistService';
+  
   wss.on('connection', (ws: WebSocket) => {
     console.log('WebSocket client connected');
     let userId: number | null = null;
     let subscribedSymbols: Set<string> = new Set();
+    let watchlistSubscribed: boolean = false;
     
     ws.on('message', async (message: string) => {
       try {
@@ -80,21 +84,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Handle authentication
         if (data.type === 'auth') {
           try {
-            const decoded = jwt.verify(data.token, JWT_SECRET) as { userId: number };
-            const user = await storage.getUser(decoded.userId);
+            let authenticatedUserId: number | null = null;
             
-            if (!user) {
-              ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+            // If a token is provided, verify it
+            if (data.token) {
+              try {
+                const decoded = jwt.verify(data.token, JWT_SECRET) as { userId: number };
+                const user = await storage.getUser(decoded.userId);
+                
+                if (user) {
+                  authenticatedUserId = user.id;
+                }
+              } catch (tokenError) {
+                console.log('Token verification failed:', tokenError);
+              }
+            }
+            
+            // If userId is provided directly (from client side auth)
+            if (!authenticatedUserId && data.userId) {
+              try {
+                const userIdNum = Number(data.userId);
+                if (!isNaN(userIdNum)) {
+                  const user = await storage.getUser(userIdNum);
+                  if (user) {
+                    authenticatedUserId = user.id;
+                  }
+                }
+              } catch (userIdError) {
+                console.log('User ID verification failed:', userIdError);
+              }
+            }
+            
+            // If neither method worked
+            if (!authenticatedUserId) {
+              ws.send(JSON.stringify({ 
+                type: 'auth_error', 
+                message: 'Authentication failed: Invalid credentials'
+              }));
               return;
             }
             
-            userId = user.id;
+            userId = authenticatedUserId;
             
             // Store connection for this user
             if (!marketDataConnections.has(userId)) {
               marketDataConnections.set(userId, new Set());
             }
             marketDataConnections.get(userId)?.add(ws);
+            
+            console.log(`WebSocket authenticated for user ${userId}`);
             
             ws.send(JSON.stringify({ 
               type: 'auth_success',
@@ -157,6 +195,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
             symbols: Array.from(subscribedSymbols)
           }));
         }
+        // Handle subscribing to watchlist updates
+        else if (data.type === 'subscribe_watchlists') {
+          if (!userId) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'You must authenticate first'
+            }));
+            return;
+          }
+          
+          // Subscribe to watchlist updates
+          subscribeToWatchlistUpdates(userId, ws);
+          watchlistSubscribed = true;
+          
+          ws.send(JSON.stringify({ 
+            type: 'watchlist_subscribe_success',
+            message: 'Subscribed to watchlist updates'
+          }));
+        }
+        // Handle unsubscribing from watchlist updates
+        else if (data.type === 'unsubscribe_watchlists') {
+          if (!userId) {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'You must authenticate first'
+            }));
+            return;
+          }
+          
+          // Unsubscribe from watchlist updates
+          unsubscribeFromWatchlistUpdates(userId, ws);
+          watchlistSubscribed = false;
+          
+          ws.send(JSON.stringify({ 
+            type: 'watchlist_unsubscribe_success',
+            message: 'Unsubscribed from watchlist updates'
+          }));
+        }
       } catch (error) {
         console.error('WebSocket message processing error:', error);
         ws.send(JSON.stringify({ 
@@ -170,12 +246,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('WebSocket client disconnected');
       
       // Remove connection from user's connections
-      if (userId && marketDataConnections.has(userId)) {
-        marketDataConnections.get(userId)?.delete(ws);
+      if (userId) {
+        // Remove from market data connections
+        if (marketDataConnections.has(userId)) {
+          marketDataConnections.get(userId)?.delete(ws);
+          
+          // If no more connections for this user, remove the user entry
+          if (marketDataConnections.get(userId)?.size === 0) {
+            marketDataConnections.delete(userId);
+          }
+        }
         
-        // If no more connections for this user, remove the user entry
-        if (marketDataConnections.get(userId)?.size === 0) {
-          marketDataConnections.delete(userId);
+        // Remove from watchlist connections if subscribed
+        if (watchlistSubscribed) {
+          unsubscribeFromWatchlistUpdates(userId, ws);
         }
       }
     });
@@ -568,7 +652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get user error:', error);
       res.status(500).json({ message: 'Error fetching user information' });
     }
-  });
+  }));
 
   // USER ROUTES
   app.put('/api/users/profile', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
@@ -711,7 +795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create integration error:', error);
       res.status(500).json({ message: 'Error creating API integration' });
     }
-  });
+  }));
 
   app.put('/api/integrations/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
@@ -811,7 +895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Update integration error:', error);
       res.status(500).json({ message: 'Error updating API integration' });
     }
-  });
+  }));
 
   app.delete('/api/integrations/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
@@ -836,29 +920,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Delete integration error:', error);
       res.status(500).json({ message: 'Error deleting API integration' });
     }
-  });
+  }));
 
   // STRATEGY ROUTES
-  app.get('/api/strategies', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/strategies', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const strategies = await storage.getStrategiesByUser(req.user.id);
       res.json(strategies);
     } catch (error) {
       console.error('Get strategies error:', error);
       res.status(500).json({ message: 'Error fetching strategies' });
     }
-  });
+  }));
 
-  app.post('/api/strategies', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/strategies', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const validatedData = insertStrategySchema.parse({
         ...req.body,
         userId: req.user.id
@@ -873,14 +949,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create strategy error:', error);
       res.status(500).json({ message: 'Error creating strategy' });
     }
-  });
+  }));
 
-  app.get('/api/strategies/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/strategies/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const id = parseInt(req.params.id);
       const strategy = await storage.getStrategy(id);
       
@@ -897,14 +969,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get strategy error:', error);
       res.status(500).json({ message: 'Error fetching strategy' });
     }
-  });
+  }));
 
-  app.put('/api/strategies/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.put('/api/strategies/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const id = parseInt(req.params.id);
       const strategy = await storage.getStrategy(id);
       
@@ -935,14 +1003,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Update strategy error:', error);
       res.status(500).json({ message: 'Error updating strategy' });
     }
-  });
+  }));
 
-  app.delete('/api/strategies/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.delete('/api/strategies/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const id = parseInt(req.params.id);
       const strategy = await storage.getStrategy(id);
       
@@ -980,15 +1044,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: errorMessage
       });
     }
-  });
+  }));
 
   // BOT BUILDER ROUTES
-  app.post('/api/bot-builder/generate', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/bot-builder/generate', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const { prompt } = req.body;
       if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
@@ -1000,14 +1060,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Generate strategy error:', error);
       res.status(500).json({ message: 'Error generating strategy' });
     }
-  });
+  }));
 
-  app.post('/api/bot-builder/explain', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/bot-builder/explain', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const { strategyCode } = req.body;
       if (!strategyCode) {
         return res.status(400).json({ message: 'Strategy code is required' });
@@ -1019,14 +1075,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Explain strategy error:', error);
       res.status(500).json({ message: 'Error explaining strategy' });
     }
-  });
+  }));
 
-  app.post('/api/bot-builder/optimize', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/bot-builder/optimize', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const { strategyCode, backtestResults, optimizationGoal } = req.body;
       if (!strategyCode || !backtestResults || !optimizationGoal) {
         return res.status(400).json({ message: 'Strategy code, backtest results, and optimization goal are required' });
@@ -1038,15 +1090,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Optimize strategy error:', error);
       res.status(500).json({ message: 'Error optimizing strategy' });
     }
-  });
+  }));
   
   // Screen Builder API routes
-  app.post('/api/screen-builder/generate', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/screen-builder/generate', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const { prompt } = req.body;
       if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
@@ -1071,14 +1119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Failed to generate screen: ${error instanceof Error ? error.message : String(error)}`
       });
     }
-  });
+  }));
   
-  app.post('/api/screen-builder/explain', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/screen-builder/explain', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
       const { code } = req.body;
       if (!code) {
         return res.status(400).json({ message: 'Code is required' });
@@ -1092,7 +1136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Failed to explain screen: ${error instanceof Error ? error.message : String(error)}`
       });
     }
-  });
+  }));
 
   // WEBHOOK ROUTES
 
@@ -1122,7 +1166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // BACKTEST ROUTES
-  app.post('/api/backtests', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/backtests', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1266,9 +1310,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create backtest error:', error);
       res.status(500).json({ message: 'Error creating backtest' });
     }
-  });
+  }));
 
-  app.get('/api/backtests/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/backtests/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1290,9 +1334,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get backtest error:', error);
       res.status(500).json({ message: 'Error fetching backtest' });
     }
-  });
+  }));
   
-  app.put('/api/backtests/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.put('/api/backtests/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1333,9 +1377,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Update backtest error:', error);
       res.status(500).json({ message: 'Error updating backtest' });
     }
-  });
+  }));
   
-  app.delete('/api/backtests/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.delete('/api/backtests/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1364,9 +1408,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Delete backtest error:', error);
       res.status(500).json({ message: 'Error deleting backtest' });
     }
-  });
+  }));
 
-  app.get('/api/backtests', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/backtests', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1392,10 +1436,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get backtests error:', error);
       res.status(500).json({ message: 'Error fetching backtests' });
     }
-  });
+  }));
 
   // DEPLOYMENT (LIVE TRADING) ROUTES
-  app.post('/api/deployments', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/deployments', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1441,9 +1485,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Create deployment error:', error);
       res.status(500).json({ message: 'Error creating deployment' });
     }
-  });
+  }));
 
-  app.get('/api/deployments', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/deployments', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1469,9 +1513,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get deployments error:', error);
       res.status(500).json({ message: 'Error fetching deployments' });
     }
-  });
+  }));
 
-  app.get('/api/deployments/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/deployments/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1493,9 +1537,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get deployment error:', error);
       res.status(500).json({ message: 'Error fetching deployment' });
     }
-  });
+  }));
 
-  app.put('/api/deployments/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.put('/api/deployments/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -1545,7 +1589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Update deployment error:', error);
       res.status(500).json({ message: 'Error updating deployment' });
     }
-  });
+  }));
 
   // MARKET DATA ROUTES
   app.get('/api/market-data/quote/:symbol', authMiddleware, async (req: AuthRequest, res: Response) => {

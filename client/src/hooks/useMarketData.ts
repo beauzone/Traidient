@@ -17,7 +17,7 @@ interface MarketDataState {
 }
 
 export function useMarketData() {
-  const { token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [connected, setConnected] = useState(false);
   const [marketData, setMarketData] = useState<MarketDataState>({});
   const [subscribedSymbols, setSubscribedSymbols] = useState<string[]>([]);
@@ -30,12 +30,15 @@ export function useMarketData() {
 
   // Initialize WebSocket connection
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated || !user) return;
 
     // Determine the correct WebSocket protocol based on the current page protocol
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // Important: Don't use a custom port, let the browser use the server's port automatically
+    const host = window.location.host.split(':')[0]; // Remove any port from host
+    const wsUrl = `${protocol}//${host}/ws`;
     
+    console.log(`Connecting to market data WebSocket at ${wsUrl}`);
     // Create WebSocket connection
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
@@ -46,7 +49,7 @@ export function useMarketData() {
       // Authenticate immediately upon connection
       socket.send(JSON.stringify({
         type: 'auth',
-        token
+        userId: typeof user === 'object' && user ? (user as any).id : null
       }));
     };
     
@@ -163,7 +166,7 @@ export function useMarketData() {
         socket.close();
       }
     };
-  }, [token]);
+  }, [user, isAuthenticated]);
 
   // Function to subscribe to market data for specific symbols
   const subscribeToSymbols = useCallback((symbols: string[]) => {

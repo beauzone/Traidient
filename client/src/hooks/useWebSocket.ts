@@ -11,7 +11,9 @@ export const useWebSocket = (path: string): WebSocket | null => {
     // Create and connect the WebSocket
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}${path}`;
+      // Important: Do not add any port in the URL as the browser will use the same port as the page
+      const host = window.location.host.split(':')[0]; // Get just the hostname without port
+      const wsUrl = `${protocol}//${host}${path}`;
 
       console.log(`Connecting to WebSocket at ${wsUrl}`);
       const ws = new WebSocket(wsUrl);

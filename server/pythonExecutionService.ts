@@ -125,62 +125,106 @@ async function checkAndInstallLibraries(): Promise<void> {
  * Get list of installed Python packages
  */
 async function getInstalledPackages(): Promise<Array<{ name: string, version: string }>> {
-  return new Promise((resolve, reject) => {
-    const pipProcess = spawn('pip3', ['list', '--format=json']);
+  try {
+    console.log('Checking installed Python packages...');
     
-    let outputData = '';
-    pipProcess.stdout.on('data', (data) => {
-      outputData += data.toString();
-    });
+    // First check if python3 exists in the path
+    try {
+      const { execSync } = require('child_process');
+      execSync('which python3 || echo "Not found"', { stdio: 'pipe' });
+    } catch (e) {
+      console.warn('python3 not found in PATH, using default empty packages list');
+      return [];
+    }
     
-    pipProcess.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const packages = JSON.parse(outputData);
-          resolve(packages);
-        } catch (error) {
-          reject(new Error(`Failed to parse pip list output: ${error.message}`));
+    return new Promise((resolve, reject) => {
+      // Try with python3 -m pip first, which is more reliable across environments
+      const pipProcess = spawn('python3', ['-m', 'pip', 'list', '--format=json']);
+      
+      let outputData = '';
+      pipProcess.stdout.on('data', (data) => {
+        outputData += data.toString();
+      });
+      
+      pipProcess.stderr.on('data', (data) => {
+        console.warn(`[pip warning] ${data.toString().trim()}`);
+      });
+      
+      pipProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const packages = JSON.parse(outputData);
+            console.log(`Found ${packages.length} installed Python packages`);
+            resolve(packages);
+          } catch (error: any) {
+            console.error(`Failed to parse pip list output: ${error?.message || 'Unknown error'}`);
+            resolve([]); // Return empty array instead of rejecting
+          }
+        } else {
+          console.warn(`pip list command failed with code ${code}, falling back to empty package list`);
+          resolve([]); // Return empty array instead of rejecting
         }
-      } else {
-        reject(new Error(`pip list command failed with code ${code}`));
-      }
+      });
+      
+      pipProcess.on('error', (error: any) => {
+        console.error(`Failed to execute pip: ${error?.message || 'Unknown error'}`);
+        resolve([]); // Return empty array instead of rejecting
+      });
     });
-    
-    pipProcess.on('error', (error) => {
-      reject(new Error(`Failed to execute pip: ${error.message}`));
-    });
-  });
+  } catch (error: any) {
+    console.error('Error in getInstalledPackages:', error?.message || 'Unknown error');
+    return []; // Return empty array in case of any error
+  }
 }
 
 /**
  * Install specified Python libraries
  */
 async function installLibraries(libraries: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const pipProcess = spawn('pip3', ['install', ...libraries]);
+  try {
+    console.log(`Installing Python libraries: ${libraries.join(', ')}`);
     
-    let outputData = '';
-    pipProcess.stdout.on('data', (data) => {
-      outputData += data.toString();
-      console.log(`[pip] ${data.toString().trim()}`);
-    });
+    // First check if python3 exists in the path
+    try {
+      const { execSync } = require('child_process');
+      execSync('which python3 || echo "Not found"', { stdio: 'pipe' });
+    } catch (e) {
+      console.warn('python3 not found in PATH, cannot install libraries');
+      return; // Exit silently instead of rejecting
+    }
     
-    pipProcess.stderr.on('data', (data) => {
-      console.error(`[pip error] ${data.toString().trim()}`);
+    return new Promise((resolve, reject) => {
+      // Use python -m pip which is more reliable across environments
+      const pipProcess = spawn('python3', ['-m', 'pip', 'install', ...libraries]);
+      
+      pipProcess.stdout.on('data', (data) => {
+        console.log(`[pip] ${data.toString().trim()}`);
+      });
+      
+      pipProcess.stderr.on('data', (data) => {
+        console.warn(`[pip warning] ${data.toString().trim()}`);
+      });
+      
+      pipProcess.on('close', (code) => {
+        if (code === 0) {
+          console.log(`Successfully installed libraries: ${libraries.join(', ')}`);
+          resolve();
+        } else {
+          console.error(`pip install command failed with code ${code}`);
+          resolve(); // Resolve anyway to prevent app crash
+        }
+      });
+      
+      pipProcess.on('error', (error: any) => {
+        console.error(`Failed to execute pip: ${error?.message || 'Unknown error'}`);
+        resolve(); // Resolve anyway to prevent app crash
+      });
     });
-    
-    pipProcess.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`pip install command failed with code ${code}`));
-      }
-    });
-    
-    pipProcess.on('error', (error) => {
-      reject(new Error(`Failed to execute pip: ${error.message}`));
-    });
-  });
+  } catch (error: any) {
+    console.error('Error in installLibraries:', error?.message || 'Unknown error');
+    // Resolve silently instead of rejecting to prevent app crash
+    return Promise.resolve();
+  }
 }
 
 /**

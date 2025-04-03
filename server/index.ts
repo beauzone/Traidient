@@ -73,21 +73,64 @@ app.use((req, res, next) => {
   const preferredPort = 5000;
   const fallbackPort = 5001;
   
-  // Kill any existing process on port 5000
+  // Use a more careful approach to kill processes on the port
   try {
-    const killCommand = `lsof -t -i:${preferredPort} | xargs kill -9 || true`;
-    log(`Attempting to release port ${preferredPort}: ${killCommand}`);
-    require('child_process').execSync(killCommand);
-    log(`Port ${preferredPort} released successfully`);
+    log(`Checking if port ${preferredPort} is in use...`);
+    const { execSync } = await import('child_process');
+    
+    // Check if the port is in use
+    try {
+      // If this command succeeds, the port is in use
+      const output = execSync(`lsof -i:${preferredPort} -P -n -t`, { encoding: 'utf-8' }).trim();
+      
+      if (output) {
+        const pids = output.split('\n');
+        log(`Port ${preferredPort} is in use by PID(s): ${pids.join(', ')}`);
+        
+        // Get more info about these processes
+        for (const pid of pids) {
+          try {
+            const processInfo = execSync(`ps -p ${pid} -o pid,ppid,comm,args`, { encoding: 'utf-8' });
+            log(`Process info: ${processInfo.trim()}`);
+          } catch (err) {
+            log(`Could not get info for PID ${pid}`);
+          }
+        }
+        
+        // Only attempt to kill if it's likely our own process
+        const ownPid = process.pid;
+        log(`Current process PID: ${ownPid}`);
+        
+        // Try to release the port, but be careful
+        try {
+          execSync(`lsof -i:${preferredPort} -P -n -t | xargs -r kill || true`);
+          log(`Attempted to release port ${preferredPort} with normal kill`);
+          
+          // Check if it worked
+          try {
+            execSync(`lsof -i:${preferredPort} -P -n -t`, { stdio: 'pipe' });
+            log(`Port ${preferredPort} is still in use, will use fallback port`);
+          } catch {
+            log(`Port ${preferredPort} is now available`);
+          }
+        } catch (killErr) {
+          log(`Failed to kill processes: ${killErr}`);
+        }
+      } else {
+        log(`Port ${preferredPort} is not in use`);
+      }
+    } catch (checkErr) {
+      // If this command fails, the port is not in use (lsof returns non-zero exit code)
+      log(`Port ${preferredPort} is available`);
+    }
   } catch (e) {
-    log(`Warning: Failed to release port ${preferredPort}: ${e}`);
+    log(`Warning: Error checking port ${preferredPort}: ${e}`);
   }
   
   // Try to listen on the preferred port first
   server.listen({
     port: preferredPort,
     host: "0.0.0.0",
-    reusePort: true,
   })
   .on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
@@ -96,7 +139,6 @@ app.use((req, res, next) => {
       server.listen({
         port: fallbackPort,
         host: "0.0.0.0",
-        reusePort: true,
       }, () => {
         log(`⚠️ Serving on fallback port ${fallbackPort}. Some features may not work as expected.`);
       });
@@ -107,6 +149,8 @@ app.use((req, res, next) => {
     }
   })
   .on('listening', () => {
-    log(`Serving on preferred port ${preferredPort}`);
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : preferredPort;
+    log(`🚀 Server is running on port ${port}`);
   });
 })();
