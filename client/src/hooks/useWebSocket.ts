@@ -36,43 +36,53 @@ export const useWebSocket = (
 
   // Add auth token to URL if needed and available
   const getWebSocketUrl = useCallback(() => {
-    // In Replit, the WebSocket endpoint is on the same host/domain as the application
-    // We need to properly form the WebSocket URL using protocol, host, and path
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    
-    // Add a cache-busting parameter to avoid caching issues
-    const cacheBuster = `_=${Date.now()}`;
-    
-    // Connect directly to the Express server's WebSocket endpoint
-    // Note: path must match server's WebSocketServer configuration (path: '/ws')
-    let wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
-    
-    // Log the window.location object for debugging
-    console.log('Current location:', {
-      protocol: window.location.protocol,
-      host: window.location.host, 
-      hostname: window.location.hostname,
-      origin: window.location.origin,
-      href: window.location.href
-    });
-    
-    // Include token parameters if required and available
-    if (includeAuthToken && isAuthenticated && user) {
-      // If user is authenticated with Replit Auth, cookies will handle auth
-      // But we need to add a parameter to indicate this path should be authenticated
-      // Append userId parameter for server-side validation
-      wsUrl += `&userId=${user.id}`;
+    try {
+      // In Replit, the WebSocket endpoint is on the same host/domain as the application
+      // We need to properly form the WebSocket URL using protocol, host, and path
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       
-      // Also check for JWT token in localStorage as fallback
-      const token = localStorage.getItem('token');
-      if (token) {
-        wsUrl += `&token=${encodeURIComponent(token)}`;
+      // Use the host directly without specifying a port
+      // This lets the browser handle port resolution correctly in Replit environment
+      const host = window.location.host;
+      
+      // Add a cache-busting parameter to avoid caching issues
+      const cacheBuster = `_=${Date.now()}`;
+      
+      // Connect directly to the Express server's WebSocket endpoint
+      // Note: path must match server's WebSocketServer configuration (path: '/ws')
+      // Important: First query param uses ? while additional params use &
+      let wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
+      
+      // Log the window.location object for debugging
+      console.log('Current location:', {
+        protocol: window.location.protocol,
+        host: window.location.host, 
+        hostname: window.location.hostname,
+        port: window.location.port,
+        origin: window.location.origin,
+        href: window.location.href
+      });
+      
+      // Include token parameters if required and available
+      if (includeAuthToken && isAuthenticated && user) {
+        // Append userId parameter for server-side validation
+        wsUrl += `&userId=${user.id}`;
+        
+        // Also check for JWT token in localStorage as fallback
+        const token = localStorage.getItem('token');
+        if (token) {
+          wsUrl += `&token=${encodeURIComponent(token)}`;
+        }
       }
+      
+      console.log(`WebSocket URL constructed: ${wsUrl}`);
+      return wsUrl;
+    } catch (error) {
+      console.error('Error building WebSocket URL:', error);
+      // Fallback to a simple URL ensuring no port is specified
+      // (let the browser determine the correct port based on host)
+      return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
     }
-    
-    console.log(`WebSocket URL constructed: ${wsUrl}`);
-    return wsUrl;
   }, [includeAuthToken, isAuthenticated, user]);
 
   // Function to send data through the WebSocket

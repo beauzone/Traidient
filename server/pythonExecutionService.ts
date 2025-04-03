@@ -38,41 +38,32 @@ const REQUIRED_LIBRARIES = [
  * This should be called at application startup
  */
 export async function initPythonEnvironment(): Promise<void> {
+  // Always set Python path immediately to not block startup
+  detectedPythonPath = 'python3';
+  
   try {
     // Ensure temp script directory exists
     await fs.mkdir(TEMP_SCRIPT_DIR, { recursive: true });
     
-    // Check Python installation with timeout
-    const checkTimeout = new Promise<{installed: boolean, version: string}>((resolve) => {
-      setTimeout(() => {
-        console.log('Python detection timed out, using default path');
-        // Use a default path to avoid blocking server startup
-        detectedPythonPath = 'python3';
-        resolve({ installed: true, version: 'unknown' });
-      }, 3000); // 3 second timeout
-    });
+    console.log('Using default Python path for faster startup');
     
-    // Race between actual check and timeout
-    const pythonResult = await Promise.race([
-      checkPythonInstallation(),
-      checkTimeout
-    ]);
+    // Run Python detection in the background after server is running
+    setTimeout(async () => {
+      try {
+        const pythonResult = await checkPythonInstallation();
+        if (pythonResult.installed) {
+          console.log(`Background check complete: Python ${pythonResult.version} detected`);
+        } else {
+          console.log('Background check complete: Python not found, using default path');
+        }
+      } catch (error) {
+        console.error('Background Python check failed:', error);
+      }
+    }, 15000); // Run 15 seconds after server startup
     
-    if (!pythonResult.installed) {
-      console.error('Python is not installed or not in PATH');
-      // Use a default path anyway to avoid blocking server startup
-      detectedPythonPath = 'python3';
-    } else {
-      console.log(`Python ${pythonResult.version} detected`);
-    }
-    
-    // Skip library installation during startup to speed up the process
-    // Libraries will be checked on-demand when a screener is executed
-    console.log('Python environment initialization complete (library check skipped for faster startup)');
+    console.log('Python environment initialized with default path');
   } catch (error) {
-    console.error('Failed to initialize Python environment:', error);
-    // Set default path even on error
-    detectedPythonPath = 'python3';
+    console.error('Error creating temp directory:', error);
   }
 }
 

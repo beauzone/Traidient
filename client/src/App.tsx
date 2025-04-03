@@ -31,6 +31,7 @@ import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
 import DebugPage from "@/pages/debug";
 import Webhooks from "@/pages/webhooks";
+import WebSocketTest from "@/pages/WebSocketTest"; // New WebSocket test page
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -174,6 +175,11 @@ function AppRoutes() {
       {/* Debug */}
       <Route path="/debug">
         <ProtectedRoute component={DebugPage} />
+      </Route>
+      
+      {/* WebSocket Testing */}
+      <Route path="/websocket-test">
+        <ProtectedRoute component={WebSocketTest} />
       </Route>
       
       <Route path="/">

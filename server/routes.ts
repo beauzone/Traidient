@@ -157,8 +157,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const httpServer = createServer(app);
   
-  // Initialize WebSocket server on a different path than Vite's HMR
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Initialize WebSocket server with most basic configuration
+  // Create it with just server and path to avoid any compatibility issues
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws'
+  });
+  
+  // Log WebSocketServer creation
+  console.log('WebSocketServer initialized with simplified configuration');
   
   // Initialize the Yahoo Finance API
   const yahooFinance = new YahooFinanceAPI();
@@ -166,11 +173,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Store active connections by user ID
   const marketDataConnections = new Map<number, Set<WebSocket>>();
   
-  // Handle WebSocket connections
-  // Handle WebSocket connections for market data and watchlists
-  
+  // Handle WebSocket connections for market data and watchlists  
   wss.on('connection', (ws: WebSocket, req) => {
-    console.log('WebSocket client connected');
+    console.log('WebSocket client connected from:', req.socket.remoteAddress);
     let userId: number | null = null;
     let subscribedSymbols: Set<string> = new Set();
     let isAlive = true;
@@ -197,16 +202,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     heartbeat();
     
     // Parse URL for authentication tokens/userId
-    const urlParams = new URL(req.url || '', `http://${req.headers.host}`).searchParams;
-    const tokenFromUrl = urlParams.get('token');
-    const userIdFromUrl = urlParams.get('userId');
+    let tokenFromUrl: string | null = null;
+    let userIdFromUrl: string | null = null;
+    
+    try {
+      // Get the raw URL from the request
+      const rawUrl = req.url || '';
+      console.log('Incoming WebSocket connection URL:', rawUrl);
+      
+      // Handle URL parsing more safely - the URL could include query params directly
+      const urlParts = rawUrl.split('?');
+      if (urlParts.length > 1) {
+        const queryString = urlParts[1];
+        const searchParams = new URLSearchParams(queryString);
+        
+        tokenFromUrl = searchParams.get('token');
+        userIdFromUrl = searchParams.get('userId');
+        
+        console.log('WebSocket URL params:', { 
+          hasToken: !!tokenFromUrl, 
+          hasUserId: !!userIdFromUrl,
+          timestamp: searchParams.get('_') // Log cache buster
+        });
+      } else {
+        console.log('No query parameters found in WebSocket URL');
+      }
+    } catch (urlParseError) {
+      console.error('Error parsing WebSocket URL:', urlParseError);
+    }
     
     // Attempt immediate authentication with URL parameters
     const authenticateFromUrlParams = async () => {
+      const localTokenFromUrl = tokenFromUrl;
+      const localUserIdFromUrl = userIdFromUrl;
+      
       // Try token-based authentication first
-      if (tokenFromUrl) {
+      if (localTokenFromUrl) {
         try {
-          const decoded = jwt.verify(tokenFromUrl, JWT_SECRET) as { userId: number };
+          const decoded = jwt.verify(localTokenFromUrl, JWT_SECRET) as { userId: number };
           const user = await storage.getUser(decoded.userId);
           
           if (user) {
@@ -219,9 +252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Try userId-based authentication (relies on session cookie which is handled by Express)
-      if (userIdFromUrl && !userId) {
+      if (localUserIdFromUrl && !userId) {
         try {
-          const userIdNum = Number(userIdFromUrl);
+          const userIdNum = Number(localUserIdFromUrl);
           if (!isNaN(userIdNum)) {
             const user = await storage.getUser(userIdNum);
             if (user) {
