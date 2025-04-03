@@ -14,6 +14,9 @@ import { MarketDataProviderFactory } from './marketDataProviderInterface';
 // Ensure this directory exists
 const TEMP_SCRIPT_DIR = './tmp/python_scripts';
 
+// Global variable to store the detected Python path
+let detectedPythonPath = '';
+
 // Libraries that should be available for Python screeners
 // Note: Removed TA-Lib due to installation complexities, using pandas_ta instead
 const REQUIRED_LIBRARIES = [
@@ -39,28 +42,37 @@ export async function initPythonEnvironment(): Promise<void> {
     // Ensure temp script directory exists
     await fs.mkdir(TEMP_SCRIPT_DIR, { recursive: true });
     
-    // Check Python installation
-    const pythonResult = await checkPythonInstallation();
+    // Check Python installation with timeout
+    const checkTimeout = new Promise<{installed: boolean, version: string}>((resolve) => {
+      setTimeout(() => {
+        console.log('Python detection timed out, using default path');
+        // Use a default path to avoid blocking server startup
+        detectedPythonPath = 'python3';
+        resolve({ installed: true, version: 'unknown' });
+      }, 3000); // 3 second timeout
+    });
+    
+    // Race between actual check and timeout
+    const pythonResult = await Promise.race([
+      checkPythonInstallation(),
+      checkTimeout
+    ]);
     
     if (!pythonResult.installed) {
       console.error('Python is not installed or not in PATH');
-      return;
+      // Use a default path anyway to avoid blocking server startup
+      detectedPythonPath = 'python3';
+    } else {
+      console.log(`Python ${pythonResult.version} detected`);
     }
     
-    console.log(`Python ${pythonResult.version} detected`);
-    
-    try {
-      // Check/Install required libraries
-      await checkAndInstallLibraries();
-    } catch (error) {
-      console.error('Error checking/installing Python libraries:', error);
-      // Continue execution even if libraries can't be installed
-      // The application will attempt to use what's available
-    }
-    
-    console.log('Python environment initialized successfully');
+    // Skip library installation during startup to speed up the process
+    // Libraries will be checked on-demand when a screener is executed
+    console.log('Python environment initialization complete (library check skipped for faster startup)');
   } catch (error) {
     console.error('Failed to initialize Python environment:', error);
+    // Set default path even on error
+    detectedPythonPath = 'python3';
   }
 }
 
@@ -69,8 +81,36 @@ export async function initPythonEnvironment(): Promise<void> {
  */
 async function checkPythonInstallation(): Promise<{ installed: boolean, version: string }> {
   try {
-    // Use the full path to python3 in the Replit environment
-    const pythonPath = '/home/runner/workspace/.pythonlibs/bin/python3';
+    // Try different possible paths to python3 in the Replit environment
+    const possiblePythonPaths = [
+      '/nix/store/znyfh95v21rpk95wqifb36rh130d6znm-python3-3.11.8/bin/python3',
+      '/home/runner/workspace/.pythonlibs/bin/python3',
+      'python3',
+      'python3.11',
+      'python'
+    ];
+    
+    let pythonPath = '';
+    
+    // Find the first working Python path
+    for (const path of possiblePythonPaths) {
+      try {
+        require('child_process').execSync(`${path} --version`, { stdio: 'ignore' });
+        pythonPath = path;
+        console.log(`Found working Python at: ${pythonPath}`);
+        // Store the working path in the global variable for other functions to use
+        detectedPythonPath = pythonPath;
+        break;
+      } catch (e) {
+        // Path doesn't work, try the next one
+        console.log(`Python not found at: ${path}`);
+      }
+    }
+    
+    if (!pythonPath) {
+      console.error('No working Python installation found');
+      return { installed: false, version: '' };
+    }
     
     return new Promise((resolve) => {
       const pythonProcess = spawn(pythonPath, ['--version']);
@@ -132,12 +172,14 @@ async function checkAndInstallLibraries(): Promise<void> {
 /**
  * Get list of installed Python packages
  */
+
 async function getInstalledPackages(): Promise<Array<{ name: string, version: string }>> {
   try {
     console.log('Checking installed Python packages...');
     
-    // Use the full path to python3 in the Replit environment
-    const pythonPath = '/home/runner/workspace/.pythonlibs/bin/python3';
+    // Use the previously detected Python path, or fall back to reasonable defaults
+    const pythonPath = detectedPythonPath || 'python3';
+    console.log(`Using Python path for pip: ${pythonPath}`);
     
     return new Promise((resolve, reject) => {
       // Try with python3 -m pip, which is more reliable across environments
@@ -186,8 +228,9 @@ async function installLibraries(libraries: string[]): Promise<void> {
   try {
     console.log(`Installing Python libraries: ${libraries.join(', ')}`);
     
-    // Use the full path to python3 in the Replit environment
-    const pythonPath = '/home/runner/workspace/.pythonlibs/bin/python3';
+    // Use the previously detected Python path, or fall back to reasonable defaults
+    const pythonPath = detectedPythonPath || 'python3';
+    console.log(`Using Python path for pip install: ${pythonPath}`);
     
     return new Promise((resolve, reject) => {
       // Use python -m pip which is more reliable across environments

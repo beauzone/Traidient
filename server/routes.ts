@@ -173,6 +173,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('WebSocket client connected');
     let userId: number | null = null;
     let subscribedSymbols: Set<string> = new Set();
+    let isAlive = true;
+    let pingTimeout: NodeJS.Timeout | null = null;
+    
+    // Function to handle ping/pong for keeping connection alive
+    const heartbeat = () => {
+      isAlive = true;
+      
+      // Clear existing timeout if any
+      if (pingTimeout) {
+        clearTimeout(pingTimeout);
+      }
+      
+      // Set a timeout to close the connection if no pong is received
+      pingTimeout = setTimeout(() => {
+        console.log('WebSocket connection timed out (no pong received)');
+        isAlive = false;
+        ws.terminate();
+      }, 35000); // 35 second timeout (slightly longer than client's 30s ping interval)
+    };
+    
+    // Start the heartbeat
+    heartbeat();
     
     // Parse URL for authentication tokens/userId
     const urlParams = new URL(req.url || '', `http://${req.headers.host}`).searchParams;
@@ -238,7 +260,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('message', async (message: string) => {
       try {
+        // Reset the heartbeat timeout whenever we receive any message
+        heartbeat();
+        
+        // Handle ping messages (both simple string and JSON formats)
+        if (message.toString() === 'ping' || message.toString() === '{"type":"ping"}') {
+          console.log('Received ping, sending pong');
+          ws.send(message.toString() === 'ping' ? 'pong' : '{"type":"pong"}');
+          return;
+        }
+        
         const data = JSON.parse(message.toString());
+        
+        // Handle ping/pong for keeping connection alive with more data
+        if (data.type === 'ping') {
+          console.log('Received ping with timestamp, sending pong');
+          ws.send(JSON.stringify({ 
+            type: 'pong', 
+            timestamp: data.timestamp,
+            serverTime: Date.now()
+          }));
+          return;
+        }
         
         // Handle authentication
         if (data.type === 'auth') {
@@ -366,6 +409,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
+      
+      // Clear heartbeat timeout
+      if (pingTimeout) {
+        clearTimeout(pingTimeout);
+        pingTimeout = null;
+      }
       
       // Remove connection from user's connections
       if (userId) {

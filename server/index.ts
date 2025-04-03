@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Export currentPort for other modules to reference
+export let currentPort = 5000;
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -73,6 +76,23 @@ app.use((req, res, next) => {
   const preferredPort = 5000;
   const fallbackPort = 5001;
   
+  // Log environment variables available (without revealing sensitive values)
+  const envVars = Object.keys(process.env).map(key => {
+    if (key.includes('KEY') || key.includes('SECRET') || key.includes('TOKEN') || key.includes('PASSWORD')) {
+      return `${key}: (sensitive)`;
+    } else if (process.env[key]) {
+      return `${key}: present`;
+    }
+    return `${key}: empty`;
+  });
+  
+  log('Environment variables available: ' + JSON.stringify(envVars, null, 2));
+  
+  // Check if secret keys are available that the app needs
+  // We'll just check for existence, not actual values
+  log(`SNAPTRADE_CLIENT_ID exists: ${!!process.env.SNAPTRADE_CLIENT_ID}`);
+  log(`SNAPTRADE_CONSUMER_KEY exists: ${!!process.env.SNAPTRADE_CONSUMER_KEY}`);
+  
   // Use a more careful approach to kill processes on the port
   try {
     log(`Checking if port ${preferredPort} is in use...`);
@@ -97,14 +117,10 @@ app.use((req, res, next) => {
           }
         }
         
-        // Only attempt to kill if it's likely our own process
-        const ownPid = process.pid;
-        log(`Current process PID: ${ownPid}`);
-        
-        // Try to release the port, but be careful
+        // Try to release the port if it's likely a stale process
         try {
           execSync(`lsof -i:${preferredPort} -P -n -t | xargs -r kill || true`);
-          log(`Attempted to release port ${preferredPort} with normal kill`);
+          log(`Attempted to release port ${preferredPort}`);
           
           // Check if it worked
           try {
@@ -127,30 +143,58 @@ app.use((req, res, next) => {
     log(`Warning: Error checking port ${preferredPort}: ${e}`);
   }
   
-  // Try to listen on the preferred port first
-  server.listen({
-    port: preferredPort,
-    host: "0.0.0.0",
-  })
-  .on('error', (err: any) => {
-    if (err.code === 'EADDRINUSE') {
-      // Port 5000 is in use, try the fallback port
-      log(`Port ${preferredPort} is already in use, trying fallback port ${fallbackPort}`);
-      server.listen({
-        port: fallbackPort,
-        host: "0.0.0.0",
-      }, () => {
-        log(`⚠️ Serving on fallback port ${fallbackPort}. Some features may not work as expected.`);
-      });
-    } else {
-      // Some other error occurred
-      log(`Failed to start server: ${err.message}`);
-      throw err;
-    }
-  })
-  .on('listening', () => {
-    const address = server.address();
-    const port = typeof address === 'object' && address ? address.port : preferredPort;
-    log(`🚀 Server is running on port ${port}`);
-  });
+  // Try to listen on the preferred port first with error handling
+  try {
+    server.listen({
+      port: preferredPort,
+      host: "0.0.0.0",
+    })
+    .on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        // Port 5000 is in use, try the fallback port
+        log(`Port ${preferredPort} is already in use, trying fallback port ${fallbackPort}`);
+        try {
+          server.listen({
+            port: fallbackPort,
+            host: "0.0.0.0",
+          }, () => {
+            // Update the exported port value
+            currentPort = fallbackPort;
+            log(`⚠️ Serving on fallback port ${fallbackPort}. Some features may not work as expected.`);
+          });
+        } catch (fallbackError) {
+          log(`Failed to start server on fallback port: ${fallbackError}`);
+          // Try one more fallback port
+          const lastFallbackPort = 3000;
+          try {
+            server.listen({
+              port: lastFallbackPort,
+              host: "0.0.0.0",
+            }, () => {
+              log(`⚠️ Last resort: Serving on port ${lastFallbackPort}. Some features may not work as expected.`);
+            });
+          } catch (lastError) {
+            log(`Failed to start server on any port: ${lastError}`);
+          }
+        }
+      } else {
+        // Some other error occurred
+        log(`Failed to start server: ${err.message}`);
+      }
+    })
+    .on('listening', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : preferredPort;
+      // Update the exported currentPort with the actual port being used
+      currentPort = port;
+      log(`🚀 Server is running on port ${port}`);
+      
+      // Print note about WebSocket connection
+      log('WebSocket server is running at path: /ws');
+      log('Note: If you experience WebSocket connection issues, it may be due to Cloudflare protection.');
+      log('The WebSocket client will automatically retry connections.');
+    });
+  } catch (startupError) {
+    log(`Critical error starting server: ${startupError}`);
+  }
 })();
