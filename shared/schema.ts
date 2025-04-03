@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
+  replitId: integer("replit_id").unique(), // Store Replit user ID for OpenID auth
   createdAt: timestamp("created_at").defaultNow().notNull(),
   subscription: jsonb("subscription").$type<{
     tier: 'free' | 'standard' | 'professional';
@@ -64,6 +65,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   email: true,
   name: true,
+  replitId: true, // Add replitId to allow creation with Replit ID
 });
 
 // API Integrations

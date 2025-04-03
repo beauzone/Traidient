@@ -46,20 +46,31 @@ export async function setupAuth(app: Express) {
 
     const userInfoResponse = await client.fetchUserInfo(config, tokens.access_token, claims.sub);
     
-    // Check if user exists in our system
-    let user = await storage.getUserByUsername(userInfoResponse.username as string);
+    // Store the original Replit sub as numeric ID for our system
+    const replitUserId = parseInt(userInfoResponse.sub as string);
     
-    // If not, create a new user
+    // Check if user exists in our system by Replit ID
+    let user = await storage.getUserByReplitId(replitUserId);
+    
+    // If not, create a new user with the Replit ID
     if (!user) {
       user = await storage.createUser({
         username: userInfoResponse.username as string,
         password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2), // Random secure password since login is handled by Replit
         email: userInfoResponse.email as string || `${userInfoResponse.username}@example.com`, // Fallback email if not provided
         name: userInfoResponse.first_name ? `${userInfoResponse.first_name} ${userInfoResponse.last_name || ''}` : userInfoResponse.username as string,
+        replitId: replitUserId, // Store the Replit user ID for future lookups
       });
     }
+    
+    // Add the original Replit data to our user object for convenience
+    const userWithReplitData = {
+      ...user,
+      sub: userInfoResponse.sub,
+      replitProfile: userInfoResponse
+    };
 
-    verified(null, user);
+    verified(null, userWithReplitData);
   };
 
   const strategy = new Strategy(

@@ -20,7 +20,7 @@ import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
 import { watchlistRoutes } from './routes/watchlistRoutes';
-import { type AuthRequest, createAuthHandler } from './middleware/auth';
+import { type AuthRequest, createAuthHandler, authMiddleware } from './middleware/auth';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -48,30 +48,7 @@ import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
 
-// Helper for authentication
-// TEMPORARY: Authentication bypass for demo purposes
-const authMiddleware = async (req: Request, res: Response, next: Function) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Unauthorized: Missing or invalid token' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
-    const user = await storage.getUser(decoded.userId);
-
-    if (!user) {
-      return res.status(401).json({ message: 'Unauthorized: User not found' });
-    }
-
-    (req as any).user = user;
-    next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-  }
-};
+// We now use the imported authMiddleware
 
 // Using AuthRequest from middleware/auth.ts
 
@@ -633,21 +610,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // API INTEGRATION ROUTES
-  app.get('/api/integrations', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.get('/api/integrations', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-      
-      const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+      const userId = (req.user as any).id;
+      const integrations = await storage.getApiIntegrationsByUser(userId);
       res.json(integrations);
     } catch (error) {
       console.error('Get integrations error:', error);
       res.status(500).json({ message: 'Error fetching API integrations' });
     }
-  });
+  }));
 
-  app.post('/api/integrations', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.post('/api/integrations', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -739,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/integrations/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.put('/api/integrations/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -839,7 +813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/integrations/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  app.delete('/api/integrations/:id', authMiddleware, createAuthHandler(async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });

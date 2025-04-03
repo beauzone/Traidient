@@ -54,6 +54,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByReplitId(replitId: number): Promise<User | undefined>; // Get user by Replit ID for OpenID auth
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
 
@@ -189,6 +190,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getUserByReplitId(replitId: number): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.replitId, replitId));
     return result.length > 0 ? result[0] : undefined;
   }
 
