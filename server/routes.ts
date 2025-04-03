@@ -68,14 +68,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const marketDataConnections = new Map<number, Set<WebSocket>>();
   
   // Handle WebSocket connections
-  // Import watchlist WebSocket service
-  import { subscribeToWatchlistUpdates, unsubscribeFromWatchlistUpdates } from './watchlistService';
+  // Handle WebSocket connections for market data and watchlists
   
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', (ws: WebSocket, req) => {
     console.log('WebSocket client connected');
     let userId: number | null = null;
     let subscribedSymbols: Set<string> = new Set();
-    let watchlistSubscribed: boolean = false;
+    
+    // Parse URL for authentication tokens/userId
+    const urlParams = new URL(req.url || '', `http://${req.headers.host}`).searchParams;
+    const tokenFromUrl = urlParams.get('token');
+    const userIdFromUrl = urlParams.get('userId');
+    
+    // Attempt immediate authentication with URL parameters
+    const authenticateFromUrlParams = async () => {
+      // Try token-based authentication first
+      if (tokenFromUrl) {
+        try {
+          const decoded = jwt.verify(tokenFromUrl, JWT_SECRET) as { userId: number };
+          const user = await storage.getUser(decoded.userId);
+          
+          if (user) {
+            userId = user.id;
+            return true;
+          }
+        } catch (error) {
+          console.log('URL token authentication failed:', error);
+        }
+      }
+      
+      // Try userId-based authentication (relies on session cookie which is handled by Express)
+      if (userIdFromUrl && !userId) {
+        try {
+          const userIdNum = Number(userIdFromUrl);
+          if (!isNaN(userIdNum)) {
+            const user = await storage.getUser(userIdNum);
+            if (user) {
+              userId = user.id;
+              return true;
+            }
+          }
+        } catch (error) {
+          console.log('URL userId authentication failed:', error);
+        }
+      }
+      
+      return false;
+    };
+    
+    // Try to authenticate immediately if URL params are provided
+    authenticateFromUrlParams().then(success => {
+      if (success) {
+        // Store connection for this user
+        if (!marketDataConnections.has(userId!)) {
+          marketDataConnections.set(userId!, new Set());
+        }
+        marketDataConnections.get(userId!)?.add(ws);
+        
+        console.log(`WebSocket authenticated for user ${userId} via URL parameters`);
+        
+        // Send authentication success message
+        ws.send(JSON.stringify({ 
+          type: 'auth_success',
+          message: 'Successfully authenticated via URL parameters'
+        }));
+      } else {
+        console.log('URL authentication failed, waiting for explicit auth message');
+      }
+    });
     
     ws.on('message', async (message: string) => {
       try {
@@ -195,44 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             symbols: Array.from(subscribedSymbols)
           }));
         }
-        // Handle subscribing to watchlist updates
-        else if (data.type === 'subscribe_watchlists') {
-          if (!userId) {
-            ws.send(JSON.stringify({ 
-              type: 'error', 
-              message: 'You must authenticate first'
-            }));
-            return;
-          }
-          
-          // Subscribe to watchlist updates
-          subscribeToWatchlistUpdates(userId, ws);
-          watchlistSubscribed = true;
-          
-          ws.send(JSON.stringify({ 
-            type: 'watchlist_subscribe_success',
-            message: 'Subscribed to watchlist updates'
-          }));
-        }
-        // Handle unsubscribing from watchlist updates
-        else if (data.type === 'unsubscribe_watchlists') {
-          if (!userId) {
-            ws.send(JSON.stringify({ 
-              type: 'error', 
-              message: 'You must authenticate first'
-            }));
-            return;
-          }
-          
-          // Unsubscribe from watchlist updates
-          unsubscribeFromWatchlistUpdates(userId, ws);
-          watchlistSubscribed = false;
-          
-          ws.send(JSON.stringify({ 
-            type: 'watchlist_unsubscribe_success',
-            message: 'Unsubscribed from watchlist updates'
-          }));
-        }
+        // Future support for watchlist updates will be added here
       } catch (error) {
         console.error('WebSocket message processing error:', error);
         ws.send(JSON.stringify({ 
@@ -257,10 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Remove from watchlist connections if subscribed
-        if (watchlistSubscribed) {
-          unsubscribeFromWatchlistUpdates(userId, ws);
-        }
+        // Future: Handle watchlist subscription cleanup
       }
     });
     

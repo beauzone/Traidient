@@ -50,23 +50,52 @@ export async function apiRequest(
       ...(options || {}),
       headers,
       body: data ? JSON.stringify(data) : options?.body,
-      // Adding credentials to ensure cookies are sent if applicable
-      credentials: 'same-origin'
+      // Always use 'include' to ensure cookies are sent for cross-origin requests too
+      credentials: 'include'
     });
 
     console.log(`Response from ${url}:`, res.status, res.statusText);
     
     // Check for auth errors specifically
     if (res.status === 401) {
-      console.warn('Authentication error detected, token may be invalid or expired');
+      console.warn('Authentication error detected, session may be invalid or expired');
       
       // Clone the response to read it multiple times
       const clonedRes = res.clone();
+      
       try {
+        // Try to parse the error response
         const errorData = await clonedRes.json();
         console.error('Auth error details:', errorData);
+        
+        // Check for specific Replit Auth error messages
+        if (errorData?.message?.includes('Replit Auth') || 
+            errorData?.message?.includes('Unauthorized') ||
+            errorData?.message?.includes('authentication required') ||
+            url.includes('/api/auth/')) {
+          
+          console.warn('Authentication required, redirecting to Replit login');
+          
+          // Delay the redirect slightly to allow logs to be seen and prevent redirect loops
+          setTimeout(() => {
+            window.location.href = '/api/login';
+          }, 500);
+          
+          return null;
+        }
       } catch (e) {
-        console.error('Could not parse auth error response as JSON');
+        console.error('Could not parse auth error response as JSON', e);
+        
+        // If we couldn't parse JSON, we should still check if this was an auth endpoint
+        if (url.includes('/api/auth/')) {
+          console.warn('Authentication endpoint returned 401, redirecting to login');
+          
+          setTimeout(() => {
+            window.location.href = '/api/login';
+          }, 500);
+          
+          return null;
+        }
       }
     }
     
@@ -116,23 +145,52 @@ export const getQueryFn: <T>(options: {
     try {
       const res = await fetch(url, {
         headers,
-        // Adding credentials to ensure cookies are sent if applicable
-        credentials: 'same-origin'
+        // Always use 'include' to ensure cookies are sent for cross-origin requests too
+        credentials: 'include'
       });
       
       console.log(`Query response from ${url}:`, res.status, res.statusText);
       
       // Check for auth errors specifically
       if (res.status === 401) {
-        console.warn('Authentication error detected in query, token may be invalid or expired');
+        console.warn('Authentication error detected in query, session may be invalid or expired');
         
         // Clone the response to read it multiple times
         const clonedRes = res.clone();
+        
         try {
+          // Try to parse the error response
           const errorData = await clonedRes.json();
           console.error('Auth error details for query:', errorData);
+          
+          // Check for specific Replit Auth error messages
+          if (errorData?.message?.includes('Replit Auth') || 
+              errorData?.message?.includes('Unauthorized') ||
+              errorData?.message?.includes('authentication required') ||
+              url.includes('/api/auth/user')) {
+            
+            console.warn('Authentication required, redirecting to Replit login');
+            
+            // Delay the redirect slightly to allow logs to be seen and prevent redirect loops
+            setTimeout(() => {
+              window.location.href = '/api/login';
+            }, 500);
+            
+            return null;
+          }
         } catch (e) {
-          console.error('Could not parse auth error response as JSON');
+          console.error('Could not parse auth error response as JSON', e);
+          
+          // If we couldn't parse JSON, we should still check if this was an auth endpoint
+          if (url.includes('/api/auth/user') || url.includes('/api/auth/me')) {
+            console.warn('Authentication endpoint returned 401, redirecting to login');
+            
+            setTimeout(() => {
+              window.location.href = '/api/login';
+            }, 500);
+            
+            return null;
+          }
         }
         
         if (unauthorizedBehavior === "returnNull") {
