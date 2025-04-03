@@ -20,7 +20,14 @@ import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
 import { watchlistRoutes } from './routes/watchlistRoutes';
-import { type AuthRequest, createAuthHandler, authMiddleware } from './middleware/auth';
+import { 
+  type AuthRequest, 
+  createAuthHandler, 
+  authMiddleware, 
+  generateToken, 
+  hashPassword, 
+  comparePassword 
+} from './middleware/auth';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -46,7 +53,9 @@ import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAle
 import { sendVerificationCode, verifyPhoneNumber, isPhoneNumberVerified, sendAlertSMS } from "./twilio";
 import { z } from "zod";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
+// Use provided JWT_SECRET or generate a secure one
+import * as crypto from 'crypto';
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 // We now use the imported authMiddleware
 
@@ -55,6 +64,96 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-e
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication with Replit
   await setupAuth(app);
+  
+  // Local authentication routes for development/testing
+  app.post('/api/local/register', async (req: Request, res: Response) => {
+    try {
+      const { username, password, email, name } = req.body;
+      
+      // Basic validation
+      if (!username || !password || !email) {
+        return res.status(400).json({ message: 'Username, password, and email are required' });
+      }
+      
+      // Check if the user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+      
+      // Hash the password
+      const hashedPassword = await hashPassword(password);
+      
+      // Create the user
+      const newUser = await storage.createUser({
+        username,
+        password: hashedPassword,
+        email,
+        name: name || username
+      });
+      
+      // Don't send the password back in the response
+      const { password: _, ...userWithoutPassword } = newUser;
+      
+      // Generate JWT token
+      const token = generateToken(newUser.id);
+      
+      res.status(201).json({ 
+        message: 'User registered successfully',
+        user: userWithoutPassword,
+        token
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Error registering user' });
+    }
+  });
+  
+  app.post('/api/local/login', async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+      
+      // Basic validation
+      if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required' });
+      }
+      
+      // Find the user
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Check password
+      const isPasswordValid = await comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Generate a token
+      const token = generateToken(user.id);
+      
+      // Don't send the password back in the response
+      const { password: _, ...userWithoutPassword } = user;
+      
+      res.json({ 
+        message: 'Login successful',
+        user: userWithoutPassword,
+        token
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Error logging in' });
+    }
+  });
+  
+  // Get current user for JWT auth (parallel to Replit auth's /api/auth/user)
+  app.get('/api/local/user', authMiddleware, (req: Request, res: Response) => {
+    const authReq = req as AuthRequest;
+    // Don't send the password back
+    const { password, ...userWithoutPassword } = authReq.user;
+    res.json(userWithoutPassword);
+  });
   
   const httpServer = createServer(app);
   

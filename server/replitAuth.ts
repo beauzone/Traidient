@@ -11,15 +11,25 @@ if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
+// Generate a secure random session secret if not provided
+const generateSecureSessionSecret = () => {
+  const crypto = require('crypto');
+  return crypto.randomBytes(32).toString('hex');
+};
+
+// Use provided SESSION_SECRET or generate a secure one
+const SESSION_SECRET = process.env.SESSION_SECRET || generateSecureSessionSecret();
+
 export async function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "your-jwt-secret-key-should-be-in-env-var",
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+      sameSite: 'lax'
     }
   };
   

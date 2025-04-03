@@ -1,9 +1,12 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { storage } from '../storage';
 import { type User } from '@shared/schema';
+import * as crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
+// Use provided JWT_SECRET or generate a secure one
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 // Define an interface for authenticated requests that works with both JWT and Replit Auth 
 export interface AuthRequest extends Request {
@@ -105,4 +108,20 @@ export function createAuthHandler<P = any, ResBody = any, ReqBody = any>(
     
     return handler(authReq, res).catch(next);
   };
+}
+
+// Function to generate a JWT token for a user
+export function generateToken(userId: number): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '24h' });
+}
+
+// Helper function to hash a password
+export async function hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
+}
+
+// Helper function to compare a password with a hash
+export async function comparePassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }
