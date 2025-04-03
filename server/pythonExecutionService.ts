@@ -69,8 +69,11 @@ export async function initPythonEnvironment(): Promise<void> {
  */
 async function checkPythonInstallation(): Promise<{ installed: boolean, version: string }> {
   try {
+    // Use the full path to python3 in the Replit environment
+    const pythonPath = '/home/runner/workspace/.pythonlibs/bin/python3';
+    
     return new Promise((resolve) => {
-      const pythonProcess = spawn('python3', ['--version']);
+      const pythonProcess = spawn(pythonPath, ['--version']);
       
       let versionOutput = '';
       pythonProcess.stdout.on('data', (data) => {
@@ -89,6 +92,11 @@ async function checkPythonInstallation(): Promise<{ installed: boolean, version:
         } else {
           resolve({ installed: false, version: '' });
         }
+      });
+      
+      pythonProcess.on('error', (error) => {
+        console.error('Error spawning Python process:', error);
+        resolve({ installed: false, version: '' });
       });
     });
   } catch (error) {
@@ -128,18 +136,12 @@ async function getInstalledPackages(): Promise<Array<{ name: string, version: st
   try {
     console.log('Checking installed Python packages...');
     
-    // First check if python3 exists in the path
-    try {
-      const { execSync } = require('child_process');
-      execSync('which python3 || echo "Not found"', { stdio: 'pipe' });
-    } catch (e) {
-      console.warn('python3 not found in PATH, using default empty packages list');
-      return [];
-    }
+    // Use the full path to python3 in the Replit environment
+    const pythonPath = '/home/runner/workspace/.pythonlibs/bin/python3';
     
     return new Promise((resolve, reject) => {
-      // Try with python3 -m pip first, which is more reliable across environments
-      const pipProcess = spawn('python3', ['-m', 'pip', 'list', '--format=json']);
+      // Try with python3 -m pip, which is more reliable across environments
+      const pipProcess = spawn(pythonPath, ['-m', 'pip', 'list', '--format=json']);
       
       let outputData = '';
       pipProcess.stdout.on('data', (data) => {
@@ -184,18 +186,12 @@ async function installLibraries(libraries: string[]): Promise<void> {
   try {
     console.log(`Installing Python libraries: ${libraries.join(', ')}`);
     
-    // First check if python3 exists in the path
-    try {
-      const { execSync } = require('child_process');
-      execSync('which python3 || echo "Not found"', { stdio: 'pipe' });
-    } catch (e) {
-      console.warn('python3 not found in PATH, cannot install libraries');
-      return; // Exit silently instead of rejecting
-    }
+    // Use the full path to python3 in the Replit environment
+    const pythonPath = '/home/runner/workspace/.pythonlibs/bin/python3';
     
     return new Promise((resolve, reject) => {
       // Use python -m pip which is more reliable across environments
-      const pipProcess = spawn('python3', ['-m', 'pip', 'install', ...libraries]);
+      const pipProcess = spawn(pythonPath, ['-m', 'pip', 'install', ...libraries]);
       
       pipProcess.stdout.on('data', (data) => {
         console.log(`[pip] ${data.toString().trim()}`);
