@@ -27,7 +27,10 @@ export const useWebSocket = (
   // Add auth token to URL if needed and available
   const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let wsUrl = `${protocol}//${window.location.host}${path}`;
+    // Make sure we have the correct WebSocket path
+    const wsPath = path.startsWith('/') ? path : `/${path}`;
+    // Fix: Use correct URL format with host and ensure no double slashes
+    let wsUrl = `${protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}${wsPath}`;
     
     // Include token parameters if required and available
     if (includeAuthToken && isAuthenticated && user) {
@@ -44,6 +47,7 @@ export const useWebSocket = (
       }
     }
     
+    console.log(`WebSocket URL constructed: ${wsUrl}`);
     return wsUrl;
   };
 
