@@ -180,19 +180,23 @@ export function useMarketData() {
           }
         });
         
-        if (response.data && response.data.status) {
+        // Debug output to see response format
+        console.log('Market status API response:', response.data);
+        
+        // The API returns data directly, not under a 'status' property
+        if (response.data && response.data.success) {
           setMarketStatus({
-            isMarketOpen: response.data.status.isMarketOpen,
-            dataSource: response.data.status.dataSource || 'http-fallback',
-            marketStatus: response.data.status.marketStatus || {
+            isMarketOpen: response.data.isMarketOpen,
+            dataSource: response.data.provider || 'http-fallback',
+            marketStatus: response.data.marketStatus || {
               isRegularHours: false,
               isPreMarketHours: false,
               isAfterMarketHours: false,
               isWeekend: false,
-              nextMarketOpen: response.data.status.nextMarketOpen,
-              nextMarketClose: response.data.status.nextMarketClose,
-              currentTimezone: response.data.status.currentTimezone,
-              exchangeTimezone: response.data.status.exchangeTimezone
+              nextMarketOpen: undefined,
+              nextMarketClose: undefined,
+              currentTimezone: undefined,
+              exchangeTimezone: undefined
             }
           });
           

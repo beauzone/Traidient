@@ -60,25 +60,38 @@ function applyCorsHeaders(res: Response) {
 function handleMarketDataCaching(req: Request, res: Response, endpoint: string) {
   // Check market hours to determine caching strategy
   const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  const dayOfWeek = now.getDay();
+  
+  // Convert to Eastern Time
+  const etOptions = { timeZone: 'America/New_York', hour12: false };
+  const etDateString = now.toLocaleString('en-US', etOptions);
+  const etDate = new Date(etDateString);
+  
+  // Get hours and minutes in Eastern Time
+  const etHour = etDate.getHours();
+  const etMinute = etDate.getMinutes();
+  const dayOfWeek = now.getDay(); // Day of week doesn't change with timezone
+  
+  console.log(`Current date for market status check: ${now.toISOString()}, day of week: ${dayOfWeek}`);
+  console.log(`Current time in Eastern: ${etHour}:${etMinute.toString().padStart(2, '0')} (EDT)`);
+  console.log(`Market hours: 9:30 AM - 4:00 PM Eastern Time`);
   
   // Check if market is likely open (9:30 AM - 4:00 PM ET on weekdays)
   // Note: This is a simplified check and doesn't account for holidays
   const isLikelyMarketHours = 
     (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
-    ((hour > 9 || (hour === 9 && minute >= 30)) && hour < 16);
+    ((etHour > 9 || (etHour === 9 && etMinute >= 30)) && etHour < 16);
   
   // Pre-market hours (4:00 AM - 9:30 AM ET on weekdays)
   const isPreMarketHours =
     (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
-    (hour >= 4 && (hour < 9 || (hour === 9 && minute < 30)));
+    (etHour >= 4 && (etHour < 9 || (etHour === 9 && etMinute < 30)));
     
   // After-market hours (4:00 PM - 8:00 PM ET on weekdays)
   const isAfterMarketHours =
     (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
-    (hour >= 16 && hour < 20);
+    (etHour >= 16 && etHour < 20);
+    
+  console.log(`Market is ${isLikelyMarketHours ? 'OPEN' : 'CLOSED'} based on Eastern Time check`);
   
   // Apply CORS headers for cross-origin compatibility
   applyCorsHeaders(res);
@@ -2763,49 +2776,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Try to get API integration for trading
       try {
         let alpacaAPI;
-        // If accountId is provided, get that specific integration
-        if (accountId) {
-          try {
-            const integration = await storage.getApiIntegration(parseInt(accountId as string, 10));
-            if (integration && integration.provider === 'alpaca') {
-              alpacaAPI = new AlpacaAPI(integration);
-              console.log(`Using specific Alpaca API integration (ID: ${accountId}) for portfolio history`);
-            } else {
-              throw new Error(`No valid Alpaca integration found for ID: ${accountId}`);
+        let historyData;
+        let dataSource = "alpaca";
+        
+        // First try with the specified account or user integration
+        try {
+          // If accountId is provided, get that specific integration
+          if (accountId) {
+            try {
+              const integration = await storage.getApiIntegration(parseInt(accountId as string, 10));
+              if (integration && integration.provider === 'alpaca') {
+                alpacaAPI = new AlpacaAPI(integration);
+                console.log(`Using specific Alpaca API integration (ID: ${accountId}) for portfolio history`);
+              } else {
+                throw new Error(`No valid Alpaca integration found for ID: ${accountId}`);
+              }
+            } catch (err: unknown) {
+              const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+              console.log(`Error getting specific integration: ${errorMessage}`);
+              throw err;
             }
-          } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            console.log(`Error getting specific integration: ${errorMessage}`);
-            throw err;
+          } else {
+            // Otherwise get the default one for the user
+            try {
+              // Get all integrations for the user
+              const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+              // Find the Alpaca integration using case-insensitive matching
+              const alpacaIntegration = integrations.find(i => 
+                i.provider.toLowerCase().trim() === 'alpaca');
+              
+              if (alpacaIntegration) {
+                alpacaAPI = new AlpacaAPI(alpacaIntegration);
+                console.log(`Using user's ${alpacaIntegration.provider} API integration for portfolio history`);
+              } else {
+                throw new Error("No Alpaca integration found");
+              }
+            } catch (err) {
+              console.log("No user-specific Alpaca integration found, using environment variables for portfolio history");
+              alpacaAPI = new AlpacaAPI();
+            }
           }
-        } else {
-          // Otherwise get the default one for the user
+          
+          // Get portfolio history from Alpaca
+          historyData = await alpacaAPI.getPortfolioHistory(
+            period as string, 
+            timeframe as string
+          );
+          
+          if (historyData.timestamp.length === 0) {
+            // If we get no data points, consider it an error and try fallback
+            throw new Error("No data points returned from Alpaca");
+          }
+          
+          console.log(`Retrieved portfolio history with ${historyData.timestamp.length} data points from Alpaca`);
+        } catch (alpacaError) {
+          // If Alpaca fails, try Yahoo Finance for some basic data (won't have account-specific info)
+          console.log("Alpaca API failed, trying Yahoo Finance as fallback");
+          
           try {
-            // Get all integrations for the user
-            const integrations = await storage.getApiIntegrationsByUser(req.user.id);
-            // Find the Alpaca integration using case-insensitive matching
-            const alpacaIntegration = integrations.find(i => 
-              i.provider.toLowerCase().trim() === 'alpaca');
+            const yahooAPI = new YahooFinanceAPI();
+            const spyData = await yahooAPI.getHistoricalData("SPY", period as string, "100");
             
-            if (alpacaIntegration) {
-              alpacaAPI = new AlpacaAPI(alpacaIntegration);
-              console.log(`Using user's ${alpacaIntegration.provider} API integration for portfolio history`);
+            if (spyData && spyData.bars && spyData.bars.length > 0) {
+              // Transform SPY data into portfolio history format
+              const timestamps = spyData.bars.map((bar: any) => new Date(bar.timestamp).toISOString());
+              const equity = spyData.bars.map((bar: any) => bar.close);
+              
+              // Calculate percent changes
+              const changes = [];
+              const pctChanges = [];
+              const baseValue = equity[0];
+              
+              for (let i = 0; i < equity.length; i++) {
+                changes.push(equity[i] - baseValue);
+                pctChanges.push((equity[i] / baseValue - 1) * 100);
+              }
+              
+              historyData = {
+                timestamp: timestamps,
+                equity: equity,
+                profitLoss: changes,
+                profitLossPct: pctChanges,
+                baseValue: baseValue
+              };
+              
+              dataSource = "yahoo-fallback";
+              console.log(`Using S&P 500 data as a proxy for portfolio history with ${timestamps.length} data points`);
             } else {
-              throw new Error("No Alpaca integration found");
+              throw new Error("No fallback data available from Yahoo Finance");
             }
-          } catch (err) {
-            console.log("No user-specific Alpaca integration found, using environment variables for portfolio history");
-            alpacaAPI = new AlpacaAPI();
+          } catch (yahooError) {
+            console.error("Yahoo Finance fallback also failed:", yahooError);
+            
+            // Create minimal dummy data for UI
+            const now = new Date();
+            const timestamps = [];
+            const equity = [];
+            const profitLoss = [];
+            const profitLossPct = [];
+            
+            // Generate some timestamps over the requested period
+            const daysToInclude = period === '1D' ? 1 : 
+                                 period === '5D' ? 5 : 
+                                 period === '1M' ? 30 : 
+                                 period === '3M' ? 90 : 
+                                 period === '1Y' ? 365 : 180;
+            
+            for (let i = 0; i < daysToInclude; i++) {
+              const date = new Date();
+              date.setDate(now.getDate() - (daysToInclude - i));
+              timestamps.push(date.toISOString());
+              equity.push(0);
+              profitLoss.push(0);
+              profitLossPct.push(0);
+            }
+            
+            historyData = {
+              timestamp: timestamps,
+              equity: equity,
+              profitLoss: profitLoss,
+              profitLossPct: profitLossPct,
+              baseValue: 0
+            };
+            
+            dataSource = "unavailable";
+            console.log(`All data sources failed, returning empty data structure with ${timestamps.length} timestamps`);
           }
         }
-        
-        // Get portfolio history from Alpaca
-        const historyData = await alpacaAPI.getPortfolioHistory(
-          period as string, 
-          timeframe as string
-        );
-        
-        console.log(`Retrieved portfolio history with ${historyData.timestamp.length} data points`);
         
         // Format the response for the frontend
         res.json({
@@ -2816,20 +2913,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           profitLoss: historyData.profitLoss,
           profitLossPct: historyData.profitLossPct,
           baseValue: historyData.baseValue,
-          dataSource: "alpaca"
+          dataSource: dataSource
         });
       } catch (error: unknown) {
-        console.error('Error fetching portfolio history from Alpaca:', error);
+        console.error('Error fetching portfolio history:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        res.status(500).json({ 
-          error: 'Failed to retrieve portfolio history',
-          message: errorMessage,
-          dataSource: "error"
-        });
+        
+        // Return an empty dataset rather than an error
+        const dummyData = {
+          period,
+          timeframe,
+          timestamp: [],
+          equity: [],
+          profitLoss: [],
+          profitLossPct: [],
+          baseValue: 0,
+          dataSource: "error",
+          error: errorMessage
+        };
+        
+        res.json(dummyData);
       }
     } catch (error) {
       console.error('Error in portfolio history API:', error);
-      res.status(500).json({ error: 'Failed to process portfolio history request' });
+      
+      // Return an empty dataset with error info
+      res.json({ 
+        period: req.query.period || '1M',
+        timeframe: req.query.timeframe || '1D',
+        timestamp: [],
+        equity: [],
+        profitLoss: [],
+        profitLossPct: [],
+        baseValue: 0,
+        dataSource: "error",
+        error: 'Failed to process portfolio history request'
+      });
     }
   });
 
@@ -3752,6 +3871,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if market is open
       const isMarketOpen = await dataProvider.isMarketOpen();
       
+      // Calculate next market open/close times
+      // This is a simplified calculation and should be replaced with actual API data when available
+      const now = new Date();
+      const currentDay = now.getDay();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      let nextMarketOpen: Date | null = null;
+      let nextMarketClose: Date | null = null;
+      
+      // Create a date object for today at 9:30 AM (market open)
+      const marketOpenToday = new Date(now);
+      marketOpenToday.setHours(9, 30, 0, 0);
+      
+      // Create a date object for today at 4:00 PM (market close)
+      const marketCloseToday = new Date(now);
+      marketCloseToday.setHours(16, 0, 0, 0);
+      
+      if (currentDay >= 1 && currentDay <= 5) { // Weekday
+        if (now < marketOpenToday) {
+          // Before market open today
+          nextMarketOpen = marketOpenToday;
+          nextMarketClose = marketCloseToday;
+        } else if (now < marketCloseToday) {
+          // During market hours
+          nextMarketClose = marketCloseToday;
+          
+          // Next open is tomorrow, or Monday if today is Friday
+          const nextOpenDay = new Date(now);
+          if (currentDay === 5) { // Friday
+            nextOpenDay.setDate(nextOpenDay.getDate() + 3); // Skip to Monday
+          } else {
+            nextOpenDay.setDate(nextOpenDay.getDate() + 1); // Next day
+          }
+          nextOpenDay.setHours(9, 30, 0, 0);
+          nextMarketOpen = nextOpenDay;
+        } else {
+          // After market close today
+          // Next open is tomorrow, or Monday if today is Friday
+          const nextOpenDay = new Date(now);
+          if (currentDay === 5) { // Friday
+            nextOpenDay.setDate(nextOpenDay.getDate() + 3); // Skip to Monday
+          } else {
+            nextOpenDay.setDate(nextOpenDay.getDate() + 1); // Next day
+          }
+          nextOpenDay.setHours(9, 30, 0, 0);
+          nextMarketOpen = nextOpenDay;
+          
+          // Next close is same day as next open
+          const nextCloseDay = new Date(nextOpenDay);
+          nextCloseDay.setHours(16, 0, 0, 0);
+          nextMarketClose = nextCloseDay;
+        }
+      } else { // Weekend
+        // Find next Monday
+        const daysUntilMonday = currentDay === 0 ? 1 : 8 - currentDay; // Sunday: 1 day, Saturday: 2 days
+        const nextMonday = new Date(now);
+        nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+        nextMonday.setHours(9, 30, 0, 0);
+        nextMarketOpen = nextMonday;
+        
+        // Next close is same day
+        const nextCloseDay = new Date(nextMonday);
+        nextCloseDay.setHours(16, 0, 0, 0);
+        nextMarketClose = nextCloseDay;
+      }
+      
       // Format the response
       return res.status(200).json({
         success: true,
@@ -3761,7 +3947,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isRegularHours: isLikelyMarketHours,
           isPreMarketHours,
           isAfterMarketHours, 
-          isWeekend
+          isWeekend,
+          nextMarketOpen: nextMarketOpen?.toISOString(),
+          nextMarketClose: nextMarketClose?.toISOString(),
+          currentTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          exchangeTimezone: 'America/New_York' // NYSE/NASDAQ are in Eastern Time
         }
       });
       
