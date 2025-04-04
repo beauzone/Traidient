@@ -2,11 +2,83 @@ import express, { type Request, Response, NextFunction, Router } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./replitAuth";
+import cors from "cors";
 
 // Export currentPort for other modules to reference
 export let currentPort = 5000;
 
 const app = express();
+
+// Configure enhanced CORS to prevent "you have been blocked" issues with Replit
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // In Replit environments, we need to be more permissive
+    // Allow all origins in production for better compatibility
+    callback(null, true);
+    return;
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin', 
+    'Access-Control-Request-Method', 
+    'Access-Control-Request-Headers',
+    'X-Auth-Token',
+    'X-Api-Key',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'X-Auth-Token'],
+  maxAge: 86400 // 24 hours, prevents preflight caching issues
+};
+
+// Apply CORS globally
+app.use(cors(corsOptions));
+
+// Additional middleware to handle CORS headers more explicitly
+// This is especially important for Replit environments
+app.use((req, res, next) => {
+  // Get the origin from headers or default to '*'
+  const origin = req.headers.origin || '*';
+  
+  // Set specific CORS headers for better compatibility
+  res.header('Access-Control-Allow-Origin', origin);
+  
+  // Ensure credentials can be included
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Allow a broad set of headers to prevent blocking
+  res.header('Access-Control-Allow-Headers', 
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, ' +
+    'Cache-Control, Pragma, Expires, X-Api-Key, Access-Control-Request-Method, ' +
+    'Access-Control-Request-Headers');
+  
+  // Allow all common methods
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  
+  // Expose headers that might be needed by the client
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type, X-Auth-Token');
+  
+  // Set a generous max age to reduce preflight requests
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Add additional security headers for Replit compatibility
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log(`Handling OPTIONS preflight request from origin: ${origin}`);
+    return res.status(204).end();
+  }
+  
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

@@ -17,9 +17,21 @@ export interface AuthRequest extends Request {
   };
 }
 
-// Check if we're in development and enable dev mode with auto-login for testing
+// Check running environment and auth configuration
 const DEV_MODE = process.env.NODE_ENV !== 'production';
-const DEV_AUTO_LOGIN = DEV_MODE && (process.env.DEV_AUTO_LOGIN === 'true' || true); // Force auto-login in development
+
+// Auto-login should only be enabled explicitly to avoid security issues in public environments like Replit
+// In Replit, we prefer to use Replit's OpenID Connect instead of auto-login
+const REPLIT_ENV = process.env.REPL_ID && process.env.REPLIT_DOMAINS;
+
+// Only enable auto-login in dev mode when not in Replit environment, or when explicitly configured
+const DEV_AUTO_LOGIN = DEV_MODE && 
+  (!REPLIT_ENV || process.env.DEV_AUTO_LOGIN === 'true');
+
+console.log(`Server environment: ${DEV_MODE ? 'Development' : 'Production'}, Replit: ${REPLIT_ENV ? 'Yes' : 'No'}`);
+console.log(`Auto-login: ${DEV_AUTO_LOGIN ? 'Enabled' : 'Disabled'}`);
+
+// Cache for dev user to avoid repeated DB lookups
 let devModeUser: User | null = null;
 
 // Authentication middleware that works with both JWT tokens and Replit Auth
@@ -183,22 +195,59 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// Helper to create properly typed route handlers for authenticated routes
+// Enhanced helper to create properly typed route handlers for authenticated routes
+// This is a critical function that ensures proper TypeScript typing for auth requirements
 export function createAuthHandler<P = any, ResBody = any, ReqBody = any>(
   handler: (req: AuthRequest, res: Response<ResBody>) => Promise<any>
 ): RequestHandler<P, ResBody, ReqBody> {
-  return (req, res, next) => {
-    // Make sure we have a valid authenticated user before proceeding
-    // First, check if there's a user attribute and cast the request properly
-    const authReq = req as unknown as AuthRequest;
-    
-    if (!authReq.user || !authReq.user.id) {
-      console.error('No valid user in authenticated request');
-      res.status(401).json({ message: 'Unauthorized' } as any);
-      return;
+  return async (req, res, next) => {
+    try {
+      // Add additional diagnostics for auth debugging in Replit environment
+      const REPLIT_ENV = process.env.REPL_ID && process.env.REPLIT_DOMAINS;
+      const DEBUG_AUTH = REPLIT_ENV || process.env.DEBUG_AUTH === 'true';
+      
+      if (DEBUG_AUTH) {
+        console.log(`Auth debug - Req path: ${req.path}`);
+        console.log(`Auth debug - isAuthenticated method exists: ${typeof req.isAuthenticated === 'function'}`);
+        console.log(`Auth debug - isAuthenticated result: ${req.isAuthenticated ? req.isAuthenticated() : 'N/A'}`);
+        console.log(`Auth debug - Has user object: ${!!req.user}`);
+        console.log(`Auth debug - Auth header: ${req.headers.authorization ? 'Present' : 'Missing'}`);
+      }
+      
+      // First, make sure the request is authenticated and has valid user data
+      const authReq = req as unknown as AuthRequest;
+      
+      // Check for valid user object with required id property
+      if (!authReq.user || typeof authReq.user.id !== 'number') {
+        console.warn(`Authentication failure: No valid user for request to ${req.path}`);
+        
+        // Provide more specific error information
+        const errorDetails = {
+          message: 'Authentication required',
+          path: req.path,
+          reason: !authReq.user ? 'No user object present' : 'Invalid user ID',
+          fix: 'Please log in again'
+        };
+        
+        return res.status(401).json(errorDetails as any);
+      }
+      
+      // Execute the handler with proper error handling
+      try {
+        return await handler(authReq, res);
+      } catch (handlerError) {
+        console.error(`Error in auth handler for ${req.path}:`, handlerError);
+        // Pass to next middleware for standard Express error handling
+        next(handlerError);
+      }
+    } catch (authError) {
+      // Catch any unexpected errors in the auth wrapper itself
+      console.error(`Critical error in auth wrapper:`, authError);
+      res.status(500).json({ 
+        message: 'Internal server error in authentication handler',
+        path: req.path
+      } as any);
     }
-    
-    return handler(authReq, res).catch(next);
   };
 }
 

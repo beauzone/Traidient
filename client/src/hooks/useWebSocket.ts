@@ -1,11 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth, type AuthUser } from './useAuth';
 
+interface WebSocketError {
+  type: string;
+  message: string;
+  [key: string]: any;
+}
+
 interface WebSocketOptions {
   onMessage?: (data: any) => void;
+  onError?: (error: WebSocketError) => void;
   autoReconnect?: boolean;
   includeAuthToken?: boolean;
   pingInterval?: number;
+  maxReconnectAttempts?: number;
+  fallbackMechanism?: 'http' | 'polling' | 'none';
 }
 
 export const useWebSocket = (
@@ -20,8 +29,11 @@ export const useWebSocket = (
   const { 
     autoReconnect = true, 
     onMessage, 
+    onError,
     includeAuthToken = true,
-    pingInterval = 30000  // Default ping every 30 seconds to keep connection alive
+    pingInterval = 30000,  // Default ping every 30 seconds to keep connection alive
+    maxReconnectAttempts: userMaxReconnectAttempts = 10,
+    fallbackMechanism = 'http'
   } = options;
   
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -29,70 +41,110 @@ export const useWebSocket = (
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 10; // Increased from 5 to 10
+  const maxReconnectAttempts = userMaxReconnectAttempts;
   const baseReconnectDelay = 1000;
   const { user, isAuthenticated } = useAuth();
   const socketRef = useRef<WebSocket | null>(null);
 
-  // Add auth token to URL if needed and available
+  // Enhanced WebSocket URL construction with specific Replit support
   const getWebSocketUrl = useCallback(() => {
     try {
-      // In Replit, the WebSocket endpoint is on the same host/domain as the application
-      // We need to properly form the WebSocket URL using protocol, host, and path
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Start by capturing the current origin and URL information
+      const location = window.location;
+      const isSecure = location.protocol === 'https:';
+      const protocol = isSecure ? 'wss:' : 'ws:';
+      const host = location.host; // host includes hostname:port if port is specified
       
-      // Use the host directly without specifying a port
-      // This lets the browser handle port resolution correctly in Replit environment
-      const host = window.location.host;
+      // Add a cache-busting parameter to avoid caching issues with specific timestamp
+      const cacheBuster = `_cb=${Date.now()}`;
       
-      // Add a cache-busting parameter to avoid caching issues
-      const cacheBuster = `_=${Date.now()}`;
+      // Base path constructed with carefully verified components
+      let wsUrl = '';
       
-      // Connect directly to the Express server's WebSocket endpoint
-      // Note: In Replit, we need to ensure we use the same host but with the /ws path
-      // Important: First query param uses ? while additional params use &
-      let wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
+      // For Replit environments, we have two potential connection approaches:
       
-      // Don't use port in the URL, as this causes connection issues in Replit environment
-      // Explicitly strip any port that might be in the URL
-      if (wsUrl.includes(':5900')) {
-        console.warn('Removing port 5900 from WebSocket URL as it causes connection issues');
-        wsUrl = wsUrl.replace(':5900', '');
-      }
+      // APPROACH 1: Connect to the specific WebSocket endpoint /ws path
+      // This is the standard approach that connects to our dedicated WebSocket route
+      wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
       
-      // Log the window.location object for debugging
-      console.log('Current location:', {
-        protocol: window.location.protocol,
-        host: window.location.host, 
-        hostname: window.location.hostname,
-        port: window.location.port,
-        origin: window.location.origin,
-        href: window.location.href
+      // Log the detailed location information for troubleshooting
+      console.log('WebSocket connection details:', {
+        protocol: location.protocol,
+        host: location.host, 
+        hostname: location.hostname,
+        port: location.port,
+        origin: location.origin,
+        href: location.href,
+        constructedUrl: wsUrl
       });
       
-      // Include token parameters if required and available
+      // Include authentication parameters if required
       if (includeAuthToken && isAuthenticated && user) {
-        // Append userId parameter for server-side validation
+        // Standard: append userId parameter for server-side validation
         wsUrl += `&userId=${user.id}`;
         
-        // Also check for JWT token in localStorage as fallback
+        // Include token from localStorage if available
         const token = localStorage.getItem('token');
         if (token) {
           wsUrl += `&token=${encodeURIComponent(token)}`;
         }
+        
+        // Add additional session verification
+        const sessionId = localStorage.getItem('sessionId');
+        if (sessionId) {
+          wsUrl += `&sessionId=${encodeURIComponent(sessionId)}`;
+        }
       }
       
-      console.log(`WebSocket URL constructed: ${wsUrl}`);
+      // Log the full constructed URL for debugging
+      console.log(`WebSocket URL constructed (primary): ${wsUrl}`);
       return wsUrl;
     } catch (error) {
-      console.error('Error building WebSocket URL:', error);
-      // Fallback URL construction logic
-      // Try multiple fallback approaches to ensure we can connect
-      // First: try the same host but with the /ws path and no port
-      const fallbackHost = window.location.host.split(':')[0]; // Remove any port
-      const fallbackUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${fallbackHost}/ws`;
-      console.log(`Using fallback WebSocket URL: ${fallbackUrl}`);
-      return fallbackUrl;
+      console.error('Error constructing primary WebSocket URL:', error);
+      
+      // ENHANCED FALLBACK STRATEGY FOR REPLIT
+      
+      // Get the base information again in a simplified way
+      const isSecure = window.location.protocol === 'https:';
+      const fallbackProtocol = isSecure ? 'wss:' : 'ws:';
+      
+      // Fallback 1: Try simpler URL with host only
+      try {
+        const fallbackUrl1 = `${fallbackProtocol}//${window.location.host}/ws`;
+        console.log(`Attempting fallback WebSocket URL (1): ${fallbackUrl1}`);
+        return fallbackUrl1;
+      } catch (err) {
+        console.error('Fallback URL 1 construction failed:', err);
+      }
+      
+      // Fallback 2: Try with hostname only (no port specification)
+      try {
+        const fallbackUrl2 = `${fallbackProtocol}//${window.location.hostname}/ws`;
+        console.log(`Attempting fallback WebSocket URL (2): ${fallbackUrl2}`);
+        return fallbackUrl2;
+      } catch (err) {
+        console.error('Fallback URL 2 construction failed:', err);
+      }
+      
+      // Fallback 3: Try to extract Replit specific domain format
+      try {
+        const hostname = window.location.hostname;
+        // If it's a Replit domain
+        if (hostname.includes('replit.dev') || hostname.includes('repl.co')) {
+          const fallbackUrl3 = `${fallbackProtocol}//${hostname}/ws`;
+          console.log(`Attempting Replit-specific WebSocket URL: ${fallbackUrl3}`);
+          return fallbackUrl3;
+        }
+      } catch (err) {
+        console.error('Replit-specific fallback failed:', err);
+      }
+      
+      // Last resort: absolute basic URL with minimal construction
+      const finalFallback = isSecure ? 
+        `wss://${window.location.hostname}/ws` : 
+        `ws://${window.location.hostname}/ws`;
+      console.log(`Using ultimate fallback WebSocket URL: ${finalFallback}`);
+      return finalFallback;
     }
   }, [includeAuthToken, isAuthenticated, user]);
 
@@ -158,119 +210,310 @@ export const useWebSocket = (
     };
   }, [connected, pingInterval, sendPing]);
 
-  // Create and connect the WebSocket
+  // Enhanced WebSocket connection with Replit compatibility and better diagnostics
   const connectWebSocket = useCallback(() => {
     try {
+      // Generate the WebSocket URL with our enhanced algorithm
       const wsUrl = getWebSocketUrl();
 
-      console.log(`Connecting to WebSocket at ${wsUrl}`);
-      const ws = new WebSocket(wsUrl);
-      socketRef.current = ws;
-
-      // Event listeners
-      ws.addEventListener('open', () => {
-        console.log('WebSocket connected successfully');
-        reconnectAttempts.current = 0;
-        setSocket(ws);
-        setConnected(true);
-        
-        // Send an immediate ping to verify the connection works both ways
-        send({ type: 'ping', timestamp: Date.now() });
-        
-        // Send an authentication message if needed
-        if (isAuthenticated && user && includeAuthToken) {
-          // We can send an explicit auth message to help server authenticate
-          send({ type: 'auth', userId: user.id });
-        }
-      });
-
-      ws.addEventListener('message', (event) => {
-        try {
-          // Handle pongs from the server to keep connection alive
-          if (event.data === 'pong' || event.data === '{"type":"pong"}') {
-            console.log('Received pong from server');
-            return;
-          }
-          
-          const data = JSON.parse(event.data);
-          
-          // Handle pong messages
-          if (data.type === 'pong') {
-            console.log('Received pong message from server');
-            return;
-          }
-          
-          // Call the onMessage callback if provided
-          if (onMessage) {
-            onMessage(data);
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error, event.data);
-          // If it's not JSON, still call onMessage with the raw data
-          if (onMessage) {
-            onMessage(event.data);
-          }
-        }
-      });
-
-      ws.addEventListener('close', (event) => {
-        const closeCodes = {
-          1000: 'Normal Closure',
-          1001: 'Going Away',
-          1002: 'Protocol Error',
-          1003: 'Unsupported Data',
-          1005: 'No Status Received',
-          1006: 'Abnormal Closure',
-          1007: 'Invalid Frame Payload Data',
-          1008: 'Policy Violation',
-          1009: 'Message Too Big',
-          1010: 'Mandatory Extension',
-          1011: 'Internal Error',
-          1012: 'Service Restart',
-          1013: 'Try Again Later',
-          1014: 'Bad Gateway',
-          1015: 'TLS Handshake'
-        };
-        
-        const reason = closeCodes[event.code as keyof typeof closeCodes] || 'Unknown';
-        console.log(`WebSocket disconnected: Code ${event.code} (${reason}), Reason: ${event.reason || 'None provided'}`);
-        
-        setSocket(null);
-        setConnected(false);
-        socketRef.current = null;
-
-        // Attempt to reconnect with exponential backoff
-        if (autoReconnect && reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.min(
-            30000, // Cap at 30 seconds
-            baseReconnectDelay * Math.pow(1.5, reconnectAttempts.current) + 
-            Math.floor(Math.random() * 1000) // Add jitter
-          );
-          
-          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            connectWebSocket();
-          }, delay);
-        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
-          console.error('Max reconnect attempts reached. WebSocket connection failed.');
-          console.info('To retry connection, call the reconnect() function or refresh the page.');
-        }
-      });
-
-      ws.addEventListener('error', (error) => {
-        console.error('WebSocket error:', error);
-        // We don't need to handle reconnection here as the 'close' event will trigger after an error
-      });
-    } catch (error) {
-      console.error('Error creating WebSocket:', error);
+      // Logging information for debugging
+      console.log(`Attempting WebSocket connection to ${wsUrl}`);
       
-      // If we can't even create the WebSocket, try again after a delay
+      // Connect with detailed diagnostics
+      console.time('WebSocket Connection Attempt');
+      
+      // Keep track of connection status for diagnostics
+      let connectionInitiated = false;
+      let connectionFailed = false;
+      
+      try {
+        // Create WebSocket with enhanced error handling
+        const ws = new WebSocket(wsUrl);
+        connectionInitiated = true;
+        socketRef.current = ws;
+        
+        // Set a connection timeout to detect stalled connections
+        const connectionTimeout = setTimeout(() => {
+          if (!connectionFailed && ws.readyState !== WebSocket.OPEN) {
+            console.warn('WebSocket connection timeout - connection taking too long');
+            // We don't close here because the close handler will handle reconnection
+          }
+        }, 10000); // 10 second timeout
+        
+        // Event listeners with improved diagnostics
+        ws.addEventListener('open', () => {
+          console.timeEnd('WebSocket Connection Attempt');
+          clearTimeout(connectionTimeout);
+          console.log('WebSocket connected successfully! ReadyState:', ws.readyState);
+          
+          // Reset reconnection metrics on successful connection
+          reconnectAttempts.current = 0;
+          setSocket(ws);
+          setConnected(true);
+          
+          // Connection verification ping
+          console.log('Sending initial ping to verify two-way communication');
+          send({ 
+            type: 'ping', 
+            timestamp: Date.now(),
+            client: 'web-app',
+            version: '1.0'
+          });
+          
+          // Enhanced authentication message
+          if (isAuthenticated && user && includeAuthToken) {
+            console.log('Sending authentication data to WebSocket server');
+            send({ 
+              type: 'auth', 
+              userId: user.id,
+              timestamp: Date.now(),
+              clientInfo: {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                locale: navigator.language
+              }
+            });
+          }
+        });
+
+        ws.addEventListener('message', (event) => {
+          try {
+            // Allow non-JSON messages in certain cases
+            if (typeof event.data === 'string') {
+              // Handle simple text messages first
+              if (event.data === 'pong' || event.data === '{"type":"pong"}') {
+                console.log('Received pong confirmation from server');
+                return;
+              }
+              
+              try {
+                // Try to parse as JSON with error handling
+                const data = JSON.parse(event.data);
+                
+                // Special message handling
+                if (data.type === 'pong') {
+                  console.log('Server responded to ping with pong message');
+                  return;
+                }
+                
+                if (data.type === 'error') {
+                  console.error('Server reported WebSocket error:', data.message || data);
+                  return;
+                }
+                
+                if (data.type === 'auth_result') {
+                  console.log('Authentication result:', data.success ? 'Success' : 'Failed', data.message || '');
+                  return;
+                }
+                
+                // For all other messages, pass to the callback
+                if (onMessage) {
+                  onMessage(data);
+                }
+              } catch (jsonError) {
+                // If it's not valid JSON, still send the raw message to the callback
+                console.warn('Received non-JSON message from WebSocket:', event.data);
+                if (onMessage) {
+                  onMessage(event.data);
+                }
+              }
+            } else {
+              // Handle binary data if needed
+              console.log('Received binary WebSocket message');
+              if (onMessage) {
+                onMessage(event.data);
+              }
+            }
+          } catch (error) {
+            console.error('Error processing WebSocket message:', error);
+            console.log('Problem message was:', event.data);
+          }
+        });
+
+        ws.addEventListener('close', (event) => {
+          console.timeEnd('WebSocket Connection Attempt');
+          clearTimeout(connectionTimeout);
+          connectionFailed = true;
+          
+          // Comprehensive WebSocket close code explanations
+          const closeCodes = {
+            1000: 'Normal Closure (successful operation/explicit termination)',
+            1001: 'Going Away (server shutting down/browser navigated away)',
+            1002: 'Protocol Error (endpoint received data that couldn\'t be processed)',
+            1003: 'Unsupported Data (endpoint received unsupported data type)',
+            1005: 'No Status Received (no status code in close frame)',
+            1006: 'Abnormal Closure (connection terminated without proper close frame)',
+            1007: 'Invalid Frame Payload Data (message contained inconsistent data)',
+            1008: 'Policy Violation (received message violates policy)',
+            1009: 'Message Too Big (message too large to process)',
+            1010: 'Mandatory Extension (server didn\'t negotiate required extension)',
+            1011: 'Internal Error (server encountered unexpected condition)',
+            1012: 'Service Restart (server restarting)',
+            1013: 'Try Again Later (server temporarily unavailable)',
+            1014: 'Bad Gateway (gateway/proxy received invalid response)',
+            1015: 'TLS Handshake (connection terminated during TLS handshake)'
+          };
+          
+          const reason = closeCodes[event.code as keyof typeof closeCodes] || 'Unknown';
+          console.log(`WebSocket connection closed: Code ${event.code} (${reason})`);
+          if (event.reason) console.log(`Server close reason: ${event.reason}`);
+          
+          // Reset connection state
+          setSocket(null);
+          setConnected(false);
+          socketRef.current = null;
+
+          // Enhanced reconnection with more intelligent backoff
+          if (autoReconnect && reconnectAttempts.current < maxReconnectAttempts) {
+            // More sophisticated backoff algorithm
+            // - Starts with shorter delays for first few attempts
+            // - Increases more aggressively after several failures
+            // - Adds jitter to prevent thundering herd
+            let delay; 
+            
+            if (reconnectAttempts.current < 3) {
+              // Quick retry for first few attempts
+              delay = 1000 * (reconnectAttempts.current + 1) + Math.random() * 1000;
+            } else {
+              // Exponential backoff for persistent failures
+              delay = Math.min(
+                30000, // Cap at 30 seconds
+                baseReconnectDelay * Math.pow(2, reconnectAttempts.current - 3) + 
+                Math.floor(Math.random() * 3000) // More jitter for longer waits
+              );
+            }
+            
+            // Special handling for specific close codes
+            if (event.code === 1013) { // Try Again Later
+              console.log('Server is temporarily unavailable, using longer delay before reconnect');
+              delay = Math.max(delay, 5000); // At least 5 seconds
+            } else if (event.code === 1008 || event.code === 1011) { // Policy Violation or Internal Error
+              console.log('Server reported policy violation or internal error, using longer delay');
+              delay = Math.max(delay, 10000); // At least 10 seconds
+            }
+            
+            console.log(`Reconnection scheduled in ${Math.round(delay)}ms (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
+            
+            reconnectTimeoutRef.current = setTimeout(() => {
+              reconnectAttempts.current++;
+              console.log(`Executing reconnection attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+              connectWebSocket();
+            }, delay);
+          } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+            console.error(`Maximum reconnect attempts (${maxReconnectAttempts}) reached. WebSocket connection has failed.`);
+            console.info('To manually retry connection, call the reconnect() function or refresh the page.');
+            
+            // Notify via callback if provided
+            if (onMessage) {
+              onMessage({
+                type: 'connection_failed',
+                message: 'WebSocket connection failed after multiple attempts',
+                timestamp: Date.now()
+              });
+            }
+          }
+        });
+
+        ws.addEventListener('error', (error) => {
+          console.error('WebSocket error event:', error);
+          connectionFailed = true;
+          
+          // Collect enhanced diagnostics about the current environment
+          const readyStateMap = {
+            0: 'CONNECTING',
+            1: 'OPEN',
+            2: 'CLOSING',
+            3: 'CLOSED'
+          };
+          
+          const diagnostics = {
+            url: wsUrl,
+            browser: navigator.userAgent,
+            readyState: ws.readyState,
+            readyStateText: readyStateMap[ws.readyState as keyof typeof readyStateMap] || 'UNKNOWN',
+            reconnectAttempts: reconnectAttempts.current,
+            timestamp: new Date().toISOString(),
+            location: window.location.href,
+            hostname: window.location.hostname,
+            protocol: window.location.protocol,
+            isReplitEnv: window.location.hostname.includes('replit') || window.location.hostname.includes('repl.co')
+          };
+            
+          console.log('Connection diagnostics:', diagnostics);
+          
+          // For Replit environments, provide specific guidance
+          if (window.location.hostname.includes('replit') || window.location.hostname.includes('repl.co')) {
+            console.log('Replit-specific environment detected:');
+            console.log('- Try refreshing the page if WebSocket connection fails repeatedly');
+            console.log('- WebSocket connections may be restricted by Replit security measures');
+            console.log('- The application will automatically fall back to HTTP polling when WebSockets fail');
+            
+            // Signal to the application that WebSockets may be unavailable
+            localStorage.setItem('websocket_blocked', 'true');
+          }
+          
+          // Call user-provided error callback if available
+          if (onError) {
+            const errorInfo: WebSocketError = {
+              type: 'connection_error',
+              message: 'WebSocket connection error',
+              originalError: error,
+              diagnostics,
+              timestamp: Date.now(),
+              fallbackMechanism
+            };
+            onError(errorInfo);
+          }
+            localStorage.setItem('last_websocket_failure', new Date().toISOString());
+          }
+          
+          // If this is the first attempt, try reconnecting quickly
+          if (reconnectAttempts.current === 0) {
+            console.log('First WebSocket attempt failed, trying again quickly...');
+            // Signal to use the fallback mechanism if the quick retry fails
+            localStorage.setItem('use_fallback_mechanism', 'pending');
+          }
+          
+          // Track persistent failures to enable HTTP fallback mechanism
+          if (reconnectAttempts.current >= 2) {
+            console.log('Multiple WebSocket failures detected, enabling HTTP fallback mechanism');
+            localStorage.setItem('use_fallback_mechanism', 'true');
+            
+            // Trigger the onError callback if provided
+            if (options.onError) {
+              options.onError({
+                type: 'websocket_persistent_failure',
+                message: 'WebSocket connection failed after multiple attempts',
+                reconnectAttempts: reconnectAttempts.current
+              });
+            }
+          }
+          
+          // We still don't handle reconnection here directly as the 'close' event will trigger after an error
+          // and has comprehensive reconnection logic
+        });
+      } catch (wsCreationError) {
+        console.timeEnd('WebSocket Connection Attempt');
+        console.error('Exception during WebSocket object creation:', wsCreationError);
+        connectionFailed = true;
+        
+        // Immediate retry for WebSocket creation errors with a short delay
+        console.log('WebSocket creation failed, scheduling retry with short delay');
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectAttempts.current++;
+          connectWebSocket();
+        }, 2000);
+      }
+    } catch (outerError) {
+      // This catch block handles errors in the URL generation or other setup steps
+      console.error('Critical error in WebSocket connection setup:', outerError);
+      
+      // If we can't even create the WebSocket, try again after a moderate delay
+      console.log('Scheduling reconnection due to fatal setup error');
       reconnectTimeoutRef.current = setTimeout(() => {
         reconnectAttempts.current++;
         connectWebSocket();
-      }, 3000);
+      }, 5000);
     }
   }, [getWebSocketUrl, isAuthenticated, user, includeAuthToken, send, onMessage, autoReconnect]);
 
