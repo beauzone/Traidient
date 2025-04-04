@@ -1863,7 +1863,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
+
+      // Check if market hours to determine caching strategy
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const dayOfWeek = now.getDay();
       
+      // Check if market is likely open (9:30 AM - 4:00 PM ET on weekdays)
+      const isLikelyMarketHours = 
+        (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
+        ((hour > 9 || (hour === 9 && minute >= 30)) && hour < 16);
+      
+      // Single quote data needs to be fresh during market hours but can be
+      // cached more aggressively outside market hours
+      if (req.query.forceRefresh === 'true') {
+        // On-demand/force refresh - never use cache
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        console.log(`Force refresh requested for single quote: ${req.params.symbol}`);
+      } else if (isLikelyMarketHours) {
+        // During market hours - 1-minute caching
+        res.setHeader('Cache-Control', 'public, max-age=60'); // 1 minute during market hours
+        console.log(`Market hours - using 1-minute cache for single quote: ${req.params.symbol}`);
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend - extensive caching (24h)
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours on weekends
+        console.log(`Weekend - using 24-hour cache for single quote: ${req.params.symbol}`);
+      } else {
+        // After hours - moderate caching (1h)
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour after market hours
+        console.log(`After hours - using 1-hour cache for single quote: ${req.params.symbol}`);
+      }
       const { symbol } = req.params;
       if (!symbol) {
         return res.status(400).json({ message: 'Symbol is required' });
@@ -2013,6 +2045,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Check if market hours to determine caching strategy
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const dayOfWeek = now.getDay();
+      
+      // Check if market is likely open (9:30 AM - 4:00 PM ET on weekdays)
+      const isLikelyMarketHours = 
+        (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
+        ((hour > 9 || (hour === 9 && minute >= 30)) && hour < 16);
+      
+      // Quote data needs to be fresh during market hours but can be
+      // cached more aggressively outside market hours
+      if (req.query.forceRefresh === 'true') {
+        // On-demand/force refresh - never use cache
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        console.log(`Force refresh requested for batch quotes`);
+      } else if (isLikelyMarketHours) {
+        // During market hours - 1-minute caching
+        res.setHeader('Cache-Control', 'public, max-age=60'); // 1 minute during market hours
+        console.log(`Market hours - using 1-minute cache for batch quotes`);
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend - extensive caching (24h)
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours on weekends
+        console.log(`Weekend - using 24-hour cache for batch quotes`);
+      } else {
+        // After hours - moderate caching (1h)
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour after market hours
+        console.log(`After hours - using 1-hour cache for batch quotes`);
       }
       
       const symbolsParam = req.query.symbols as string;
@@ -2181,6 +2246,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Check if market hours to determine caching strategy
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const dayOfWeek = now.getDay();
+      
+      // Check if market is likely open (9:30 AM - 4:00 PM ET on weekdays)
+      const isLikelyMarketHours = 
+        (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
+        ((hour > 9 || (hour === 9 && minute >= 30)) && hour < 16);
+      
+      // Historical data can be heavily cached especially outside market hours
+      if (req.query.forceRefresh === 'true') {
+        // On-demand/force refresh - never use cache
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        console.log(`Force refresh requested for historical data: ${req.params.symbol}`);
+      } else if (isLikelyMarketHours) {
+        // During market hours - 5-minute caching is reasonable for charts
+        res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes during market hours
+        console.log(`Market hours - using 5-minute cache for historical data: ${req.params.symbol}`);
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend - extensive caching (24h)
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours on weekends
+        console.log(`Weekend - using 24-hour cache for historical data: ${req.params.symbol}`);
+      } else {
+        // After hours - moderate caching (2h)
+        res.setHeader('Cache-Control', 'public, max-age=7200'); // 2 hours after market hours
+        console.log(`After hours - using 2-hour cache for historical data: ${req.params.symbol}`);
       }
       
       const { symbol } = req.params;
@@ -3565,6 +3662,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check market status
   app.get('/api/market-data/status', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
+      // Check if market hours to determine caching strategy
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const dayOfWeek = now.getDay();
+      
+      // Check if market is likely open (9:30 AM - 4:00 PM ET on weekdays)
+      const isLikelyMarketHours = 
+        (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
+        ((hour > 9 || (hour === 9 && minute >= 30)) && hour < 16);
+      
+      // Market status needs to be fairly fresh during market hours
+      // but can be cached more aggressively outside market hours
+      if (req.query.forceRefresh === 'true') {
+        // On-demand/force refresh - never use cache
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        console.log(`Force refresh requested for market status`);
+      } else if (isLikelyMarketHours) {
+        // During market hours - minimal caching (30 seconds)
+        res.setHeader('Cache-Control', 'public, max-age=30'); // 30 seconds during market hours
+        console.log(`Market hours - using 30-second cache for market status`);
+      } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend - extensive caching (4 hours)
+        res.setHeader('Cache-Control', 'public, max-age=14400'); // 4 hours on weekends
+        console.log(`Weekend - using 4-hour cache for market status`);
+      } else {
+        // After hours - moderate caching (5 minutes)
+        res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes after market hours
+        console.log(`After hours - using 5-minute cache for market status`);
+      }
+      
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
       }

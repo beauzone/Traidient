@@ -28,12 +28,22 @@ const MARKET_DATA_CONFIG = {
   // Maximum number of WebSocket connection attempts before falling back to HTTP
   maxWebSocketConnectionAttempts: 2,
   
-  // Polling intervals (in milliseconds)
+  // Polling intervals (in milliseconds) - using longer intervals to avoid Cloudflare blocking
   pollingIntervals: {
-    marketHours: 3000,      // 3 seconds during market hours
-    extendedHours: 10000,   // 10 seconds during pre/post market
-    overnight: 30000,       // 30 seconds overnight
-    weekend: 60000          // 1 minute on weekends
+    marketHours: 60000,     // Exactly 1 minute during market hours (user requirement)
+    extendedHours: 120000,  // 2 minutes during pre/post market (reduced frequency)
+    overnight: 300000,      // 5 minutes overnight (minimal updates needed)
+    weekend: 600000         // 10 minutes on weekends (minimal updates needed)
+  },
+  
+  // Caching settings
+  cache: {
+    // How long to consider cached data fresh during market hours (in milliseconds)
+    marketHoursFreshness: 90000,  // 1.5 minutes during market hours
+    // How long to consider cached data fresh during non-market hours (in milliseconds)
+    nonMarketHoursFreshness: 86400000, // 24 hours - extensive caching when market closed
+    // Force a refresh after this many milliseconds even during non-market hours
+    maxCacheAge: 86400000 * 2     // 48 hours maximum cache age before force refresh
   },
   
   // How many symbols to request in a single batch
@@ -98,45 +108,52 @@ export function useMarketData() {
     const pollingMetrics = {
       consecutiveErrors: 0,
       lastSuccessfulPoll: Date.now(),
-      pollingInterval: 5000, // Default start: 5 seconds
+      pollingInterval: 60000, // Default start: 1 minute (Cloudflare-friendly)
       isReplitEnvironment: window.location.hostname.includes('replit') || 
                            window.location.hostname.includes('repl.co')
     };
     
     // Get adaptive polling interval based on market conditions, time of day, and network performance
+    // Implementation updated to follow user requirements for exact 1-minute polling during market hours
+    // and less frequent polling with enhanced caching during non-market hours
     const getAdaptivePollingInterval = () => {
       const now = new Date();
       const hour = now.getHours();
       const minute = now.getMinutes();
       const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
       
-      // Weekend polling behavior
+      // Weekend polling behavior (minimal updates needed)
       if (dayOfWeek === 0 || dayOfWeek === 6) {
-        return 30000 + (Math.random() * 10000); // 30-40 seconds on weekends
+        console.log('Weekend detected - using extended polling interval with caching');
+        return MARKET_DATA_CONFIG.pollingIntervals.weekend;
       }
       
-      // Market hours (9:30 AM - 4:00 PM ET, approximated) - faster polling
+      // US Market hours are 9:30 AM - 4:00 PM ET, approximated in local time
+      // During market hours, we want exactly 1-minute polling as per user requirement
       const isMarketHours = 
         (hour > 9 || (hour === 9 && minute >= 30)) && 
         hour < 16;
       
       if (isMarketHours) {
-        // Faster polling during market hours
-        return 5000 + (Math.random() * 2000); // 5-7 seconds
+        console.log('Market hours detected - using exact 1-minute polling interval');
+        // User requirement: exactly 1 minute polling during market hours
+        return MARKET_DATA_CONFIG.pollingIntervals.marketHours;
       }
       
-      // Pre-market and after-hours - medium polling
+      // Pre-market and after-hours - reduced frequency compared to market hours
       const isExtendedHours = 
         (hour >= 4 && hour < 9) || 
         (hour === 9 && minute < 30) || 
         (hour >= 16 && hour < 20);
       
       if (isExtendedHours) {
-        return 10000 + (Math.random() * 5000); // 10-15 seconds
+        console.log('Extended hours detected - using extended hours polling interval');
+        return MARKET_DATA_CONFIG.pollingIntervals.extendedHours;
       }
       
-      // Overnight - slowest polling
-      return 30000 + (Math.random() * 15000); // 30-45 seconds
+      // Overnight - minimal polling needed with enhanced caching
+      console.log('Overnight hours detected - using overnight polling interval with maximum caching');
+      return MARKET_DATA_CONFIG.pollingIntervals.overnight;
     };
     
     // Check market status using HTTP API with cache busting
@@ -169,28 +186,81 @@ export function useMarketData() {
       }
     };
     
-    // Enhanced fetch quotes with advanced error handling and recovery
-    const fetchQuotes = async () => {
+    // Enhanced fetch quotes with advanced error handling, recovery, and caching strategy
+    // Implements proper caching during non-market hours as per user requirements
+    const fetchQuotes = async (forceRefresh = false) => {
       if (subscribedSymbols.length === 0) return;
       
       try {
-        // Batch requests for efficiency - fetch quotes for all symbols at once with cache busting
+        // Prepare request parameters
         const symbols = [...subscribedSymbols].join(',');
-        const cacheBuster = Date.now();
+        
+        // Determine if we should use cache based on market status and time since last fetch
+        // During market hours - always refresh as per 1-minute requirement
+        // During non-market hours - leverage caching when appropriate
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+        
+        // Check if market is likely open (9:30 AM - 4:00 PM ET on weekdays)
+        const isLikelyMarketHours = 
+          (dayOfWeek > 0 && dayOfWeek < 6) && // Monday to Friday
+          ((hour > 9 || (hour === 9 && minute >= 30)) && hour < 16);
+        
+        // Determine appropriate caching strategy
+        let cachingStrategy = 'no-cache';
+        let cacheMaxAge = 0;
+        
+        if (forceRefresh) {
+          // On-demand/force refresh - never use cache
+          cachingStrategy = 'no-cache';
+          console.log('Forcing refresh of market data - bypassing cache');
+        } else if (isLikelyMarketHours) {
+          // During market hours - minimal caching (1-minute polling requirement)
+          cachingStrategy = 'no-cache';
+          console.log('Market hours - no caching, using 1-minute poll as required');
+        } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+          // Weekend - extensive caching (market definitely closed)
+          cachingStrategy = 'public, max-age=86400'; // 24-hour cache
+          cacheMaxAge = MARKET_DATA_CONFIG.cache.nonMarketHoursFreshness;
+          console.log('Weekend detected - using extensive caching strategy');
+        } else {
+          // Weekday but outside market hours - moderate caching
+          // But still cache-busting for regular poll updates
+          cachingStrategy = 'public, max-age=3600'; // 1-hour cache
+          cacheMaxAge = MARKET_DATA_CONFIG.cache.nonMarketHoursFreshness / 2;
+          console.log('After hours - using moderate caching strategy');
+        }
+        
+        // Include cache-buster parameter only during market hours or for forced refreshes
+        // This allows the server/CDN to serve cached responses during non-market hours
+        const cacheBuster = (isLikelyMarketHours || forceRefresh) ? `&_=${Date.now()}` : '';
+        
+        // Set appropriate headers based on caching strategy
+        const headers: Record<string, string> = {
+          'X-Requested-With': 'XMLHttpRequest'
+        };
+        
+        // Only include cache control headers for non-cacheable requests
+        if (cachingStrategy === 'no-cache') {
+          headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+          headers['Pragma'] = 'no-cache';
+        }
+        
+        console.log(`Fetching quotes with caching strategy: ${cachingStrategy}`);
         
         const response = await axios.get(
-          `/api/market-data/quotes?symbols=${symbols}&_=${cacheBuster}`,
+          `/api/market-data/quotes?symbols=${symbols}${cacheBuster}`,
           {
             timeout: 10000, // 10 second timeout
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
+            headers
           }
         );
         
         if (response.data && response.data.quotes && Array.isArray(response.data.quotes)) {
+          const fetchTime = new Date().toISOString();
+          
           setMarketData(prevData => {
             const newData = { ...prevData };
             
@@ -199,7 +269,9 @@ export function useMarketData() {
               newData[quote.symbol] = {
                 ...quote,
                 dataSource: quote.dataSource || 'http-fallback',
-                fetchTime: new Date().toISOString()
+                fetchTime,
+                isSimulated: quote.isSimulated || false,
+                delay: quote.delay || 0
               };
             });
             
@@ -210,11 +282,21 @@ export function useMarketData() {
           pollingMetrics.consecutiveErrors = 0;
           pollingMetrics.lastSuccessfulPoll = Date.now();
           
+          // Update data status to help UI show freshness information
+          setDataStatus(prevStatus => ({
+            ...prevStatus,
+            lastSuccessfulFetch: Date.now(),
+            isStale: false,
+            averageDelay: response.data.quotes.reduce((acc: number, q: MarketDataUpdate) => 
+              acc + (q.delay || 0), 0) / response.data.quotes.length
+          }));
+          
           // Also update market status if available
           if (response.data && response.data.marketStatus) {
             setMarketStatus({
               isMarketOpen: response.data.marketStatus.isMarketOpen,
-              dataSource: response.data.marketStatus.dataSource || 'http-fallback'
+              dataSource: response.data.marketStatus.dataSource || 'http-fallback',
+              lastUpdated: fetchTime
             });
           }
         }
@@ -230,6 +312,12 @@ export function useMarketData() {
             variant: 'default'
           });
         }
+        
+        // Update data status to reflect staleness
+        setDataStatus(prevStatus => ({
+          ...prevStatus,
+          isStale: true
+        }));
       }
     };
     
@@ -237,9 +325,9 @@ export function useMarketData() {
     const scheduleNextPoll = () => {
       // Adjust polling interval based on consecutive errors - implement exponential backoff
       if (pollingMetrics.consecutiveErrors > 3) {
-        // Progressive backoff up to 1 minute max
+        // Progressive backoff up to 3 minutes max (Cloudflare-friendly)
         pollingMetrics.pollingInterval = Math.min(
-          60000, 
+          180000, // 3 minutes maximum 
           pollingMetrics.pollingInterval * 1.5
         );
         console.log(`Backing off polling to ${pollingMetrics.pollingInterval}ms due to ${pollingMetrics.consecutiveErrors} consecutive errors`);
@@ -249,9 +337,9 @@ export function useMarketData() {
       }
       
       // Reset if it's been too long since last successful poll
-      if (Date.now() - pollingMetrics.lastSuccessfulPoll > 120000) { // 2 minutes
-        console.log('No successful polls for 2 minutes, resetting polling strategy');
-        pollingMetrics.pollingInterval = 5000; // Reset to initial interval
+      if (Date.now() - pollingMetrics.lastSuccessfulPoll > 180000) { // 3 minutes
+        console.log('No successful polls for 3 minutes, resetting polling strategy');
+        pollingMetrics.pollingInterval = 60000; // Reset to initial interval (Cloudflare-friendly)
       }
       
       // Clear any existing interval
