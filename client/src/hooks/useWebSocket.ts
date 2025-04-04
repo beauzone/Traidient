@@ -464,8 +464,8 @@ export const useWebSocket = (
             };
             onError(errorInfo);
           }
-            localStorage.setItem('last_websocket_failure', new Date().toISOString());
-          }
+          
+          localStorage.setItem('last_websocket_failure', new Date().toISOString());
           
           // If this is the first attempt, try reconnecting quickly
           if (reconnectAttempts.current === 0) {
