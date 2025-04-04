@@ -76,6 +76,59 @@ app.use((req, res, next) => {
               timestamp: data.timestamp,
               serverTime: Date.now()
             }));
+          } else if (data.type === 'auth') {
+            // Mock successful authentication
+            ws.send(JSON.stringify({
+              type: 'auth_success',
+              userId: data.userId,
+              serverTime: Date.now()
+            }));
+          } else if (data.type === 'subscribe') {
+            // Mock subscription response
+            ws.send(JSON.stringify({
+              type: 'subscription_success',
+              channel: data.channel,
+              symbol: data.symbol,
+              serverTime: Date.now()
+            }));
+            
+            // Send some sample data for subscribed symbol if applicable
+            if (data.symbol) {
+              // Send initial data
+              setTimeout(() => {
+                ws.send(JSON.stringify({
+                  type: 'market_data',
+                  symbol: data.symbol,
+                  data: {
+                    price: 185.25,
+                    change: 2.75,
+                    changePercent: 1.52,
+                    volume: 25436789,
+                    timestamp: Date.now()
+                  }
+                }));
+              }, 500);
+              
+              // Send periodic updates
+              const interval = setInterval(() => {
+                if (ws.readyState === 1) { // OPEN
+                  const randomChange = (Math.random() - 0.5) * 0.5;
+                  ws.send(JSON.stringify({
+                    type: 'market_data',
+                    symbol: data.symbol,
+                    data: {
+                      price: 185.25 + randomChange,
+                      change: 2.75 + randomChange,
+                      changePercent: 1.52 + (randomChange / 185.25) * 100,
+                      volume: 25436789 + Math.floor(Math.random() * 10000),
+                      timestamp: Date.now()
+                    }
+                  }));
+                } else {
+                  clearInterval(interval);
+                }
+              }, 5000);
+            }
           } else {
             // Echo back any other messages
             ws.send(JSON.stringify({
@@ -357,8 +410,8 @@ app.use((req, res, next) => {
 
     // Start the minimal server on port 5000
     httpServer.listen(5000, '0.0.0.0', () => {
-      log('🚀 Minimal server is running on port 5000');
-      log('Using mock data with WebSocket support for debugging');
+      log('🚀 Minimal debug server is running on port 5000');
+      log('Using mock data with enhanced WebSocket support for debugging');
       log('Note: Authentication is bypassed in minimal mode');
     });
     
