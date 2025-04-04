@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  log('Starting server in minimal mode for debugging');
+  log('Starting server in minimal mode with WebSocket support');
   
   // Skip Python environment initialization completely
   log('Python initialization skipped for minimal server');
@@ -188,7 +188,10 @@ app.use((req, res, next) => {
     app.get('/api/trading/portfolio/history', (_req, res) => {
       // Mock portfolio history data
       const now = new Date();
-      const history = {
+      const history: {
+        timestamp: string[];
+        equity: number[];
+      } = {
         timestamp: [],
         equity: []
       };
@@ -354,9 +357,9 @@ app.use((req, res, next) => {
 
     // Start the minimal server on port 5000
     httpServer.listen(5000, '0.0.0.0', () => {
-      log('🚀 Minimal debugging server is running on port 5000');
-      log('The server is running with minimal functionality for debugging');
-      log('Most API endpoints are disabled to isolate startup issues');
+      log('🚀 Minimal server is running on port 5000');
+      log('Using mock data with WebSocket support for debugging');
+      log('Note: Authentication is bypassed in minimal mode');
     });
     
     return httpServer;
