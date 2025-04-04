@@ -98,8 +98,41 @@ export function MarketDataConnectionStatus({
         </div>
         
         <div>
-          <span className="font-medium">Market Status:</span> {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
+          <span className="font-medium">Market Status:</span> {
+            marketStatus.isMarketOpen 
+              ? marketStatus.marketStatus?.isPreMarketHours 
+                ? 'Pre-market' 
+                : marketStatus.marketStatus?.isAfterMarketHours 
+                  ? 'After-hours' 
+                  : marketStatus.marketStatus?.isRegularHours 
+                    ? 'Regular Hours' 
+                    : 'Open'
+              : marketStatus.marketStatus?.isWeekend 
+                ? 'Weekend (Closed)' 
+                : 'Closed'
+          }
         </div>
+        
+        {marketStatus.marketStatus?.nextMarketOpen && (
+          <div>
+            <span className="font-medium">Next Market Open:</span>{' '}
+            {new Date(marketStatus.marketStatus.nextMarketOpen).toLocaleString()}
+          </div>
+        )}
+        
+        {marketStatus.marketStatus?.nextMarketClose && marketStatus.isMarketOpen && (
+          <div>
+            <span className="font-medium">Market Closes:</span>{' '}
+            {new Date(marketStatus.marketStatus.nextMarketClose).toLocaleString()}
+          </div>
+        )}
+        
+        {marketStatus.marketStatus?.exchangeTimezone && (
+          <div>
+            <span className="font-medium">Exchange Timezone:</span>{' '}
+            {marketStatus.marketStatus.exchangeTimezone}
+          </div>
+        )}
         
         <div>
           <span className="font-medium">Data Source:</span> {marketStatus.dataSource || 'Unknown'}

@@ -62,6 +62,16 @@ export function useMarketData() {
     isMarketOpen: boolean;
     dataSource: string;
     lastUpdated?: string;
+    marketStatus?: {
+      isRegularHours: boolean;
+      isPreMarketHours: boolean;
+      isAfterMarketHours: boolean;
+      isWeekend: boolean;
+      nextMarketOpen?: string;
+      nextMarketClose?: string;
+      currentTimezone?: string;
+      exchangeTimezone?: string;
+    }
   }>({ isMarketOpen: false, dataSource: 'unknown' });
   
   // Reference to WebSocket connection
@@ -173,7 +183,17 @@ export function useMarketData() {
         if (response.data && response.data.status) {
           setMarketStatus({
             isMarketOpen: response.data.status.isMarketOpen,
-            dataSource: response.data.status.dataSource || 'http-fallback'
+            dataSource: response.data.status.dataSource || 'http-fallback',
+            marketStatus: response.data.status.marketStatus || {
+              isRegularHours: false,
+              isPreMarketHours: false,
+              isAfterMarketHours: false,
+              isWeekend: false,
+              nextMarketOpen: response.data.status.nextMarketOpen,
+              nextMarketClose: response.data.status.nextMarketClose,
+              currentTimezone: response.data.status.currentTimezone,
+              exchangeTimezone: response.data.status.exchangeTimezone
+            }
           });
           
           // Reset consecutive errors counter on success
@@ -296,7 +316,17 @@ export function useMarketData() {
             setMarketStatus({
               isMarketOpen: response.data.marketStatus.isMarketOpen,
               dataSource: response.data.marketStatus.dataSource || 'http-fallback',
-              lastUpdated: fetchTime
+              lastUpdated: fetchTime,
+              marketStatus: response.data.marketStatus.marketStatus || {
+                isRegularHours: false,
+                isPreMarketHours: false,
+                isAfterMarketHours: false,
+                isWeekend: false,
+                nextMarketOpen: response.data.marketStatus.nextMarketOpen,
+                nextMarketClose: response.data.marketStatus.nextMarketClose,
+                currentTimezone: response.data.marketStatus.currentTimezone,
+                exchangeTimezone: response.data.marketStatus.exchangeTimezone
+              }
             });
           }
         }
@@ -538,7 +568,17 @@ export function useMarketData() {
                   setMarketStatus({
                     isMarketOpen: message.marketStatus.isMarketOpen,
                     dataSource: message.marketStatus.dataSource,
-                    lastUpdated: new Date().toISOString()
+                    lastUpdated: new Date().toISOString(),
+                    marketStatus: message.marketStatus.marketStatus || {
+                      isRegularHours: false,
+                      isPreMarketHours: false,
+                      isAfterMarketHours: false,
+                      isWeekend: false,
+                      nextMarketOpen: message.marketStatus.nextMarketOpen,
+                      nextMarketClose: message.marketStatus.nextMarketClose,
+                      currentTimezone: message.marketStatus.currentTimezone,
+                      exchangeTimezone: message.marketStatus.exchangeTimezone
+                    }
                   });
                 }
                 break;

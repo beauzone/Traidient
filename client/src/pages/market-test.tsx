@@ -75,7 +75,7 @@ export default function MarketTest() {
               <CardTitle className="flex items-center justify-between">
                 <span>Market Status</span>
                 <div className="flex items-center gap-2">
-                  <Badge variant={marketStatus.isMarketOpen ? "success" : "destructive"}>
+                  <Badge variant={marketStatus.isMarketOpen ? "default" : "destructive"} className={marketStatus.isMarketOpen ? "bg-green-600 hover:bg-green-700" : ""}>
                     {marketStatus.isMarketOpen ? "OPEN" : "CLOSED"}
                   </Badge>
                   <MarketDataConnectionStatus showLabel={false} size="sm" />
@@ -265,6 +265,47 @@ export default function MarketTest() {
                       
                       <div className="text-sm font-medium">Subscribed Symbols:</div>
                       <div className="text-sm">{testSymbols.join(', ')}</div>
+                      <div></div>
+
+                      {marketStatus.marketStatus?.nextMarketOpen && (
+                        <>
+                          <div className="text-sm font-medium">Next Market Open:</div>
+                          <div className="text-sm">{new Date(marketStatus.marketStatus.nextMarketOpen).toLocaleString()}</div>
+                          <div></div>
+                        </>
+                      )}
+                      
+                      {marketStatus.marketStatus?.nextMarketClose && (
+                        <>
+                          <div className="text-sm font-medium">Next Market Close:</div>
+                          <div className="text-sm">{new Date(marketStatus.marketStatus.nextMarketClose).toLocaleString()}</div>
+                          <div></div>
+                        </>
+                      )}
+                      
+                      {marketStatus.marketStatus?.currentTimezone && (
+                        <>
+                          <div className="text-sm font-medium">Your Timezone:</div>
+                          <div className="text-sm">{marketStatus.marketStatus.currentTimezone}</div>
+                          <div></div>
+                        </>
+                      )}
+                      
+                      {marketStatus.marketStatus?.exchangeTimezone && (
+                        <>
+                          <div className="text-sm font-medium">Exchange Timezone:</div>
+                          <div className="text-sm">{marketStatus.marketStatus.exchangeTimezone}</div>
+                          <div></div>
+                        </>
+                      )}
+
+                      <div className="text-sm font-medium">Market Hours:</div>
+                      <div className="text-sm">
+                        {marketStatus.marketStatus?.isRegularHours ? 'Regular Trading Hours' : 
+                         marketStatus.marketStatus?.isPreMarketHours ? 'Pre-Market Hours' :
+                         marketStatus.marketStatus?.isAfterMarketHours ? 'After-Market Hours' :
+                         marketStatus.marketStatus?.isWeekend ? 'Weekend (Closed)' : 'Unknown'}
+                      </div>
                       <div></div>
                     </div>
                   </div>
