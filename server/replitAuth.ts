@@ -43,38 +43,62 @@ export async function setupAuth(app: Express) {
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback) => {
-    const claims = tokens.claims();
-    if (!claims) {
-      return
-    }
+    try {
+      console.log('Verify function called with tokens', tokens ? 'present' : 'missing');
+      
+      const claims = tokens.claims();
+      if (!claims) {
+        console.error('No claims found in token');
+        return verified(new Error('No claims found in token'));
+      }
+      
+      console.log('Claims retrieved from token:', { sub: claims.sub });
+      
+      try {
+        const userInfoResponse = await client.fetchUserInfo(config, tokens.access_token, claims.sub);
+        console.log('User info fetched:', { 
+          sub: userInfoResponse.sub,
+          username: userInfoResponse.username,
+          email: userInfoResponse.email
+        });
+        
+        // Store the original Replit sub as numeric ID for our system
+        const replitUserId = parseInt(userInfoResponse.sub as string);
+        
+        // Check if user exists in our system by Replit ID
+        let user = await storage.getUserByReplitId(replitUserId);
+        
+        // If not, create a new user with the Replit ID
+        if (!user) {
+          console.log('Creating new user for Replit ID:', replitUserId);
+          user = await storage.createUser({
+            username: userInfoResponse.username as string,
+            password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2), // Random secure password since login is handled by Replit
+            email: userInfoResponse.email as string || `${userInfoResponse.username}@example.com`, // Fallback email if not provided
+            name: userInfoResponse.first_name ? `${userInfoResponse.first_name} ${userInfoResponse.last_name || ''}` : userInfoResponse.username as string,
+            replitId: replitUserId, // Store the Replit user ID for future lookups
+          });
+          console.log('New user created:', user.id);
+        } else {
+          console.log('Found existing user for Replit ID:', replitUserId, 'User ID:', user.id);
+        }
+        
+        // Add the original Replit data to our user object for convenience
+        const userWithReplitData = {
+          ...user,
+          sub: userInfoResponse.sub,
+          replitProfile: userInfoResponse
+        };
 
-    const userInfoResponse = await client.fetchUserInfo(config, tokens.access_token, claims.sub);
-    
-    // Store the original Replit sub as numeric ID for our system
-    const replitUserId = parseInt(userInfoResponse.sub as string);
-    
-    // Check if user exists in our system by Replit ID
-    let user = await storage.getUserByReplitId(replitUserId);
-    
-    // If not, create a new user with the Replit ID
-    if (!user) {
-      user = await storage.createUser({
-        username: userInfoResponse.username as string,
-        password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2), // Random secure password since login is handled by Replit
-        email: userInfoResponse.email as string || `${userInfoResponse.username}@example.com`, // Fallback email if not provided
-        name: userInfoResponse.first_name ? `${userInfoResponse.first_name} ${userInfoResponse.last_name || ''}` : userInfoResponse.username as string,
-        replitId: replitUserId, // Store the Replit user ID for future lookups
-      });
+        verified(null, userWithReplitData);
+      } catch (userInfoError) {
+        console.error('Error fetching user info:', userInfoError);
+        verified(userInfoError as Error);
+      }
+    } catch (error) {
+      console.error('Unexpected error in verify function:', error);
+      verified(error as Error);
     }
-    
-    // Add the original Replit data to our user object for convenience
-    const userWithReplitData = {
-      ...user,
-      sub: userInfoResponse.sub,
-      replitProfile: userInfoResponse
-    };
-
-    verified(null, userWithReplitData);
   };
 
   const strategy = new Strategy(
@@ -98,15 +122,57 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.get("/api/login", passport.authenticate(strategy.name));
+  // Add error logging for the login route
+  app.get("/api/login", (req, res, next) => {
+    console.log('Starting Replit Auth login process...');
+    passport.authenticate(strategy.name, (err) => {
+      if (err) {
+        console.error('Error during Replit login auth:', err);
+        return next(err);
+      }
+      next();
+    })(req, res, next);
+  });
 
-  app.get(
-    "/api/callback",
+  // Add extensive error handling for the callback route
+  app.get("/api/callback", (req, res, next) => {
+    console.log('Received callback from Replit auth, processing...');
+    
+    // Extract and log query params for debugging
+    const { code, state, error, error_description } = req.query;
+    if (error) {
+      console.error(`OAuth error: ${error}, Description: ${error_description}`);
+      return res.redirect('/');
+    }
+    
+    console.log(`Auth code present: ${!!code}, State present: ${!!state}`);
+    
     passport.authenticate(strategy.name, {
       successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    }),
-  );
+      failureRedirect: "/",
+    }, (err, user, info) => {
+      if (err) {
+        console.error('Error during Replit callback processing:', err);
+        return res.redirect('/');
+      }
+      
+      if (!user) {
+        console.error('No user returned from Replit auth:', info);
+        return res.redirect('/');
+      }
+      
+      // Log in the user
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          console.error('Error during login after successful auth:', loginErr);
+          return res.redirect('/');
+        }
+        
+        console.log('Replit auth successful, user logged in:', user.id);
+        return res.redirect('/');
+      });
+    })(req, res, next);
+  });
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
