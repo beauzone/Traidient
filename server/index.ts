@@ -111,6 +111,231 @@ app.use((req, res, next) => {
       res.json({ status: 'ok', message: 'Minimal server is running with WebSocket support' });
     });
     
+    // Add minimal API endpoints for the Dashboard
+    app.get('/api/auth/user', (_req, res) => {
+      // Mock authenticated user
+      res.json({ 
+        id: 1,
+        username: "testuser",
+        email: "test@example.com",
+        name: "Test User",
+        role: "user"
+      });
+    });
+    
+    app.get('/api/trading/account', (_req, res) => {
+      // Mock account data
+      res.json([
+        {
+          id: 1,
+          name: "Demo Trading Account",
+          type: "Paper",
+          broker: "Alpaca",
+          status: "ACTIVE",
+          balance: 10000,
+          equity: 10200,
+          portfolioValue: 10200,
+          performance: 200,
+          buyingPower: 20000
+        }
+      ]);
+    });
+    
+    app.get('/api/trading/positions', (_req, res) => {
+      // Mock positions data
+      res.json([
+        {
+          symbol: "AAPL",
+          quantity: 10,
+          marketValue: 1800,
+          averageEntryPrice: 170,
+          currentPrice: 180,
+          unrealizedPL: 100,
+          unrealizedPLPercent: 5.88,
+          isShort: false
+        },
+        {
+          symbol: "MSFT",
+          quantity: 5,
+          marketValue: 2000,
+          averageEntryPrice: 380,
+          currentPrice: 400,
+          unrealizedPL: 100,
+          unrealizedPLPercent: 5.26,
+          isShort: false
+        }
+      ]);
+    });
+    
+    app.get('/api/trading/orders', (_req, res) => {
+      // Mock orders data
+      res.json([
+        {
+          id: "order1",
+          symbol: "AAPL",
+          side: "buy",
+          quantity: 5,
+          filledQuantity: 5,
+          type: "market",
+          status: "filled",
+          createdAt: new Date().toISOString(),
+          filledAt: new Date().toISOString(),
+          price: 175
+        }
+      ]);
+    });
+    
+    app.get('/api/trading/portfolio/history', (_req, res) => {
+      // Mock portfolio history data
+      const now = new Date();
+      const history = {
+        timestamp: [],
+        equity: []
+      };
+      
+      // Generate 24 hourly data points
+      for (let i = 0; i < 24; i++) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - i);
+        history.timestamp.unshift(date.toISOString());
+        
+        // Random value between 9800 and 10500
+        const value = 10000 + Math.sin(i/3) * 500;
+        history.equity.unshift(value);
+      }
+      
+      res.json(history);
+    });
+    
+    app.get('/api/strategies', (_req, res) => {
+      // Mock strategies data
+      res.json([
+        {
+          id: 1,
+          name: "Demo MACD Strategy",
+          createdAt: new Date().toISOString(),
+          type: "Template",
+          assets: ["AAPL", "MSFT", "GOOGL"],
+          profitLoss: {
+            value: "$250.00",
+            percentage: "2.5%",
+            isPositive: true
+          },
+          winRate: 62,
+          status: "Running"
+        },
+        {
+          id: 2,
+          name: "AI-Generated Momentum Strategy",
+          createdAt: new Date().toISOString(),
+          type: "AI-Generated",
+          assets: ["TSLA", "NVDA"],
+          profitLoss: {
+            value: "$120.00",
+            percentage: "1.2%",
+            isPositive: true
+          },
+          winRate: 58,
+          status: "Paused"
+        }
+      ]);
+    });
+    
+    app.get('/api/watchlists', (_req, res) => {
+      // Mock watchlists data
+      res.json([
+        {
+          id: 1,
+          name: "Default",
+          userId: 1,
+          isDefault: true,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 2,
+          name: "Tech Stocks",
+          userId: 1,
+          isDefault: false,
+          createdAt: new Date().toISOString()
+        }
+      ]);
+    });
+    
+    app.get('/api/watchlists/default', (_req, res) => {
+      // Mock default watchlist items
+      res.json([
+        {
+          id: 1,
+          symbol: "AAPL",
+          watchlistId: 1,
+          notes: "Apple Inc.",
+          addedAt: new Date().toISOString(),
+          price: 180.5,
+          change: 1.5,
+          changePercent: 0.84
+        },
+        {
+          id: 2,
+          symbol: "MSFT",
+          watchlistId: 1,
+          notes: "Microsoft Corp.",
+          addedAt: new Date().toISOString(),
+          price: 401.2,
+          change: 3.2,
+          changePercent: 0.78
+        },
+        {
+          id: 3,
+          symbol: "GOOGL",
+          watchlistId: 1,
+          notes: "Alphabet Inc.",
+          addedAt: new Date().toISOString(),
+          price: 142.8,
+          change: -1.2,
+          changePercent: -0.83
+        }
+      ]);
+    });
+    
+    app.get('/api/integrations', (_req, res) => {
+      // Mock integrations data
+      res.json([
+        {
+          id: 1,
+          provider: "Alpaca",
+          status: "connected",
+          apiKeyId: "DEMO_API_KEY_ID",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]);
+    });
+    
+    app.get('/api/notifications', (_req, res) => {
+      // Mock notifications data
+      res.json([
+        {
+          id: 1,
+          type: "system",
+          message: "Welcome to the trading platform! 👋",
+          isRead: false,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 2,
+          type: "trade",
+          message: "AAPL buy order filled: 5 shares @ $175.00",
+          isRead: true,
+          createdAt: new Date(Date.now() - 3600000).toISOString()
+        }
+      ]);
+    });
+    
+    app.get('/api/users/verify-phone/status', (_req, res) => {
+      // Mock phone verification status
+      res.json({ verified: true });
+    });
+    
     // Add error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
