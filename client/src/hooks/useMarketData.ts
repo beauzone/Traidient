@@ -31,9 +31,9 @@ export function useMarketData() {
   const [usingFallback, setUsingFallback] = useState(false);
   const { toast } = useToast();
   const connectionAttempts = useRef(0);
-  const maxConnectionAttempts = 3;
+  const maxConnectionAttempts = 2; // Reduced to minimize errors before fallback
 
-  // Fallback HTTP polling for market data when WebSockets aren't available
+  // Enhanced adaptive HTTP polling for market data when WebSockets aren't available
   const startPollingFallback = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -43,69 +43,191 @@ export function useMarketData() {
       return;
     }
     
-    console.log('Starting fallback HTTP polling for market data');
+    console.log('Starting enhanced adaptive HTTP polling for market data');
     setUsingFallback(true);
     
-    // Check market status using HTTP API
+    // Track polling performance metrics
+    const pollingMetrics = {
+      consecutiveErrors: 0,
+      lastSuccessfulPoll: Date.now(),
+      pollingInterval: 5000, // Default start: 5 seconds
+      isReplitEnvironment: window.location.hostname.includes('replit') || 
+                           window.location.hostname.includes('repl.co')
+    };
+    
+    // Get adaptive polling interval based on market conditions, time of day, and network performance
+    const getAdaptivePollingInterval = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      // Weekend polling behavior
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return 30000 + (Math.random() * 10000); // 30-40 seconds on weekends
+      }
+      
+      // Market hours (9:30 AM - 4:00 PM ET, approximated) - faster polling
+      const isMarketHours = 
+        (hour > 9 || (hour === 9 && minute >= 30)) && 
+        hour < 16;
+      
+      if (isMarketHours) {
+        // Faster polling during market hours
+        return 5000 + (Math.random() * 2000); // 5-7 seconds
+      }
+      
+      // Pre-market and after-hours - medium polling
+      const isExtendedHours = 
+        (hour >= 4 && hour < 9) || 
+        (hour === 9 && minute < 30) || 
+        (hour >= 16 && hour < 20);
+      
+      if (isExtendedHours) {
+        return 10000 + (Math.random() * 5000); // 10-15 seconds
+      }
+      
+      // Overnight - slowest polling
+      return 30000 + (Math.random() * 15000); // 30-45 seconds
+    };
+    
+    // Check market status using HTTP API with cache busting
     const checkMarketStatus = async () => {
       try {
-        const response = await axios.get('/api/market-data/status');
+        // Generate cache busting parameter
+        const cacheBuster = Date.now();
+        
+        const response = await axios.get(`/api/market-data/status?_=${cacheBuster}`, {
+          timeout: 10000, // 10 second timeout
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }
+        });
+        
         if (response.data && response.data.status) {
           setMarketStatus({
             isMarketOpen: response.data.status.isMarketOpen,
             dataSource: response.data.status.dataSource || 'http-fallback'
           });
+          
+          // Reset consecutive errors counter on success
+          pollingMetrics.consecutiveErrors = 0;
+          pollingMetrics.lastSuccessfulPoll = Date.now();
         }
       } catch (error) {
         console.error('Error fetching market status:', error);
+        pollingMetrics.consecutiveErrors++;
       }
     };
     
-    // Fetch quotes for subscribed symbols using HTTP API
+    // Enhanced fetch quotes with advanced error handling and recovery
     const fetchQuotes = async () => {
       if (subscribedSymbols.length === 0) return;
       
       try {
-        // Batch requests for efficiency - fetch quotes for all symbols at once
+        // Batch requests for efficiency - fetch quotes for all symbols at once with cache busting
         const symbols = [...subscribedSymbols].join(',');
-        const response = await axios.get(`/api/market-data/quotes?symbols=${symbols}`);
+        const cacheBuster = Date.now();
+        
+        const response = await axios.get(
+          `/api/market-data/quotes?symbols=${symbols}&_=${cacheBuster}`,
+          {
+            timeout: 10000, // 10 second timeout
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          }
+        );
         
         if (response.data && response.data.quotes && Array.isArray(response.data.quotes)) {
           setMarketData(prevData => {
             const newData = { ...prevData };
             
             response.data.quotes.forEach((quote: MarketDataUpdate) => {
+              // Add additional metadata to track the data source and fetch time
               newData[quote.symbol] = {
                 ...quote,
-                dataSource: quote.dataSource || 'http-fallback'
+                dataSource: quote.dataSource || 'http-fallback',
+                fetchTime: new Date().toISOString()
               };
             });
             
             return newData;
           });
-        }
-        
-        // Also update market status if available
-        if (response.data && response.data.marketStatus) {
-          setMarketStatus({
-            isMarketOpen: response.data.marketStatus.isMarketOpen,
-            dataSource: response.data.marketStatus.dataSource || 'http-fallback'
-          });
+          
+          // Reset error tracking on successful request
+          pollingMetrics.consecutiveErrors = 0;
+          pollingMetrics.lastSuccessfulPoll = Date.now();
+          
+          // Also update market status if available
+          if (response.data && response.data.marketStatus) {
+            setMarketStatus({
+              isMarketOpen: response.data.marketStatus.isMarketOpen,
+              dataSource: response.data.marketStatus.dataSource || 'http-fallback'
+            });
+          }
         }
       } catch (error) {
         console.error('Error fetching quotes:', error);
+        pollingMetrics.consecutiveErrors++;
+        
+        // Only show toast after multiple failures to avoid alert fatigue
+        if (pollingMetrics.consecutiveErrors === 3) {
+          toast({
+            title: 'Market Data Delay',
+            description: 'Market data updates may be delayed due to connection issues',
+            variant: 'default'
+          });
+        }
       }
     };
     
-    // Poll every 5 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      checkMarketStatus();
-      fetchQuotes();
-    }, 5000);
+    // Schedule next poll with adaptive interval
+    const scheduleNextPoll = () => {
+      // Adjust polling interval based on consecutive errors - implement exponential backoff
+      if (pollingMetrics.consecutiveErrors > 3) {
+        // Progressive backoff up to 1 minute max
+        pollingMetrics.pollingInterval = Math.min(
+          60000, 
+          pollingMetrics.pollingInterval * 1.5
+        );
+        console.log(`Backing off polling to ${pollingMetrics.pollingInterval}ms due to ${pollingMetrics.consecutiveErrors} consecutive errors`);
+      } else {
+        // Normal adaptive interval based on market conditions
+        pollingMetrics.pollingInterval = getAdaptivePollingInterval();
+      }
+      
+      // Reset if it's been too long since last successful poll
+      if (Date.now() - pollingMetrics.lastSuccessfulPoll > 120000) { // 2 minutes
+        console.log('No successful polls for 2 minutes, resetting polling strategy');
+        pollingMetrics.pollingInterval = 5000; // Reset to initial interval
+      }
+      
+      // Clear any existing interval
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+      
+      // Set the new interval
+      pollingIntervalRef.current = setInterval(() => {
+        console.log(`HTTP fallback poll executing (interval: ${pollingMetrics.pollingInterval}ms)`);
+        checkMarketStatus();
+        fetchQuotes();
+        
+        // Reschedule with adaptive interval for the next poll
+        scheduleNextPoll();
+      }, pollingMetrics.pollingInterval);
+    };
     
-    // Initial fetch
+    // Initial fetch immediately
     checkMarketStatus();
     fetchQuotes();
+    
+    // Then start the adaptive polling schedule
+    scheduleNextPoll();
     
     return () => {
       if (pollingIntervalRef.current) {
@@ -113,7 +235,7 @@ export function useMarketData() {
         pollingIntervalRef.current = null;
       }
     };
-  }, [isAuthenticated, user, subscribedSymbols]);
+  }, [isAuthenticated, user, subscribedSymbols, toast]);
   
   // Stop polling if WebSocket is working again
   const stopPollingFallback = useCallback(() => {
@@ -137,11 +259,22 @@ export function useMarketData() {
         // Determine the correct WebSocket protocol based on the current page protocol
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
-        // Construct WebSocket URL using the full host (which includes hostname and port)
-        // This ensures the port is preserved correctly for both local and Replit environments
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        // Construct WebSocket URL with more resilience for Replit's environment
+        // Add a timestamp query parameter to avoid caching issues
+        const timestamp = Date.now();
+        const wsUrl = `${protocol}//${window.location.host}/ws?_=${timestamp}`;
         
-        console.log(`Connecting to market data WebSocket at ${wsUrl} (attempt ${connectionAttempts.current})`);
+        // Log detailed information about how we're constructing the WebSocket URL
+        console.log('WebSocket connection details:', {
+          protocol: window.location.protocol,
+          wsProtocol: protocol,
+          host: window.location.host,
+          hostname: window.location.hostname,
+          port: window.location.port,
+          href: window.location.href,
+          url: wsUrl,
+          connectionAttempt: connectionAttempts.current
+        });
         
         // Create WebSocket connection
         const socket = new WebSocket(wsUrl);

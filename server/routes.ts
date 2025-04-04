@@ -187,11 +187,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create it with just server and path to avoid any compatibility issues
   const wss = new WebSocketServer({ 
     server: httpServer, 
-    path: '/ws'
+    path: '/ws',
+    perMessageDeflate: false, // Disable compression for Cloudflare compatibility
+    clientTracking: true,     // Track clients for easier cleanup
+    maxPayload: 1024 * 1024   // 1MB max message size for better stability
   });
   
   // Log WebSocketServer creation
-  console.log('WebSocketServer initialized with simplified configuration');
+  console.log('WebSocketServer initialized on path /ws with Cloudflare-compatible settings');
   
   // Initialize the Yahoo Finance API
   const yahooFinance = new YahooFinanceAPI();
@@ -343,25 +346,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Handle authentication
-        if (data.type === 'auth') {
+        if (data.type === 'auth' || data.type === 'auth_backup') {
           try {
-            let authenticatedUserId: number | null = null;
+            console.log('WebSocket authentication attempt received:', { 
+              type: data.type,
+              hasToken: !!data.token,
+              hasUserId: !!data.userId,
+              timestamp: data.timestamp
+            });
             
-            // If a token is provided, verify it
-            if (data.token) {
+            let authenticatedUserId: number | null = null;
+            const isDevelopment = process.env.NODE_ENV !== 'production';
+            
+            // In development, be more lenient with authentication
+            if (isDevelopment && process.env.DEV_AUTO_LOGIN === 'true') {
+              console.log('Development environment detected with auto-login enabled');
+              
+              // Try to find or create a dev user
               try {
-                const decoded = jwt.verify(data.token, JWT_SECRET) as { userId: number };
-                const user = await storage.getUser(decoded.userId);
+                let devUser = await storage.getUserByUsername('dev_user');
                 
-                if (user) {
-                  authenticatedUserId = user.id;
+                if (!devUser) {
+                  console.log('Creating dev_user for WebSocket authentication');
+                  devUser = await storage.createUser({
+                    username: 'dev_user',
+                    name: 'Development User',
+                    password: 'password',
+                    email: 'dev@example.com'
+                  });
                 }
-              } catch (tokenError) {
-                console.log('Token verification failed:', tokenError);
+                
+                if (devUser) {
+                  authenticatedUserId = devUser.id;
+                  console.log(`Using dev_user (id: ${authenticatedUserId}) for WebSocket authentication`);
+                }
+              } catch (devUserError) {
+                console.error('Error creating/finding dev user:', devUserError);
+              }
+            } else {
+              // If a token is provided, verify it
+              if (data.token) {
+                try {
+                  const decoded = jwt.verify(data.token, JWT_SECRET) as { userId: number };
+                  const user = await storage.getUser(decoded.userId);
+                  
+                  if (user) {
+                    authenticatedUserId = user.id;
+                    console.log(`User authenticated via token: ${user.username} (id: ${user.id})`);
+                  }
+                } catch (tokenError) {
+                  console.log('Token verification failed:', tokenError);
+                }
               }
             }
             
-            // If userId is provided directly (from client side auth)
+            // If userId is provided directly (from client side auth) and we're still not authenticated
             if (!authenticatedUserId && data.userId) {
               try {
                 const userIdNum = Number(data.userId);

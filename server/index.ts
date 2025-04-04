@@ -30,10 +30,20 @@ const corsOptions = {
     'X-Auth-Token',
     'X-Api-Key',
     'Cache-Control',
-    'Pragma'
+    'Pragma',
+    'Expires',
+    'If-None-Match',
+    'If-Modified-Since',
+    'User-Agent',
+    'Sec-Fetch-Site',
+    'Sec-Fetch-Mode',
+    'Sec-Fetch-Dest',
+    'Referer',
+    'X-CSRF-Token'
   ],
-  exposedHeaders: ['Content-Length', 'Content-Type', 'X-Auth-Token'],
-  maxAge: 86400 // 24 hours, prevents preflight caching issues
+  exposedHeaders: ['Content-Length', 'Content-Type', 'X-Auth-Token', 'ETag', 'Cache-Control'],
+  maxAge: 86400, // 24 hours, prevents preflight caching issues
+  preflightContinue: true // Let OPTIONS pass to next handler
 };
 
 // Apply CORS globally
@@ -55,7 +65,8 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Headers', 
     'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, ' +
     'Cache-Control, Pragma, Expires, X-Api-Key, Access-Control-Request-Method, ' +
-    'Access-Control-Request-Headers');
+    'Access-Control-Request-Headers, If-None-Match, If-Modified-Since, User-Agent, ' +
+    'Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest, Referer, X-CSRF-Token');
   
   // Allow all common methods
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
@@ -81,6 +92,22 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Middleware specifically for Cloudflare's security
+app.use((req, res, next) => {
+  // Disable client hints to prevent Cloudflare blocking
+  res.header('Accept-CH', '');
+  
+  // Add security headers expected by Cloudflare
+  res.header('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.header('Cross-Origin-Opener-Policy', 'same-origin');
+  res.header('Cross-Origin-Resource-Policy', 'same-site');
+  
+  // Set strict transport security
+  res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

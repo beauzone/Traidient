@@ -65,17 +65,24 @@ export const useWebSocket = (
       
       // APPROACH 1: Connect to the specific WebSocket endpoint /ws path
       // This is the standard approach that connects to our dedicated WebSocket route
+      // IMPORTANT: Don't add any port specification - let the browser handle it based on host
       wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
       
       // Log the detailed location information for troubleshooting
       console.log('WebSocket connection details:', {
         protocol: location.protocol,
+        wsProtocol: protocol,
         host: location.host, 
         hostname: location.hostname,
-        port: location.port,
+        port: location.port || '(default)', // Show default if no port specified
         origin: location.origin,
         href: location.href,
-        constructedUrl: wsUrl
+        constructedUrl: wsUrl,
+        replitEnv: {
+          isProd: location.hostname.includes('.replit.app'),
+          isDev: location.hostname.includes('.repl.co'),
+          isLocal: location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+        }
       });
       
       // Include authentication parameters if required
@@ -108,30 +115,36 @@ export const useWebSocket = (
       const isSecure = window.location.protocol === 'https:';
       const fallbackProtocol = isSecure ? 'wss:' : 'ws:';
       
-      // Fallback 1: Try simpler URL with host only
+      // Fallback 1: Try simpler URL with host only (includes current port)
       try {
-        const fallbackUrl1 = `${fallbackProtocol}//${window.location.host}/ws`;
+        // Use window.location.host which keeps host:port format
+        const timestamp = Date.now();
+        const fallbackUrl1 = `${fallbackProtocol}//${window.location.host}/ws?_=${timestamp}`;
         console.log(`Attempting fallback WebSocket URL (1): ${fallbackUrl1}`);
         return fallbackUrl1;
       } catch (err) {
         console.error('Fallback URL 1 construction failed:', err);
       }
       
-      // Fallback 2: Try with hostname only (no port specification)
+      // Fallback 2: Try with hostname only (explicitly no port specification)
       try {
-        const fallbackUrl2 = `${fallbackProtocol}//${window.location.hostname}/ws`;
+        const timestamp = Date.now();
+        const fallbackUrl2 = `${fallbackProtocol}//${window.location.hostname}/ws?_=${timestamp}`;
         console.log(`Attempting fallback WebSocket URL (2): ${fallbackUrl2}`);
         return fallbackUrl2;
       } catch (err) {
         console.error('Fallback URL 2 construction failed:', err);
       }
       
-      // Fallback 3: Try to extract Replit specific domain format
+      // Fallback 3: Try Replit-specific URLs with proper domain detection
       try {
         const hostname = window.location.hostname;
+        const timestamp = Date.now();
+        
         // If it's a Replit domain
-        if (hostname.includes('replit.dev') || hostname.includes('repl.co')) {
-          const fallbackUrl3 = `${fallbackProtocol}//${hostname}/ws`;
+        if (hostname.includes('.replit.app') || hostname.includes('.repl.co')) {
+          // Ensure we don't add :5900 or any explicit port in the URL
+          const fallbackUrl3 = `${fallbackProtocol}//${hostname}/ws?_=${timestamp}`;
           console.log(`Attempting Replit-specific WebSocket URL: ${fallbackUrl3}`);
           return fallbackUrl3;
         }
@@ -140,9 +153,10 @@ export const useWebSocket = (
       }
       
       // Last resort: absolute basic URL with minimal construction
+      const timestamp = Date.now();
       const finalFallback = isSecure ? 
-        `wss://${window.location.hostname}/ws` : 
-        `ws://${window.location.hostname}/ws`;
+        `wss://${window.location.hostname}/ws?_=${timestamp}` : 
+        `ws://${window.location.hostname}/ws?_=${timestamp}`;
       console.log(`Using ultimate fallback WebSocket URL: ${finalFallback}`);
       return finalFallback;
     }
@@ -262,10 +276,15 @@ export const useWebSocket = (
           
           // Enhanced authentication message
           if (isAuthenticated && user && includeAuthToken) {
-            console.log('Sending authentication data to WebSocket server');
+            console.log('Sending enhanced authentication data to WebSocket server');
+            
+            // Get the token from localStorage
+            const token = localStorage.getItem('token');
+            
             send({ 
               type: 'auth', 
               userId: user.id,
+              token: token, // Include the auth token
               timestamp: Date.now(),
               clientInfo: {
                 userAgent: navigator.userAgent,
@@ -273,6 +292,19 @@ export const useWebSocket = (
                 locale: navigator.language
               }
             });
+            
+            // Also send a backup authentication in case the first one fails
+            setTimeout(() => {
+              if (socketRef.current?.readyState === WebSocket.OPEN) {
+                console.log('Sending backup authentication message');
+                send({
+                  type: 'auth_backup',
+                  userId: user.id,
+                  token: token,
+                  timestamp: Date.now()
+                });
+              }
+            }, 1000);
           }
         });
 
@@ -441,15 +473,29 @@ export const useWebSocket = (
             
           console.log('Connection diagnostics:', diagnostics);
           
-          // For Replit environments, provide specific guidance
+          // For Replit environments, provide specific guidance and apply special workarounds
           if (window.location.hostname.includes('replit') || window.location.hostname.includes('repl.co')) {
             console.log('Replit-specific environment detected:');
             console.log('- Try refreshing the page if WebSocket connection fails repeatedly');
             console.log('- WebSocket connections may be restricted by Replit security measures');
             console.log('- The application will automatically fall back to HTTP polling when WebSockets fail');
             
-            // Signal to the application that WebSockets may be unavailable
+            // Signal to the application that WebSockets may be unavailable in Replit environment
             localStorage.setItem('websocket_blocked', 'true');
+            
+            // Special workaround for Replit's security restrictions
+            // We'll immediately try to switch to HTTP polling to avoid waiting for multiple retries
+            setTimeout(() => {
+              if ((!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) && onError) {
+                console.log('Proactively enabling HTTP fallback for Replit environment');
+                onError({
+                  type: 'replit_environment_detected',
+                  message: 'Using HTTP polling fallback for Replit environment',
+                  timestamp: Date.now(),
+                  fallbackMechanism: 'http'
+                });
+              }
+            }, 5000); // Give it 5 seconds to try connecting before forcing fallback
           }
           
           // Call user-provided error callback if available
