@@ -1969,6 +1969,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch quotes endpoint for fallback polling
+  app.get('/api/market-data/quotes', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const symbolsParam = req.query.symbols as string;
+      if (!symbolsParam) {
+        return res.status(400).json({ message: 'Symbols parameter is required' });
+      }
+      
+      // Split the symbols parameter and create an array of symbols
+      const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase());
+      if (symbols.length === 0) {
+        return res.status(400).json({ message: 'At least one symbol is required' });
+      }
+      
+      // Get the provider from query parameters, default to alpaca
+      const providerParam = req.query.provider as string;
+      const originalProvider = providerParam || 'alpaca';
+      const provider = originalProvider.toLowerCase();
+      console.log(`Using provider: ${originalProvider} for batch quotes data`);
+      
+      // Get all integrations for this user
+      let integration;
+      
+      // Try all available data providers in order of priority
+      const quotes = [];
+      const errors = [];
+      let anySuccessful = false;
+      
+      // Track market status
+      let marketStatus = {
+        isMarketOpen: false,
+        dataSource: 'unknown'
+      };
+      
+      // Try Alpaca first (during market hours)
+      const isMarketOpen = await yahooFinance.isMarketOpen();
+      marketStatus.isMarketOpen = isMarketOpen;
+      
+      if (isMarketOpen && (provider === 'alpaca' || provider === 'any')) {
+        try {
+          // Get user's Alpaca integration if available
+          const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+          const alpacaIntegration = integrations.find(i => i.provider.toLowerCase().trim() === 'alpaca');
+          
+          let alpacaAPI;
+          if (alpacaIntegration) {
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            console.log(`Using user's ${alpacaIntegration.provider} API integration for batch quotes`);
+          } else {
+            // Fall back to environment variables
+            alpacaAPI = new AlpacaAPI();
+            console.log('Using environment variables for Alpaca API for batch quotes');
+          }
+          
+          // Batch fetch quotes from Alpaca
+          const batchQuotes = await alpacaAPI.getBatchQuotes(symbols);
+          if (batchQuotes && batchQuotes.length > 0) {
+            quotes.push(...batchQuotes);
+            anySuccessful = true;
+            marketStatus.dataSource = 'alpaca';
+          }
+        } catch (alpacaError) {
+          console.error('Alpaca API error for batch quotes:', alpacaError);
+          errors.push({ provider: 'alpaca', error: alpacaError.message });
+        }
+      }
+      
+      // Try Yahoo Finance next
+      if ((!anySuccessful && (provider === 'yahoo' || provider === 'any')) || provider === 'yahoo') {
+        try {
+          console.log('Using Yahoo Finance API for batch quotes');
+          const remainingSymbols = symbols.filter(symbol => !quotes.some(q => q.symbol === symbol));
+          
+          // Batch fetch quotes from Yahoo Finance
+          const yahooQuotes = await yahooFinance.getBatchQuotes(remainingSymbols);
+          if (yahooQuotes && yahooQuotes.length > 0) {
+            quotes.push(...yahooQuotes);
+            anySuccessful = true;
+            marketStatus.dataSource = marketStatus.dataSource === 'unknown' ? 'yahoo' : marketStatus.dataSource;
+          }
+        } catch (yahooError) {
+          console.error('Yahoo Finance API error for batch quotes:', yahooError);
+          errors.push({ provider: 'yahoo', error: yahooError.message });
+        }
+      }
+      
+      // If we still don't have data, use reference data
+      if (!anySuccessful) {
+        try {
+          console.log('Using reference data for batch quotes');
+          
+          // Define reference data for common stocks
+          const referencePrices: Record<string, { price: number, name: string, exchange: string }> = {
+            'SPY': { price: 503.10, name: 'SPDR S&P 500 ETF Trust', exchange: 'NYSE' },
+            'QQQ': { price: 436.89, name: 'Invesco QQQ Trust', exchange: 'NASDAQ' },
+            'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
+            'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+            'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
+            'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+            'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+            'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+            'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
+            'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+            'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
+            'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
+            'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
+            'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+            'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
+            'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
+            'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
+            'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
+            'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
+            'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
+            'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
+            'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
+          };
+          
+          const missingSymbols = symbols.filter(symbol => !quotes.some(q => q.symbol === symbol));
+          
+          missingSymbols.forEach(symbol => {
+            const upperSymbol = symbol.toUpperCase();
+            const refData = referencePrices[upperSymbol];
+            const basePrice = refData?.price || 100 + Math.random() * 900;
+            const name = refData?.name || symbol;
+            const exchange = refData?.exchange || "NASDAQ";
+            
+            // Add a small random variation to the price (±1%)
+            const priceVariation = basePrice * 0.01 * (Math.random() * 2 - 1);
+            const currentPrice = basePrice + priceVariation;
+            
+            // Calculate a plausible daily change (±2%)
+            const changeDirection = Math.random() > 0.5 ? 1 : -1;
+            const changeAmount = basePrice * (Math.random() * 0.02) * changeDirection;
+            const changePercent = (changeAmount / basePrice) * 100;
+            
+            quotes.push({
+              symbol: upperSymbol,
+              name: name,
+              price: currentPrice,
+              change: parseFloat(changeAmount.toFixed(2)),
+              changePercent: parseFloat(changePercent.toFixed(2)),
+              timestamp: new Date().toISOString(),
+              isSimulated: true,
+              dataSource: "http-fallback"
+            });
+          });
+          
+          marketStatus.dataSource = 'reference';
+        } catch (referenceError) {
+          console.error('Reference data error:', referenceError);
+        }
+      }
+      
+      // Send the response
+      res.json({
+        quotes,
+        marketStatus,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error('Get batch quotes error:', error);
+      res.status(500).json({ message: 'Error fetching batch quotes' });
+    }
+  });
+
   app.get('/api/market-data/historical/:symbol', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {

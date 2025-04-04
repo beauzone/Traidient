@@ -393,6 +393,40 @@ export class AlpacaAPI {
       throw error;
     }
   }
+  
+  /**
+   * Gets quotes for multiple symbols in a single batch call
+   * @param symbols Array of stock symbols to get quotes for
+   * @returns Array of quote data objects
+   */
+  async getBatchQuotes(symbols: string[]): Promise<any[]> {
+    try {
+      if (!this.isValid) {
+        throw new Error("API not configured correctly");
+      }
+      
+      if (symbols.length === 0) {
+        return [];
+      }
+      
+      console.log(`Fetching batch quotes from Alpaca for ${symbols.length} symbols`);
+      
+      // Since Alpaca doesn't have a true batch quote endpoint,
+      // we'll make individual requests but in parallel
+      const quotePromises = symbols.map(symbol => this.getQuote(symbol).catch(error => {
+        console.error(`Error fetching quote for ${symbol}:`, error);
+        return null; // Return null for failed quotes so we don't fail the entire batch
+      }));
+      
+      const quotes = await Promise.all(quotePromises);
+      
+      // Filter out any null results from failed requests
+      return quotes.filter(quote => quote !== null);
+    } catch (error) {
+      console.error(`Error fetching batch quotes from Alpaca:`, error);
+      return []; // Return empty array instead of throwing to avoid cascading failures
+    }
+  }
 
   /**
    * Checks if the US stock market is currently open

@@ -150,6 +150,48 @@ export class YahooFinanceAPI {
   }
   
   /**
+   * Get quotes for multiple symbols in a single batch request
+   * @param symbols Array of stock symbols
+   * @returns Array of formatted quotes
+   */
+  async getBatchQuotes(symbols: string[]): Promise<Array<any>> {
+    try {
+      if (symbols.length === 0) {
+        return [];
+      }
+      
+      // Yahoo Finance supports multiple symbols in a single request
+      // We'll use a comma-separated list of symbols
+      const symbolString = symbols.join(',');
+      console.log(`Fetching batch quotes from Yahoo Finance for: ${symbolString}`);
+      
+      // Get quotes snapshot from Yahoo Finance
+      const result = await yahooFinance.quote(symbolString);
+      
+      // If only one symbol was requested, the result might not be an array
+      // So we ensure it's always treated as an array
+      const quotes = Array.isArray(result) ? result : [result];
+      
+      // Format each quote to match our API format
+      return quotes.map(quote => {
+        return {
+          symbol: quote.symbol,
+          name: quote.longName || quote.shortName || quote.symbol,
+          price: quote.regularMarketPrice || 0,
+          change: quote.regularMarketChange || 0,
+          changePercent: quote.regularMarketChangePercent || 0,
+          timestamp: new Date().toISOString(),
+          isSimulated: false,
+          dataSource: "yahoo"
+        };
+      });
+    } catch (error) {
+      console.error(`Error fetching batch quotes from Yahoo Finance:`, error);
+      throw new Error('Failed to fetch batch quotes from Yahoo Finance');
+    }
+  }
+  
+  /**
    * Get historical market data for a symbol
    * @param symbol Stock symbol (e.g., 'AAPL')
    * @param period Period for historical data (e.g., '1d', '1mo', '1y')
