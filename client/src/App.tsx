@@ -193,13 +193,14 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Note: AuthProvider is no longer needed since we're using the Replit auth directly */}
-      <AccountProvider>
-        <WatchlistProvider>
-          <AppRoutes />
-          <Toaster />
-        </WatchlistProvider>
-      </AccountProvider>
+      <AuthProvider>
+        <AccountProvider>
+          <WatchlistProvider>
+            <AppRoutes />
+            <Toaster />
+          </WatchlistProvider>
+        </AccountProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

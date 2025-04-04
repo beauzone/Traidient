@@ -17,9 +17,100 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Check if we're in development and enable dev mode with auto-login for testing
+const DEV_MODE = process.env.NODE_ENV !== 'production';
+const DEV_AUTO_LOGIN = DEV_MODE && process.env.DEV_AUTO_LOGIN === 'true';
+let devModeUser: User | null = null;
+
 // Authentication middleware that works with both JWT tokens and Replit Auth
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // For development auto-login
+    if (DEV_AUTO_LOGIN) {
+      try {
+        // Get or create a development user
+        const username = 'dev_user';
+        
+        // Use cached user if available
+        if (devModeUser) {
+          // Set the dev user on the request
+          (req as AuthRequest).user = {
+            id: devModeUser.id,
+            username: devModeUser.username,
+            email: devModeUser.email,
+            name: devModeUser.name,
+            role: 'user'
+          };
+          return next();
+        }
+        
+        // Try to get existing user
+        const existingUser = await storage.getUserByUsername(username);
+        
+        if (existingUser) {
+          // Use existing user
+          devModeUser = existingUser;
+          
+          (req as AuthRequest).user = {
+            id: existingUser.id,
+            username: existingUser.username,
+            email: existingUser.email,
+            name: existingUser.name,
+            role: 'user'
+          };
+          return next();
+        } else {
+          try {
+            // Create a dev user if not exists
+            console.log('Creating development user for auto-login');
+            const newUser = await storage.createUser({
+              username: username,
+              password: await hashPassword('password'),
+              email: 'dev@example.com',
+              name: 'Development User'
+            });
+            
+            // Cache the user for future requests
+            devModeUser = newUser;
+            
+            // Set the dev user on the request
+            (req as AuthRequest).user = {
+              id: newUser.id,
+              username: newUser.username,
+              email: newUser.email,
+              name: newUser.name,
+              role: 'user'
+            };
+            return next();
+          } catch (createError) {
+            // If creation fails (likely due to race condition), try fetching again
+            console.log('User creation failed, trying to fetch existing user');
+            const retryUser = await storage.getUserByUsername(username);
+            
+            if (retryUser) {
+              // Cache the user for future requests
+              devModeUser = retryUser;
+              
+              // Set the dev user on the request
+              (req as AuthRequest).user = {
+                id: retryUser.id,
+                username: retryUser.username,
+                email: retryUser.email,
+                name: retryUser.name,
+                role: 'user'
+              };
+              return next();
+            } else {
+              throw new Error('Unable to create or fetch dev_user');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Auto-login error:', error);
+        return res.status(500).json({ message: 'Internal server error during auto-login' });
+      }
+    }
+
     // Check for existing authenticated user from Replit Auth (passport.js)
     if (req.isAuthenticated && req.isAuthenticated()) {
       // User is already authenticated via Replit Auth

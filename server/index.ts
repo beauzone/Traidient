@@ -44,6 +44,12 @@ app.use((req, res, next) => {
   log('Starting server with real market data support');
   
   try {
+    // Set development auto-login mode for easier testing during transition
+    if (app.get("env") === "development") {
+      process.env.DEV_AUTO_LOGIN = 'true';
+      log('Development auto-login mode: ENABLED');
+    }
+    
     // Import and call the routes setup function to create and configure the server
     const { registerRoutes } = await import('./routes');
     const httpServer = await registerRoutes(app);
@@ -64,6 +70,10 @@ app.use((req, res, next) => {
         log('Alpaca API credentials found - using Alpaca as primary market data provider');
       } else {
         log('Alpaca API credentials not found - fallback providers will be used');
+      }
+      
+      if (process.env.DEV_AUTO_LOGIN === 'true') {
+        log('👤 Development auto-login enabled: A dev_user will be created/used automatically');
       }
     });
     
