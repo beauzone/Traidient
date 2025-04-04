@@ -11,11 +11,37 @@ export interface MarketDataUpdate {
   timestamp: string;
   isSimulated?: boolean;
   dataSource?: string;
+  fetchTime?: string;
+  delay?: number;
 }
 
 interface MarketDataState {
   [symbol: string]: MarketDataUpdate;
 }
+
+// Configuration for market data behavior
+const MARKET_DATA_CONFIG = {
+  // In a production environment, we would attempt WebSockets first
+  // but for Replit, due to Cloudflare restrictions, we'll use HTTP polling
+  useHttpPollingByDefault: true,
+  
+  // Maximum number of WebSocket connection attempts before falling back to HTTP
+  maxWebSocketConnectionAttempts: 2,
+  
+  // Polling intervals (in milliseconds)
+  pollingIntervals: {
+    marketHours: 3000,      // 3 seconds during market hours
+    extendedHours: 10000,   // 10 seconds during pre/post market
+    overnight: 30000,       // 30 seconds overnight
+    weekend: 60000          // 1 minute on weekends
+  },
+  
+  // How many symbols to request in a single batch
+  batchSize: 20,
+  
+  // Whether to show toasts for connectivity changes
+  showConnectivityToasts: true
+};
 
 export function useMarketData() {
   const { user, isAuthenticated } = useAuth();
@@ -25,13 +51,35 @@ export function useMarketData() {
   const [marketStatus, setMarketStatus] = useState<{
     isMarketOpen: boolean;
     dataSource: string;
+    lastUpdated?: string;
   }>({ isMarketOpen: false, dataSource: 'unknown' });
+  
+  // Reference to WebSocket connection
   const socketRef = useRef<WebSocket | null>(null);
+  
+  // Reference to HTTP polling interval
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [usingFallback, setUsingFallback] = useState(false);
+  
+  // Track if we're using the fallback HTTP polling method
+  const [usingFallback, setUsingFallback] = useState(MARKET_DATA_CONFIG.useHttpPollingByDefault);
+  
+  // Track data freshness and status
+  const [dataStatus, setDataStatus] = useState<{
+    lastSuccessfulFetch: number;
+    averageDelay: number;
+    isStale: boolean;
+  }>({
+    lastSuccessfulFetch: 0,
+    averageDelay: 0,
+    isStale: false
+  });
+  
+  // Toast notifications
   const { toast } = useToast();
+  
+  // Track WebSocket connection attempts
   const connectionAttempts = useRef(0);
-  const maxConnectionAttempts = 2; // Reduced to minimize errors before fallback
+  const maxConnectionAttempts = MARKET_DATA_CONFIG.maxWebSocketConnectionAttempts;
 
   // Enhanced adaptive HTTP polling for market data when WebSockets aren't available
   const startPollingFallback = useCallback(() => {
@@ -247,19 +295,41 @@ export function useMarketData() {
     }
   }, []);
 
-  // Initialize WebSocket connection
+  // Initialize market data connection - prioritizing HTTP polling for Replit
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     
+    // Helper function to ensure default symbols are included in subscription
+    const ensureDefaultSymbols = () => {
+      // Include SPY for market status tracking by default
+      const symbolsToSubscribe = ['SPY'];
+      
+      // Add any previously subscribed symbols, avoiding duplicates
+      subscribedSymbols.forEach(symbol => {
+        if (!symbolsToSubscribe.includes(symbol)) {
+          symbolsToSubscribe.push(symbol);
+        }
+      });
+      
+      return symbolsToSubscribe;
+    };
+    
+    // Function for WebSocket connection (will be used as backup or in environments where it works)
     const connectWebSocket = () => {
       try {
+        // Only attempt WebSocket if we're not already using HTTP polling successfully
+        if (usingFallback) {
+          console.log('Already using HTTP polling successfully, skipping WebSocket attempt');
+          return;
+        }
+        
         // Track connection attempts
         connectionAttempts.current += 1;
         
         // Determine the correct WebSocket protocol based on the current page protocol
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
-        // Construct WebSocket URL with more resilience for Replit's environment
+        // Construct WebSocket URL with resilience for Replit's environment
         // Add a timestamp query parameter to avoid caching issues
         const timestamp = Date.now();
         const wsUrl = `${protocol}//${window.location.host}/ws?_=${timestamp}`;
@@ -310,27 +380,21 @@ export function useMarketData() {
                 setConnected(true);
                 setUsingFallback(false);
                 
-                // Always ensure SPY is included for market status updates
-                const ensureDefaultSymbols = () => {
-                  // Include SPY for market status by default
-                  const symbolsToSubscribe = ['SPY'];
-                  
-                  // Add any previously subscribed symbols, avoiding duplicates
-                  subscribedSymbols.forEach(symbol => {
-                    if (!symbolsToSubscribe.includes(symbol)) {
-                      symbolsToSubscribe.push(symbol);
-                    }
-                  });
-                  
-                  return symbolsToSubscribe;
-                };
-                
                 // Subscribe to symbols
                 const symbolsToSubscribe = ensureDefaultSymbols();
                 socket.send(JSON.stringify({
                   type: 'subscribe',
                   symbols: symbolsToSubscribe
                 }));
+                
+                // Show a toast indicating real-time data is now active
+                if (MARKET_DATA_CONFIG.showConnectivityToasts) {
+                  toast({
+                    title: 'Using Real-Time Data',
+                    description: 'Connected to real-time market data stream',
+                    variant: 'default'
+                  });
+                }
                 break;
                 
               case 'auth_error':
@@ -362,17 +426,31 @@ export function useMarketData() {
                   const newData = { ...prevData };
                   
                   message.data.forEach((update: MarketDataUpdate) => {
-                    newData[update.symbol] = update;
+                    // Add fetch time for consistency with HTTP polling data
+                    newData[update.symbol] = {
+                      ...update,
+                      fetchTime: new Date().toISOString(),
+                      delay: 0 // WebSocket data is real-time, so delay is 0
+                    };
                   });
                   
                   return newData;
                 });
                 
+                // Update data status metrics
+                setDataStatus(prev => ({
+                  ...prev,
+                  lastSuccessfulFetch: Date.now(),
+                  averageDelay: 0, // WebSocket data is real-time
+                  isStale: false
+                }));
+                
                 // Update market status if provided
                 if (message.marketStatus) {
                   setMarketStatus({
                     isMarketOpen: message.marketStatus.isMarketOpen,
-                    dataSource: message.marketStatus.dataSource
+                    dataSource: message.marketStatus.dataSource,
+                    lastUpdated: new Date().toISOString()
                   });
                 }
                 break;
@@ -396,8 +474,8 @@ export function useMarketData() {
           if (!usingFallback) {
             // Show a less alarming message to the user
             toast({
-              title: 'Using Delayed Data',
-              description: 'Real-time connection unavailable, using delayed data instead',
+              title: 'Using Market Data Updates',
+              description: 'Connected to market data service',
               variant: 'default'
             });
             
@@ -425,10 +503,20 @@ export function useMarketData() {
       }
     };
     
-    // Attempt to connect via WebSocket
-    connectWebSocket();
+    // If we're configured to use HTTP polling by default, start with that
+    if (MARKET_DATA_CONFIG.useHttpPollingByDefault) {
+      console.log('Starting with HTTP polling by default for Replit environment');
+      startPollingFallback();
+      
+      // Optionally, attempt WebSocket as a backup after HTTP polling is established
+      // This is disabled by default as we know it won't work in Replit
+      // setTimeout(connectWebSocket, 5000);
+    } else {
+      // In non-Replit environments, we'd try WebSocket first
+      connectWebSocket();
+    }
     
-    // Cleanup function to close the WebSocket when the component unmounts
+    // Cleanup function to close connections when the component unmounts
     return () => {
       if (socketRef.current && (
         socketRef.current.readyState === WebSocket.OPEN || 
@@ -439,7 +527,7 @@ export function useMarketData() {
       
       stopPollingFallback();
     };
-  }, [user, isAuthenticated, startPollingFallback, stopPollingFallback, subscribedSymbols, usingFallback]);
+  }, [user, isAuthenticated, startPollingFallback, stopPollingFallback, subscribedSymbols, usingFallback, toast]);
 
   // Function to subscribe to market data for specific symbols
   const subscribeToSymbols = useCallback((symbols: string[]) => {
@@ -511,16 +599,82 @@ export function useMarketData() {
     }
   }, []);
 
+  // Calculate data freshness metrics for better user feedback
+  const calculateDataFreshness = useCallback(() => {
+    // If we don't have any market data yet, data is considered stale
+    if (Object.keys(marketData).length === 0) {
+      return {
+        lastUpdated: 'Never',
+        staleness: 'unknown',
+        averageDelay: 0,
+        isStale: true
+      };
+    }
+    
+    // Calculate average fetch time across all symbols
+    const now = Date.now();
+    let totalDelay = 0;
+    let totalQuotes = 0;
+    let latestFetchTime = 0;
+    
+    Object.values(marketData).forEach(quote => {
+      if (quote.fetchTime) {
+        const fetchTimestamp = new Date(quote.fetchTime).getTime();
+        totalDelay += (now - fetchTimestamp);
+        latestFetchTime = Math.max(latestFetchTime, fetchTimestamp);
+        totalQuotes++;
+      }
+    });
+    
+    const avgDelay = totalQuotes > 0 ? Math.round(totalDelay / totalQuotes / 1000) : 0;
+    const staleness = now - latestFetchTime;
+    
+    // Determine if data is stale based on market conditions
+    const isStale = staleness > 60000; // Consider data stale if older than 1 minute
+    
+    return {
+      lastUpdated: latestFetchTime ? new Date(latestFetchTime).toLocaleTimeString() : 'Never',
+      staleness: `${Math.round(staleness / 1000)}s ago`,
+      averageDelay: avgDelay,
+      isStale
+    };
+  }, [marketData]);
+  
+  // Get current data freshness metrics
+  const dataFreshness = calculateDataFreshness();
+  
+  // Enhanced return object with more information about the connection and data status
   return {
+    // Connection status
     connected: connected || usingFallback, // Consider "connected" if using either method
     usingRealtime: connected && !usingFallback,
     usingFallback,
+    connectionType: connected ? 'realtime' : usingFallback ? 'http-polling' : 'disconnected',
+    
+    // Market data
     marketData,
     quotes: marketData, // Alias for marketData for easier access in components
+    
+    // Subscription information
     subscribedSymbols,
+    
+    // Data freshness metrics
+    dataFreshness,
+    
+    // Market status information
     marketStatus,
+    isMarketOpen: marketStatus.isMarketOpen,
+    
+    // Methods for managing market data
     subscribeToSymbols,
     unsubscribeFromSymbols,
-    fetchQuote  // Direct fetch method
+    fetchQuote,  // Direct fetch method
+    
+    // User-friendly status message for UI display
+    statusMessage: connected ? 
+      'Connected to real-time market data' : 
+      usingFallback ? 
+        `Using market data updates (${Math.round(dataFreshness.averageDelay)}s delay)` : 
+        'Disconnected from market data'
   };
 }
