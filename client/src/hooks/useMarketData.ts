@@ -137,10 +137,9 @@ export function useMarketData() {
         // Determine the correct WebSocket protocol based on the current page protocol
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
-        // Try multiple URL formats to avoid Replit networking issues
-        // 1. Standard format without port
-        const host = window.location.host.split(':')[0]; // Remove any port from host
-        const wsUrl = `${protocol}//${host}/ws`;
+        // Construct WebSocket URL using the full host (which includes hostname and port)
+        // This ensures the port is preserved correctly for both local and Replit environments
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         
         console.log(`Connecting to market data WebSocket at ${wsUrl} (attempt ${connectionAttempts.current})`);
         
