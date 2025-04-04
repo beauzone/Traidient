@@ -53,9 +53,8 @@ import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAle
 import { sendVerificationCode, verifyPhoneNumber, isPhoneNumberVerified, sendAlertSMS } from "./twilio";
 import { z } from "zod";
 
-// Use provided JWT_SECRET or generate a secure one
-import * as crypto from 'crypto';
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+// Use provided JWT_SECRET or a default development secret
+const JWT_SECRET = process.env.JWT_SECRET || 'development-jwt-secret-for-testing-only';
 
 // We now use the imported authMiddleware
 

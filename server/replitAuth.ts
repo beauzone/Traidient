@@ -11,14 +11,8 @@ if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
-// Generate a secure random session secret if not provided
-const generateSecureSessionSecret = () => {
-  const crypto = require('crypto');
-  return crypto.randomBytes(32).toString('hex');
-};
-
-// Use provided SESSION_SECRET or generate a secure one
-const SESSION_SECRET = process.env.SESSION_SECRET || generateSecureSessionSecret();
+// Use provided SESSION_SECRET or a default development secret
+const SESSION_SECRET = process.env.SESSION_SECRET || 'development-session-secret-for-testing-only';
 
 export async function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {

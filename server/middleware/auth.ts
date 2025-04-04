@@ -6,7 +6,8 @@ import { type User } from '@shared/schema';
 import * as crypto from 'crypto';
 
 // Use provided JWT_SECRET or generate a secure one
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+// Use the JWT_SECRET environment variable, or a default (but consistent) secret for development
+const JWT_SECRET = process.env.JWT_SECRET || 'development-jwt-secret-for-testing-only';
 
 // Define an interface for authenticated requests that works with both JWT and Replit Auth 
 export interface AuthRequest extends Request {
