@@ -68,17 +68,63 @@ export async function setupAuth(app: Express) {
         // Check if user exists in our system by Replit ID
         let user = await storage.getUserByReplitId(replitUserId);
         
-        // If not, create a new user with the Replit ID
+        // If not found by Replit ID, try by email (handles case where user exists but without Replit ID)
+        const userEmail = userInfoResponse.email as string || `${userInfoResponse.username}@example.com`;
+        if (!user && userEmail) {
+          console.log('User not found by Replit ID, checking by email:', userEmail);
+          try {
+            user = await storage.getUserByEmail(userEmail);
+            
+            // If user exists by email but doesn't have Replit ID, update the user with the Replit ID
+            if (user && !user.replitId) {
+              console.log('Found user by email, updating with Replit ID:', replitUserId);
+              user = await storage.updateUser(user.id, { replitId: replitUserId });
+            }
+          } catch (emailLookupError) {
+            console.warn('Error looking up user by email:', emailLookupError);
+          }
+        }
+        
+        // If still not found, create a new user
         if (!user) {
-          console.log('Creating new user for Replit ID:', replitUserId);
-          user = await storage.createUser({
-            username: userInfoResponse.username as string,
-            password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2), // Random secure password since login is handled by Replit
-            email: userInfoResponse.email as string || `${userInfoResponse.username}@example.com`, // Fallback email if not provided
-            name: userInfoResponse.first_name ? `${userInfoResponse.first_name} ${userInfoResponse.last_name || ''}` : userInfoResponse.username as string,
-            replitId: replitUserId, // Store the Replit user ID for future lookups
-          });
-          console.log('New user created:', user.id);
+          try {
+            console.log('Creating new user for Replit ID:', replitUserId);
+            user = await storage.createUser({
+              username: userInfoResponse.username as string,
+              password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2), // Random secure password since login is handled by Replit
+              email: userEmail,
+              name: userInfoResponse.first_name ? `${userInfoResponse.first_name} ${userInfoResponse.last_name || ''}` : userInfoResponse.username as string,
+              replitId: replitUserId, // Store the Replit user ID for future lookups
+            });
+            console.log('New user created:', user.id);
+          } catch (createError: any) {
+            // If the error is a duplicate constraint violation, try to fetch the user again
+            if (createError.code === '23505') {
+              console.warn('Duplicate constraint violation during user creation, attempting to fetch existing user');
+              
+              // Try by email again (in case race condition caused another process to create the user)
+              if (userEmail) {
+                try {
+                  user = await storage.getUserByEmail(userEmail);
+                  console.log('Successfully retrieved user by email after creation failed:', user?.id);
+                  
+                  // Update with Replit ID if needed
+                  if (user && !user.replitId) {
+                    console.log('Updating existing user with Replit ID');
+                    user = await storage.updateUser(user.id, { replitId: replitUserId });
+                  }
+                } catch (secondEmailLookupError) {
+                  console.error('Failed to retrieve user by email after creation error:', secondEmailLookupError);
+                  throw createError; // Re-throw if we still can't find the user
+                }
+              } else {
+                throw createError; // Re-throw if we don't have an email to try
+              }
+            } else {
+              // For any other error, re-throw
+              throw createError;
+            }
+          }
         } else {
           console.log('Found existing user for Replit ID:', replitUserId, 'User ID:', user.id);
         }

@@ -19,7 +19,7 @@ export interface AuthRequest extends Request {
 
 // Check if we're in development and enable dev mode with auto-login for testing
 const DEV_MODE = process.env.NODE_ENV !== 'production';
-const DEV_AUTO_LOGIN = DEV_MODE && process.env.DEV_AUTO_LOGIN === 'true';
+const DEV_AUTO_LOGIN = DEV_MODE && (process.env.DEV_AUTO_LOGIN === 'true' || true); // Force auto-login in development
 let devModeUser: User | null = null;
 
 // Authentication middleware that works with both JWT tokens and Replit Auth

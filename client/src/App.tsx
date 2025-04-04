@@ -44,7 +44,9 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   }
 
   if (!isAuthenticated) {
-    return <Redirect to="/api/login" />;
+    // Redirect to the server authentication endpoint
+    window.location.href = "/api/login";
+    return null;
   }
 
   return <Component {...rest} />;
@@ -185,7 +187,17 @@ function AppRoutes() {
       <Route path="/">
         <Redirect to="/dashboard" />
       </Route>
-      <Route component={NotFound} />
+      
+      {/* Server routes - Handle callbacks from API endpoints */}
+      <Route path="/api/:rest*">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-lg">Processing authentication, please wait...</p>
+        </div>
+      </Route>
+      
+      {/* 404 for any other client routes */}
+      <Route path="/:rest*" component={NotFound} />
     </Switch>
   );
 }

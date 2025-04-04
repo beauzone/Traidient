@@ -49,9 +49,16 @@ export const useWebSocket = (
       const cacheBuster = `_=${Date.now()}`;
       
       // Connect directly to the Express server's WebSocket endpoint
-      // Note: path must match server's WebSocketServer configuration (path: '/ws')
+      // Note: In Replit, we need to ensure we use the same host but with the /ws path
       // Important: First query param uses ? while additional params use &
       let wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
+      
+      // Don't use port in the URL, as this causes connection issues in Replit environment
+      // Explicitly strip any port that might be in the URL
+      if (wsUrl.includes(':5900')) {
+        console.warn('Removing port 5900 from WebSocket URL as it causes connection issues');
+        wsUrl = wsUrl.replace(':5900', '');
+      }
       
       // Log the window.location object for debugging
       console.log('Current location:', {
@@ -79,9 +86,13 @@ export const useWebSocket = (
       return wsUrl;
     } catch (error) {
       console.error('Error building WebSocket URL:', error);
-      // Fallback to a simple URL ensuring no port is specified
-      // (let the browser determine the correct port based on host)
-      return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+      // Fallback URL construction logic
+      // Try multiple fallback approaches to ensure we can connect
+      // First: try the same host but with the /ws path and no port
+      const fallbackHost = window.location.host.split(':')[0]; // Remove any port
+      const fallbackUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${fallbackHost}/ws`;
+      console.log(`Using fallback WebSocket URL: ${fallbackUrl}`);
+      return fallbackUrl;
     }
   }, [includeAuthToken, isAuthenticated, user]);
 

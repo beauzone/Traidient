@@ -64,6 +64,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication with Replit
   await setupAuth(app);
   
+  // Special endpoint for dev mode auto-login
+  app.get("/api/auth/dev-user", (req, res) => {
+    // Only available in development mode
+    if (process.env.NODE_ENV !== 'production') {
+      // Check for dev user through the auto-login mechanism
+      const username = 'dev_user';
+      
+      storage.getUserByUsername(username)
+        .then(user => {
+          if (user) {
+            // Return the user but omit sensitive fields
+            const { password, ...safeUser } = user;
+            res.json(safeUser);
+          } else {
+            res.status(404).json({ message: 'Dev user not found' });
+          }
+        })
+        .catch(err => {
+          console.error('Error in dev-user endpoint:', err);
+          res.status(500).json({ message: 'Server error' });
+        });
+    } else {
+      // Not available in production
+      res.status(404).json({ message: 'Not found' });
+    }
+  });
+  
   // Local authentication routes for development/testing
   app.post('/api/local/register', async (req: Request, res: Response) => {
     try {
