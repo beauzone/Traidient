@@ -332,16 +332,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize WebSocket server with most basic configuration
   // Create it with just server and path to avoid any compatibility issues
+  // Initialize WebSocket server with enhanced Replit-specific configuration
   const wss = new WebSocketServer({ 
     server: httpServer, 
     path: '/ws',
     perMessageDeflate: false, // Disable compression for Cloudflare compatibility
     clientTracking: true,     // Track clients for easier cleanup
-    maxPayload: 1024 * 1024   // 1MB max message size for better stability
+    maxPayload: 1024 * 1024,  // 1MB max message size for better stability
+    // Additional Replit environment compatibility settings
+    handleProtocols: (protocols: string[], request) => {
+      // Accept any protocol to improve compatibility
+      return protocols[0] || '';
+    },
+    // More lenient verification for Replit environment
+    verifyClient: (info, callback) => {
+      // Allow all connections, including ones that might be going through Cloudflare
+      callback(true);
+    }
   });
   
   // Log WebSocketServer creation
-  console.log('WebSocketServer initialized on path /ws with Cloudflare-compatible settings');
+  console.log('WebSocketServer initialized on path /ws with enhanced Replit/Cloudflare compatibility settings');
   
   // Initialize the Yahoo Finance API
   const yahooFinance = new YahooFinanceAPI();

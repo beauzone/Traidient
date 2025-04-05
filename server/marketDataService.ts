@@ -136,32 +136,107 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
       // Get user's data provider integrations
       const userIntegrations = await storage.getApiIntegrationsByUser(userId);
 
-      // Find available data providers
+      // Get the most accurate market status information
+      const isMarketOpen = isMarketCurrentlyOpen();
+      
+      // Initialize providers from environment variables if they exist
+      let polygonAPI = null;
+      let alphaVantageAPI = null; 
+      let alpacaAPI = null;
+      
+      // Set up environment providers first if available
+      if (process.env.POLYGON_API_KEY) {
+        polygonAPI = new PolygonAPI({
+          id: 0,
+          provider: 'polygon',
+          type: 'data',
+          userId: 0,
+          accountName: 'Default Polygon',
+          description: 'Environment Polygon API',
+          isActive: true,
+          isPrimary: false,
+          assetClasses: ['stocks'],
+          exchanges: ['NASDAQ', 'NYSE'],
+          accountMode: 'paper',
+          providerUserId: null,
+          providerAccountId: null,
+          capabilities: {
+            trading: false,
+            marketData: true,
+            accountData: false
+          },
+          lastStatus: 'ok',
+          lastUsed: null,
+          lastError: null,
+          credentials: {
+            apiKey: process.env.POLYGON_API_KEY
+          }
+        });
+      }
+      
+      if (process.env.ALPHAVANTAGE_API_KEY) {
+        alphaVantageAPI = new AlphaVantageAPI({
+          id: 0,
+          provider: 'alphavantage',
+          type: 'data',
+          userId: 0,
+          accountName: 'Default AlphaVantage',
+          description: 'Environment AlphaVantage API',
+          isActive: true,
+          isPrimary: false,
+          assetClasses: ['stocks'],
+          exchanges: ['NASDAQ', 'NYSE'],
+          accountMode: 'paper',
+          providerUserId: null,
+          providerAccountId: null,
+          capabilities: {
+            trading: false,
+            marketData: true,
+            accountData: false
+          },
+          lastStatus: 'ok',
+          lastUsed: null,
+          lastError: null,
+          credentials: {
+            apiKey: process.env.ALPHAVANTAGE_API_KEY
+          }
+        });
+      }
+      
+      // User-specific integrations (override environment if both exist)
       const polygonIntegration = userIntegrations.find(i => 
         i.provider === 'polygon' && i.type === 'data' && i.isActive);
-      const tiingoIntegration = userIntegrations.find(i => 
-        i.provider === 'tiingo' && i.type === 'data' && i.isActive);
+      const alphaVantageIntegration = userIntegrations.find(i => 
+        i.provider === 'alphavantage' && i.type === 'data' && i.isActive);
       const alpacaIntegration = userIntegrations.find(i => 
         i.provider === 'alpaca' && i.type === 'exchange' && i.isActive);
 
-      // Initialize API clients with user's integrations
-      const polygonAPI = polygonIntegration ? new PolygonAPI(polygonIntegration) : null;
-      const tiingoAPI = tiingoIntegration ? new TiingoAPI(tiingoIntegration) : null;
-      const alpacaAPI = alpacaIntegration ? new AlpacaAPI(alpacaIntegration) : null;
+      // Initialize user-specific API clients if they exist
+      if (polygonIntegration) {
+        polygonAPI = new PolygonAPI(polygonIntegration);
+      }
+      
+      if (alphaVantageIntegration) {
+        alphaVantageAPI = new AlphaVantageAPI(alphaVantageIntegration);
+      }
+      
+      if (alpacaIntegration) {
+        alpacaAPI = new AlpacaAPI(alpacaIntegration);
+      } else if (process.env.ALPACA_API_KEY && process.env.ALPACA_API_SECRET) {
+        // Use environment variables if no user integration
+        alpacaAPI = new AlpacaAPI();
+      }
 
+      // Log market status
+      console.log(`Market status from app calculation: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
 
-      // Get the most accurate market status information
-      const isMarketOpen = isMarketCurrentlyOpen();
-      console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
-
-      // Try to use available providers just for logging purposes, but don't change isMarketOpen
+      // Try to use available providers for market status
       try {
         let statusFromProvider = false;
         if (polygonAPI && polygonAPI.isValid) {
           statusFromProvider = await polygonAPI.isMarketOpen();
           console.log(`Market status from Polygon.io (for reference): ${statusFromProvider ? 'OPEN' : 'CLOSED'}`);
         } else if (alpacaAPI && alpacaAPI.isValid) {
-          // Use Alpaca's market status API
           statusFromProvider = await alpacaAPI.isMarketOpen();
           console.log(`Market status from Alpaca (for reference): ${statusFromProvider ? 'OPEN' : 'CLOSED'}`);
         }
@@ -175,51 +250,72 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
         let quoteData = null;
         let dataSource = "";
 
-        // Try each data provider in order of quality/reliability
-        if (isMarketOpen) {
-          // During market hours, try to get real-time data in priority order
+        // PRIORITY 1: Always try Yahoo Finance first regardless of market hours
+        // Yahoo Finance is free, reliable, and doesn't have API limits
+        try {
+          quoteData = await yahooFinance.getQuote(upperSymbol);
+          if (quoteData && quoteData.price) {
+            dataSource = "yahoo";
+            // Only log occasionally to reduce console spam
+            if (Math.random() < 0.1) { // 10% of the time
+              console.log(`Got Yahoo Finance data for ${upperSymbol}: ${quoteData.price}`);
+            }
+          }
+        } catch (err) {
+          console.log(`Yahoo Finance API error for ${upperSymbol}, trying next provider`);
+        }
 
-          // First try Polygon.io (best quality real-time data)
+        // Only try real-time data providers if market is open and Yahoo failed
+        if (!quoteData && isMarketOpen) {
+          // PRIORITY 2: Try Polygon.io as secondary provider
           if (polygonAPI && polygonAPI.isValid) {
             try {
-              quoteData = await polygonAPI.getQuote(upperSymbol);
-              if (quoteData && quoteData.price) {
+              const polygonData = await polygonAPI.getQuote(upperSymbol);
+              if (polygonData && polygonData.price) {
+                quoteData = polygonData;
                 dataSource = "polygon";
-                console.log(`Got real Polygon.io data for ${upperSymbol}: ${quoteData.price}`);
+                console.log(`Got real-time Polygon.io data for ${upperSymbol}: ${quoteData.price}`);
               }
             } catch (err) {
               console.log(`Polygon.io API error for ${upperSymbol}, trying next provider`);
             }
           }
 
-          // If Polygon failed, try Tiingo
-          if (!quoteData && tiingoAPI && tiingoAPI.isValid) {
+          // PRIORITY 3: Try AlphaVantage as tertiary provider
+          if (!quoteData && alphaVantageAPI) {
             try {
-              quoteData = await tiingoAPI.getQuote(upperSymbol);
-              if (quoteData && quoteData.price) {
-                dataSource = "tiingo";
-                console.log(`Got real Tiingo data for ${upperSymbol}: ${quoteData.price}`);
+              const avData = await alphaVantageAPI.getQuote(upperSymbol);
+              if (avData && avData.price) {
+                quoteData = avData;
+                dataSource = "alphavantage";
+                console.log(`Got real-time AlphaVantage data for ${upperSymbol}: ${quoteData.price}`);
               }
             } catch (err) {
-              console.log(`Tiingo API error for ${upperSymbol}, trying next provider`);
+              console.log(`AlphaVantage API error for ${upperSymbol}, trying next provider`);
+            }
+          }
+          
+          // PRIORITY 4 (LAST RESORT): Try Alpaca only if all other providers failed
+          // We want to minimize Alpaca calls to avoid API limits
+          if (!quoteData && alpacaAPI && alpacaAPI.isValid) {
+            try {
+              const alpacaData = await alpacaAPI.getQuote(upperSymbol);
+              if (alpacaData && alpacaData.quote && alpacaData.quote.ap) {
+                quoteData = {
+                  price: alpacaData.quote.ap,
+                  change: 0, // Alpaca doesn't provide change directly
+                  changePercent: 0 // Will need to be calculated separately
+                };
+                dataSource = "alpaca";
+                console.log(`Got real-time Alpaca data for ${upperSymbol}: ${quoteData.price}`);
+              }
+            } catch (err) {
+              console.log(`Alpaca API error for ${upperSymbol}, falling back to simulation`);
             }
           }
         }
 
-        // If market is closed or all real-time providers failed, use Yahoo Finance
-        if (!quoteData) {
-          try {
-            quoteData = await yahooFinance.getQuote(upperSymbol);
-            if (quoteData && quoteData.price) {
-              dataSource = "yahoo";
-              console.log(`Got Yahoo Finance data for ${upperSymbol}: ${quoteData.price}`);
-            }
-          } catch (err) {
-            console.log(`Yahoo Finance API error for ${upperSymbol}, falling back to simulation`);
-          }
-        }
-
-        // Add the data to updates if we got it
+        // Add the data to updates if we got it from any provider
         if (quoteData && quoteData.price) {
           // Update stored price data for future reference
           priceData.set(upperSymbol, {
@@ -238,11 +334,11 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
             dataSource: dataSource
           });
         } else {
-          // Fall back to simulation for this symbol
+          // Fall back to simulation if all providers failed
           const data = priceData.get(upperSymbol);
           if (!data) continue;
 
-          // Simulate price movement
+          // Simulate price movement with momentum
           const momentum = data.lastChange > 0 ? 0.6 : 0.4;
           const randomFactor = Math.random();
           const direction = randomFactor > momentum ? -1 : 1;
@@ -272,8 +368,7 @@ export function startMarketDataStream(userId: number, ws: WebSocket, symbols: Se
     if (updates.length > 0) {
       // Check if market is open
       const marketOpen = isMarketCurrentlyOpen();
-      console.log(`Market status: ${marketOpen ? 'OPEN' : 'CLOSED'}`);
-
+      
       // Get the primary data source being used and label it properly
       let primarySource = "yahoo";
       const realDataUpdate = updates.find(u => !u.isSimulated);
@@ -328,51 +423,202 @@ export async function getHistoricalMarketData(
   try {
     // Get user's data provider integrations
     const userIntegrations = await storage.getApiIntegrationsByUser(userId);
-
-    // Try Yahoo Finance first for historical data
+    
+    // Track all errors for better debugging
+    const errors = [];
+    
+    // PRIORITY 1: Use Yahoo Finance as primary provider for historical data (free, no API key needed)
     try {
+      console.log(`Attempting to get historical data for ${symbol} from Yahoo Finance`);
       const yahooProvider = new YahooFinanceAPI();
       const data = await yahooProvider.getHistoricalData(symbol, timeframe, String(limit));
       if (data && data.bars && data.bars.length > 0) {
+        console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from Yahoo Finance`);
         return {
           ...data,
           dataSource: 'yahoo'
         };
       }
+      console.log(`Yahoo Finance returned no data for ${symbol}`);
     } catch (yahooError) {
-      console.log('Yahoo Finance API error, falling back to Tiingo:', yahooError);
+      console.error('Yahoo Finance API error:', yahooError);
+      errors.push({ provider: 'yahoo', error: yahooError });
     }
 
-    // Fallback to Tiingo
-    const tiingoIntegration = userIntegrations.find(i => 
-      i.provider === 'tiingo' && i.type === 'data' && i.isActive);
+    // PRIORITY 2: Try AlphaVantage (environment key)
+    try {
+      if (process.env.ALPHAVANTAGE_API_KEY) {
+        console.log(`Attempting to get historical data for ${symbol} from AlphaVantage`);
+        const alphaVantageAPI = new AlphaVantageAPI({
+          id: 0,
+          provider: 'alphavantage',
+          type: 'data',
+          userId: 0,
+          accountName: 'Default AlphaVantage',
+          description: 'Environment AlphaVantage API',
+          isActive: true,
+          isPrimary: false,
+          assetClasses: ['stocks'],
+          exchanges: ['NASDAQ', 'NYSE'],
+          accountMode: 'paper',
+          providerUserId: null,
+          providerAccountId: null,
+          capabilities: {
+            trading: false,
+            marketData: true,
+            accountData: false
+          },
+          lastStatus: 'ok',
+          lastUsed: null,
+          lastError: null,
+          credentials: {
+            apiKey: process.env.ALPHAVANTAGE_API_KEY
+          }
+        });
+        const data = await alphaVantageAPI.getHistoricalData(symbol, timeframe, limit);
+        if (data && data.bars && data.bars.length > 0) {
+          console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from AlphaVantage`);
+          return {
+            ...data, 
+            dataSource: 'alphavantage'
+          };
+        }
+        console.log(`AlphaVantage returned no data for ${symbol}`);
+      }
+    } catch (avError) {
+      console.error('AlphaVantage API error:', avError);
+      errors.push({ provider: 'alphavantage', error: avError });
+    }
 
-    if (tiingoIntegration) {
-      const tiingoAPI = new TiingoAPI(tiingoIntegration);
-      const data = await tiingoAPI.getHistoricalData(symbol, timeframe, limit);
-      if (data && data.bars && data.bars.length > 0) {
-        return {
-          ...data,
-          dataSource: 'tiingo'
-        };
+    // PRIORITY 3: Try Polygon (environment key)
+    try {
+      if (process.env.POLYGON_API_KEY) {
+        console.log(`Attempting to get historical data for ${symbol} from Polygon`);
+        const polygonAPI = new PolygonAPI({
+          id: 0,
+          provider: 'polygon',
+          type: 'data',
+          userId: 0,
+          accountName: 'Default Polygon',
+          description: 'Environment Polygon API',
+          isActive: true,
+          isPrimary: false,
+          assetClasses: ['stocks'],
+          exchanges: ['NASDAQ', 'NYSE'],
+          accountMode: 'paper',
+          providerUserId: null,
+          providerAccountId: null,
+          capabilities: {
+            trading: false,
+            marketData: true,
+            accountData: false
+          },
+          lastStatus: 'ok',
+          lastUsed: null,
+          lastError: null,
+          credentials: {
+            apiKey: process.env.POLYGON_API_KEY
+          }
+        });
+        const data = await polygonAPI.getHistoricalData(symbol, timeframe, limit);
+        if (data && data.bars && data.bars.length > 0) {
+          console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from Polygon`);
+          return {
+            ...data,
+            dataSource: 'polygon'
+          };
+        }
+        console.log(`Polygon returned no data for ${symbol}`);
+      }
+    } catch (polygonError) {
+      console.error('Polygon API error:', polygonError);
+      errors.push({ provider: 'polygon', error: polygonError });
+    }
+    
+    // PRIORITY 4: Check for user-specific integrations
+    
+    // Try user's Polygon integration
+    const polygonIntegration = userIntegrations.find(i => 
+      i.provider === 'polygon' && i.type === 'data' && i.isActive);
+    if (polygonIntegration) {
+      try {
+        console.log(`Attempting to get historical data for ${symbol} from user-specific Polygon integration`);
+        const polygonAPI = new PolygonAPI(polygonIntegration);
+        const data = await polygonAPI.getHistoricalData(symbol, timeframe, limit);
+        if (data && data.bars && data.bars.length > 0) {
+          console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from user Polygon integration`);
+          return {
+            ...data,
+            dataSource: 'polygon-user'
+          };
+        }
+      } catch (error) {
+        console.error('User Polygon integration error:', error);
+        errors.push({ provider: 'polygon-user', error });
       }
     }
 
+    // Try user's AlphaVantage integration
+    const alphaVantageIntegration = userIntegrations.find(i => 
+      i.provider === 'alphavantage' && i.type === 'data' && i.isActive);
+    if (alphaVantageIntegration) {
+      try {
+        console.log(`Attempting to get historical data for ${symbol} from user-specific AlphaVantage integration`);
+        const alphaVantageAPI = new AlphaVantageAPI(alphaVantageIntegration);
+        const data = await alphaVantageAPI.getHistoricalData(symbol, timeframe, limit);
+        if (data && data.bars && data.bars.length > 0) {
+          console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from user AlphaVantage integration`);
+          return {
+            ...data,
+            dataSource: 'alphavantage-user'
+          };
+        }
+      } catch (error) {
+        console.error('User AlphaVantage integration error:', error);
+        errors.push({ provider: 'alphavantage-user', error });
+      }
+    }
 
-    //Fallback to Alpaca
+    // PRIORITY 5 (LAST RESORT): Try Alpaca only if previous methods failed
+    // We want to minimize Alpaca usage for data to avoid hitting API limits
     const alpacaIntegration = userIntegrations.find(i => 
       i.provider === 'alpaca' && i.type === 'exchange' && i.isActive);
     if (alpacaIntegration) {
-      const alpacaAPI = new AlpacaAPI(alpacaIntegration);
-      const data = await alpacaAPI.getMarketData(symbol, timeframe, limit);
-      if (data && data.bars && data.bars.length > 0) {
-        return {
-          ...data,
-          dataSource: 'alpaca'
-        };
+      try {
+        console.log(`Attempting to get historical data for ${symbol} from Alpaca (last resort)`);
+        const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+        const data = await alpacaAPI.getMarketData(symbol, timeframe, limit);
+        if (data && data.bars && data.bars.length > 0) {
+          console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from Alpaca`);
+          return {
+            ...data,
+            dataSource: 'alpaca'
+          };
+        }
+      } catch (error) {
+        console.error('Alpaca integration error:', error);
+        errors.push({ provider: 'alpaca', error });
+      }
+    } else if (process.env.ALPACA_API_KEY && process.env.ALPACA_API_SECRET) {
+      try {
+        console.log(`Attempting to get historical data for ${symbol} from environment Alpaca keys (last resort)`);
+        const alpacaAPI = new AlpacaAPI();
+        const data = await alpacaAPI.getMarketData(symbol, timeframe, limit);
+        if (data && data.bars && data.bars.length > 0) {
+          console.log(`Successfully retrieved ${data.bars.length} bars for ${symbol} from environment Alpaca`);
+          return {
+            ...data,
+            dataSource: 'alpaca-env'
+          };
+        }
+      } catch (error) {
+        console.error('Environment Alpaca error:', error);
+        errors.push({ provider: 'alpaca-env', error });
       }
     }
 
+    // If we got here, all providers failed
+    console.error(`All data providers failed for ${symbol}. Errors:`, errors);
     throw new Error(`Could not retrieve historical data for ${symbol} from any provider`);
   } catch (error) {
     console.error('Error getting historical market data:', error);

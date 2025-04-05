@@ -30,18 +30,51 @@ export default function WebSocketTest() {
     try {
       setWsStatus('connecting');
       
-      // Generate the WebSocket URL
+      // Generate the WebSocket URL with enhanced Replit compatibility
       let wsUrl: string;
       if (connectionUrl) {
         // Use provided URL
         wsUrl = connectionUrl;
       } else {
-        // Use default URL with timestamped cache buster
+        // Use default URL with timestamped cache buster and auth tokens
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
         const timestamp = Date.now();
+        
+        // Base URL with cache buster
         wsUrl = `${protocol}//${host}/ws?_=${timestamp}`;
+        
+        // Add user ID if available in localStorage (for testing auth)
+        const userId = localStorage.getItem('userId');
+        if (userId) {
+          wsUrl += `&userId=${userId}`;
+        }
+        
+        // Add token if available in localStorage (for testing auth)
+        const token = localStorage.getItem('token');
+        if (token) {
+          wsUrl += `&token=${encodeURIComponent(token)}`;
+        }
+        
+        // Add session ID if available (for further authentication)
+        const sessionId = localStorage.getItem('sessionId');
+        if (sessionId) {
+          wsUrl += `&sessionId=${encodeURIComponent(sessionId)}`;
+        }
       }
+      
+      // Display diagnostics about the environment
+      addMessage('system', JSON.stringify({
+        diagnostics: {
+          url: wsUrl,
+          browser: navigator.userAgent,
+          location: window.location.href,
+          hostname: window.location.hostname,
+          protocol: window.location.protocol,
+          isReplitEnv: window.location.hostname.includes('replit') || 
+                      window.location.hostname.includes('repl.co')
+        }
+      }, null, 2));
       
       // Create new WebSocket connection
       const ws = new WebSocket(wsUrl);
@@ -192,7 +225,7 @@ export default function WebSocketTest() {
               </Button>
             </div>
             
-            <Alert variant="outline" className="mb-4">
+            <Alert className="mb-4">
               <AlertTitle>Connection Info</AlertTitle>
               <AlertDescription>
                 <div className="text-sm">
@@ -218,10 +251,10 @@ export default function WebSocketTest() {
                 {messages.map((msg, index) => (
                   <div key={index} className="mb-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant={
-                        msg.type === 'sent' ? 'default' :
-                        msg.type === 'received' ? 'secondary' : 'destructive'
-                      }>
+                      <Badge 
+                        variant={msg.type === 'sent' ? 'default' : 
+                                 msg.type === 'received' ? 'secondary' : 'destructive'}
+                      >
                         {msg.type.charAt(0).toUpperCase() + msg.type.slice(1)}
                       </Badge>
                       <span className="text-xs text-gray-500">
@@ -263,27 +296,55 @@ export default function WebSocketTest() {
         <CardFooter>
           <div className="text-sm text-gray-500">
             Quick commands:
-            <div className="flex gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                onClick={() => setInputMessage(JSON.stringify({ type: 'ping' }))}
+                onClick={() => setInputMessage(JSON.stringify({ type: 'ping', timestamp: Date.now() }))}
               >
                 Ping
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                onClick={() => setInputMessage(JSON.stringify({ type: 'auth', userId: 1 }))}
+                onClick={() => {
+                  // Get the auth token from localStorage
+                  const token = localStorage.getItem('token');
+                  const userId = localStorage.getItem('userId') || '1';
+                  setInputMessage(JSON.stringify({
+                    type: 'auth',
+                    userId: Number(userId),
+                    token,
+                    timestamp: Date.now()
+                  }));
+                }}
               >
                 Auth
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setInputMessage(JSON.stringify({ type: 'subscribe', symbols: ['AAPL', 'MSFT'] }))}
               >
                 Subscribe
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setInputMessage(JSON.stringify({ type: 'unsubscribe', symbols: ['AAPL', 'MSFT'] }))}
+              >
+                Unsubscribe
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem('userId', '3'); // Dev user ID
+                  localStorage.setItem('token', 'dev_token');
+                  addMessage('system', 'Set userId=3 (dev_user) in localStorage');
+                }}
+              >
+                Set Dev User
               </Button>
             </div>
           </div>

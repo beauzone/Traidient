@@ -163,8 +163,8 @@ app.use((req, res, next) => {
     }
     
     // Start the server
-    httpServer.listen(5000, '0.0.0.0', () => {
-      log('🚀 Server is running on port 5000 with real market data support');
+    httpServer.listen(currentPort, '0.0.0.0', () => {
+      log(`🚀 Server is running on port ${currentPort} with real market data support`);
       if (process.env.ALPACA_API_KEY && process.env.ALPACA_API_SECRET) {
         log('Alpaca API credentials found - using Alpaca as primary market data provider');
       } else {
