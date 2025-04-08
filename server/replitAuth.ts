@@ -38,8 +38,9 @@ export async function setupAuth(app: Express) {
     replId,
   );
 
-  const hostname = `${process.env.REPLIT_DOMAINS!.split(",")[0]}`;
+  const hostname = process.env.REPLIT_DOMAINS!.split(",")[0];
   const callbackURL = `https://${hostname}/api/callback`;
+  console.log('Auth callback URL:', callbackURL);
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback) => {

@@ -11,12 +11,7 @@ const app = express();
 
 // Configure enhanced CORS to prevent "you have been blocked" issues with Replit
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // In Replit environments, we need to be more permissive
-    // Allow all origins in production for better compatibility
-    callback(null, true);
-    return;
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
