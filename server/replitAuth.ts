@@ -7,7 +7,6 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import Database from '@replit/database';
 
-
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
@@ -20,7 +19,6 @@ const db = new Database();
 
 // In-memory store for auth states (only for the new auth system)
 const authStates = new Set<string>();
-
 
 router.get('/login', (req, res) => {
   const state = Math.random().toString(36).substring(2);
@@ -67,53 +65,7 @@ router.get('/user', (req, res) => {
   }
 });
 
-// Dev-only endpoint
-router.get('/dev-user', (req, res) => {
-  if (process.env.NODE_ENV === 'development') {
-    const devUser = {
-      id: 3,
-      username: 'dev_user',
-      email: 'dev@example.com'
-    };
-
-    if (req.session) {
-      req.session.user = devUser;
-    }
-
-    res.json(devUser);
-  } else {
-    res.status(404).json({ error: 'Not found' });
-  }
-});
-
-app.get("/api/auth/dev-user", (req, res) => {
-  if (process.env.DEV_AUTO_LOGIN !== "true") {
-    return res.status(403).json({ message: "Dev auto-login disabled" });
-  }
-
-  // Create or get dev user
-  const devUser = {
-    id: 3,
-    username: "dev_user",
-    email: "dev@example.com"
-  };
-
-  // Set session and cookie properties
-  req.session.userId = devUser.id;
-  req.session.user = devUser;
-  req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 24 hours
-  req.session.save((err) => {
-    if (err) {
-      console.error("Session save error:", err);
-      return res.status(500).json({ message: "Session error" });
-    }
-    res.json(devUser);
-  });
-});
-
-
 export const replitAuthRoutes = router;
-
 
 export async function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
@@ -132,8 +84,35 @@ export async function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
-  app.use('/api/auth', replitAuthRoutes); //Mount the new routes
+  app.use('/api/auth', replitAuthRoutes);
 
+  // Dev-only endpoint moved inside setupAuth where app is available
+  if (process.env.NODE_ENV === 'development') {
+    app.get("/api/auth/dev-user", (req, res) => {
+      if (process.env.DEV_AUTO_LOGIN !== "true") {
+        return res.status(403).json({ message: "Dev auto-login disabled" });
+      }
+
+      // Create or get dev user
+      const devUser = {
+        id: 3,
+        username: "dev_user",
+        email: "dev@example.com"
+      };
+
+      // Set session and cookie properties
+      req.session.userId = devUser.id;
+      req.session.user = devUser;
+      req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Session error" });
+        }
+        res.json(devUser);
+      });
+    });
+  }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser(async (user: Express.User, cb) => {
@@ -148,7 +127,7 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
-  if (req.session?.user) { //Check for session user instead of req.isAuthenticated()
+  if (req.session?.user) {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
