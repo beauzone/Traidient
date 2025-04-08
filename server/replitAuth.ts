@@ -2,7 +2,8 @@ import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 import passport from "passport";
 import session from "express-session";
-import type { Express, RequestHandler, Router } from "express";
+import { Router } from "express";
+import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import Database from '@replit/database';
 
