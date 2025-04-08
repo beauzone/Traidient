@@ -88,29 +88,50 @@ export async function setupAuth(app: Express) {
 
   // Dev-only endpoint moved inside setupAuth where app is available
   if (process.env.NODE_ENV === 'development') {
-    app.get("/api/auth/dev-user", (req, res) => {
+    app.get("/api/auth/dev-user", async (req, res) => {
       if (process.env.DEV_AUTO_LOGIN !== "true") {
         return res.status(403).json({ message: "Dev auto-login disabled" });
       }
 
-      // Create or get dev user
-      const devUser = {
-        id: 3,
-        username: "dev_user",
-        email: "dev@example.com"
-      };
+      try {
+        // Create or get dev user with extended properties
+        const devUser = {
+          id: 3,
+          username: "dev_user",
+          email: "dev@example.com",
+          name: "Development User",
+          role: "user"
+        };
 
-      // Set session and cookie properties
-      req.session.userId = devUser.id;
-      req.session.user = devUser;
-      req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 24 hours
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ message: "Session error" });
+        // Ensure user exists in database
+        const existingUser = await storage.getUser(devUser.id);
+        if (!existingUser) {
+          await storage.createUser({
+            id: devUser.id,
+            username: devUser.username,
+            email: devUser.email,
+            name: devUser.name
+          });
         }
+
+        // Set session and cookie properties
+        req.session.userId = devUser.id;
+        req.session.user = devUser;
+        req.session.authenticated = true;
+        req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+        await new Promise((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) reject(err);
+            else resolve(null);
+          });
+        });
+
         res.json(devUser);
-      });
+      } catch (error) {
+        console.error("Dev auth error:", error);
+        res.status(500).json({ message: "Internal server error during authentication" });
+      }
     });
   }
 
