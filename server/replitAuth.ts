@@ -4,7 +4,7 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler, Router } from "express";
 import { storage } from "./storage";
-import { Client } from '@replit/database';
+import Database from '@replit/database';
 
 
 if (!process.env.REPLIT_DOMAINS) {
@@ -15,7 +15,7 @@ if (!process.env.REPLIT_DOMAINS) {
 const SESSION_SECRET = process.env.SESSION_SECRET || 'development-session-secret-for-testing-only';
 
 const router = Router();
-const db = new Client();
+const db = new Database();
 
 // In-memory store for auth states (only for the new auth system)
 const authStates = new Set<string>();
