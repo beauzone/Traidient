@@ -86,6 +86,32 @@ router.get('/dev-user', (req, res) => {
   }
 });
 
+app.get("/api/auth/dev-user", (req, res) => {
+  if (process.env.DEV_AUTO_LOGIN !== "true") {
+    return res.status(403).json({ message: "Dev auto-login disabled" });
+  }
+
+  // Create or get dev user
+  const devUser = {
+    id: 3,
+    username: "dev_user",
+    email: "dev@example.com"
+  };
+
+  // Set session and cookie properties
+  req.session.userId = devUser.id;
+  req.session.user = devUser;
+  req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 24 hours
+  req.session.save((err) => {
+    if (err) {
+      console.error("Session save error:", err);
+      return res.status(500).json({ message: "Session error" });
+    }
+    res.json(devUser);
+  });
+});
+
+
 export const replitAuthRoutes = router;
 
 
