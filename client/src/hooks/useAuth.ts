@@ -26,14 +26,31 @@ export function useAuth() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Handle error case in a useEffect to avoid TanStack v5 onError TypeScript errors
+  // Handle error case in a useEffect to avoid TanStack v5 TypeScript errors
   useEffect(() => {
     if (error) {
       console.error("Auth query error:", error);
 
-      // In development, mark when auto-login fails
+      // In development, attempt dev login
       if (isDevelopment) {
-        console.warn("Development auth error - may need manual login via JWT");
+        fetch('/api/auth/dev-user', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.id) {
+            setFallbackUser(data);
+          } else {
+            setHasAutoLoginFailed(true);
+          }
+        })
+        .catch(() => {
+          setHasAutoLoginFailed(true);
+        });
+      } else {
         setHasAutoLoginFailed(true);
       }
     }
