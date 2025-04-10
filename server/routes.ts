@@ -3269,7 +3269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const accounts = [];
       
       // Process Alpaca accounts
-      const alpacaIntegrations = integrations.filter(i => i.provider === 'alpaca');ca');
+      const alpacaIntegrations = integrations.filter(i => i.provider === 'alpaca');
       
       if (alpacaIntegrations.length > 0) {
         // Process each Alpaca integration
