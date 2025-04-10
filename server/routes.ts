@@ -3268,10 +3268,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process all broker accounts
       const accounts = [];
       
-      // Process Alpaca accounts
-      const alpacaIntegrations = integrations.filter(i => i.provider === 'alpaca');
+      // Process Alpaca accounts - include both direct Alpaca and exchange types
+      const alpacaIntegrations = integrations.filter(i => 
+        i.provider.toLowerCase() === 'alpaca' || 
+        (i.type === 'exchange' && i.provider.toLowerCase().includes('alpaca'))
+      );
       
       if (alpacaIntegrations.length > 0) {
+        console.log(`Found ${alpacaIntegrations.length} Alpaca integrations`);
         // Process each Alpaca integration
         for (const integration of alpacaIntegrations) {
           try {

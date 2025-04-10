@@ -46,12 +46,13 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
         // Fetch Alpaca integrations
         const integrations = await fetchData('/api/integrations');
         console.log('Fetched integrations:', integrations);
-        
+
         // Filter Alpaca integrations
-        const alpacaIntegrations = integrations.filter((integration: any) => 
-          integration.provider === 'alpaca'
+        const alpacaIntegrations = integrations?.filter(i => 
+          i.provider.toLowerCase() === 'alpaca' || 
+          (i.type === 'exchange' && i.provider.toLowerCase().includes('alpaca'))
         );
-        
+
         if (alpacaIntegrations.length === 0) {
           console.log('No Alpaca integrations found');
           setAccounts([]);
@@ -62,7 +63,7 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
         try {
           // Try to fetch actual account data from Alpaca API - now returns an array
           const accountsData = await fetchData<BrokerageAccount[]>('/api/trading/account');
-          
+
           // Check if we got account data
           if (accountsData && accountsData.length > 0) {
             console.log('Processed accounts with real data:', accountsData);
@@ -73,17 +74,17 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
           }
         } catch (accountError) {
           console.error('Failed to fetch account data, using integration data only:', accountError);
-          
+
           // Transform integrations into accounts without real account data
           const accountsData: BrokerageAccount[] = alpacaIntegrations.map((integration: any, index: number) => {
             // Determine account type from additional fields
             const accountType = integration.credentials?.additionalFields?.accountType === 'live' ? 'live' : 'paper';
-            
+
             // Use description as account name, or additionalFields.accountName, or create a descriptive name if missing
             const name = integration.description || 
                          integration.credentials?.additionalFields?.accountName ||
                          `Alpaca ${accountType === 'live' ? 'Live' : 'Paper'} Account ${index + 1}`;
-            
+
             return {
               id: integration.id,
               name: name,
@@ -94,7 +95,7 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
               performance: 0, // Unable to fetch real performance
             };
           });
-          
+
           console.log('Processed accounts with integration data only:', accountsData);
           setAccounts(accountsData);
         }
@@ -105,7 +106,7 @@ export const AccountProvider = ({ children }: AccountProviderProps) => {
         setIsLoadingAccounts(false);
       }
     };
-    
+
     // Account data now comes directly from the backend
 
     fetchAccounts();
