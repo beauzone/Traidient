@@ -215,14 +215,14 @@ export function createAuthHandler<P = any, ResBody = any, ReqBody = any>(
         console.log(`Auth debug - Session user: ${req.session?.user ? 'Present' : 'Missing'}`);
         console.log(`Auth debug - Session authenticated: ${req.session?.authenticated ? 'Yes' : 'No'}`);
       }
+      
+      // First, make sure the request is authenticated and has valid user data
+      const authReq = req as unknown as AuthRequest;
 
       // Handle development auto-login
       if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN === 'true' && !authReq.user) {
         return res.redirect('/api/auth/dev-user');
       }
-      
-      // First, make sure the request is authenticated and has valid user data
-      const authReq = req as unknown as AuthRequest;
       
       // Check for valid user object with required id property
       if (!authReq.user || typeof authReq.user.id !== 'number') {
