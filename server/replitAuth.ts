@@ -60,6 +60,18 @@ router.get('/callback', async (req, res) => {
 router.get('/user', (req, res) => {
   if (req.session?.user) {
     res.json(req.session.user);
+  } else if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN === 'true') {
+    // Auto-create dev user session in development
+    const devUser = {
+      id: 3,
+      username: 'dev_user',
+      email: 'dev@example.com',
+      name: 'Development User',
+      role: 'user'
+    };
+    req.session.user = devUser;
+    req.session.authenticated = true;
+    res.json(devUser);
   } else {
     res.json(null);
   }

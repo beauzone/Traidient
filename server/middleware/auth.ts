@@ -42,7 +42,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       try {
         // Get or create a development user
         const username = 'dev_user';
-        
+
         // Use cached user if available
         if (devModeUser) {
           // Set the dev user on the request
@@ -55,14 +55,14 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           };
           return next();
         }
-        
+
         // Try to get existing user
         const existingUser = await storage.getUserByUsername(username);
-        
+
         if (existingUser) {
           // Use existing user
           devModeUser = existingUser;
-          
+
           (req as AuthRequest).user = {
             id: existingUser.id,
             username: existingUser.username,
@@ -81,10 +81,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
               email: 'dev@example.com',
               name: 'Development User'
             });
-            
+
             // Cache the user for future requests
             devModeUser = newUser;
-            
+
             // Set the dev user on the request
             (req as AuthRequest).user = {
               id: newUser.id,
@@ -98,11 +98,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             // If creation fails (likely due to race condition), try fetching again
             console.log('User creation failed, trying to fetch existing user');
             const retryUser = await storage.getUserByUsername(username);
-            
+
             if (retryUser) {
               // Cache the user for future requests
               devModeUser = retryUser;
-              
+
               // Set the dev user on the request
               (req as AuthRequest).user = {
                 id: retryUser.id,
@@ -128,16 +128,16 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       // User is already authenticated via Replit Auth
       // Passport puts the user object directly in req.user
       const passportUser = req.user as any;
-      
+
       if (!passportUser || !passportUser.sub) {
         console.error('Invalid user from Replit Auth');
         return res.status(401).json({ message: 'Unauthorized: Invalid Replit Auth user' });
       }
-      
+
       // Look up the user in our database using their Replit ID
       const replitId = parseInt(passportUser.sub);
       const dbUser = await storage.getUserByReplitId(replitId);
-      
+
       if (dbUser) {
         // If user exists in our DB, use that record
         (req as AuthRequest).user = {
@@ -163,10 +163,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           }
         });
       }
-      
+
       return next();
     }
-    
+
     // Fallback to JWT token authentication
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -202,10 +202,13 @@ export function createAuthHandler<P = any, ResBody = any, ReqBody = any>(
 ): RequestHandler<P, ResBody, ReqBody> {
   return async (req, res, next) => {
     try {
+      // First, make sure the request is authenticated and has valid user data
+      const authReq = req as unknown as AuthRequest;
+
       // Add additional diagnostics for auth debugging in Replit environment
       const REPLIT_ENV = process.env.REPL_ID && process.env.REPLIT_DOMAINS;
       const DEBUG_AUTH = REPLIT_ENV || process.env.DEBUG_AUTH === 'true';
-      
+
       if (DEBUG_AUTH) {
         console.log(`Auth debug - Req path: ${req.path}`);
         console.log(`Auth debug - isAuthenticated method exists: ${typeof req.isAuthenticated === 'function'}`);
@@ -215,19 +218,17 @@ export function createAuthHandler<P = any, ResBody = any, ReqBody = any>(
         console.log(`Auth debug - Session user: ${req.session?.user ? 'Present' : 'Missing'}`);
         console.log(`Auth debug - Session authenticated: ${req.session?.authenticated ? 'Yes' : 'No'}`);
       }
-      
-      // First, make sure the request is authenticated and has valid user data
-      const authReq = req as unknown as AuthRequest;
+
 
       // Handle development auto-login
       if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN === 'true' && !authReq.user) {
         return res.redirect('/api/auth/dev-user');
       }
-      
+
       // Check for valid user object with required id property
       if (!authReq.user || typeof authReq.user.id !== 'number') {
         console.warn(`Authentication failure: No valid user for request to ${req.path}`);
-        
+
         // Provide more specific error information
         const errorDetails = {
           message: 'Authentication required',
@@ -235,10 +236,10 @@ export function createAuthHandler<P = any, ResBody = any, ReqBody = any>(
           reason: !authReq.user ? 'No user object present' : 'Invalid user ID',
           fix: 'Please log in again'
         };
-        
+
         return res.status(401).json(errorDetails as any);
       }
-      
+
       // Execute the handler with proper error handling
       try {
         return await handler(authReq, res);
