@@ -325,9 +325,6 @@ export class AlpacaAPI {
         queryParams.append("end", endDate);
       }
       
-      // Log request details for debugging
-      console.log(`Fetching Alpaca market data for ${symbol}, timeframe: ${alpacaTimeframe}, url: ${this.dataBaseUrl}/stocks/bars`);
-      
       // Make the API request
       const response = await fetch(`${this.dataBaseUrl}/stocks/bars?${queryParams.toString()}`, {
         method: "GET",
@@ -338,52 +335,20 @@ export class AlpacaAPI {
       });
       
       if (!response.ok) {
-        const errorCode = response.status;
         const errorText = await response.text();
-        
-        // Log detailed information about the error
-        console.error(`Alpaca API error when fetching market data for ${symbol}:`);
-        console.error(`Status: ${errorCode} ${response.statusText}`);
-        console.error(`Response: ${errorText}`);
-        
-        // If it's a 403 Forbidden, log additional debugging information
-        if (errorCode === 403) {
-          console.error(`Alpaca API authentication failed (403 Forbidden). Check that your API keys are valid and have proper permissions.`);
-          console.error(`API_KEY_ID prefix: ${this.apiKey.substring(0, 5)}... (${this.apiKey.length} chars total)`);
-          console.error(`API endpoint: ${this.dataBaseUrl}`);
-        }
-        
-        // Return empty result instead of throwing
-        return {
-          symbol,
-          bars: [],
-          source: 'alpaca-error',
-          error: `${errorCode} ${response.statusText} - ${errorText}`
-        };
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const data = await response.json();
       
       // Format the response
-      const result = {
-        symbol,
-        bars: data.bars?.[symbol] || [],
-        source: 'alpaca'
-      };
-      
-      console.log(`Successfully retrieved ${result.bars.length} bars for ${symbol} from Alpaca`);
-      
-      return result;
-    } catch (error) {
-      console.error(`Error fetching market data for ${symbol}:`, error);
-      
-      // Return empty result instead of throwing
       return {
         symbol,
-        bars: [],
-        source: 'alpaca-error',
-        error: error instanceof Error ? error.message : String(error)
+        bars: data.bars?.[symbol] || []
       };
+    } catch (error) {
+      console.error(`Error fetching market data for ${symbol}:`, error);
+      throw new Error(`Failed to fetch market data: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -410,8 +375,6 @@ export class AlpacaAPI {
 
   async getQuote(symbol: string): Promise<any> {
     try {
-      console.log(`Fetching quote from Alpaca for ${symbol}`);
-      
       const response = await fetch(`${this.dataBaseUrl}/stocks/${symbol}/quotes/latest`, {
         method: 'GET',
         headers: {
@@ -421,130 +384,13 @@ export class AlpacaAPI {
       });
       
       if (!response.ok) {
-        const errorCode = response.status;
-        const errorText = await response.text();
-        
-        // Log detailed information about the error
-        console.error(`Alpaca API error when fetching quote for ${symbol}:`);
-        console.error(`Status: ${errorCode} ${response.statusText}`);
-        console.error(`Response: ${errorText}`);
-        
-        // If it's a 403 Forbidden, log additional debugging information
-        if (errorCode === 403) {
-          console.error(`Alpaca API authentication failed (403 Forbidden). Check that your API keys are valid and have proper permissions.`);
-          console.error(`API_KEY_ID prefix: ${this.apiKey.substring(0, 5)}... (${this.apiKey.length} chars total)`);
-          console.error(`API endpoint: ${this.dataBaseUrl}`);
-        }
-        
-        // Return an empty result instead of throwing
-        return {
-          symbol,
-          quote: null,
-          source: 'alpaca-error',
-          error: `${errorCode} ${response.statusText} - ${errorText}`
-        };
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
-      console.log(`Successfully retrieved quote for ${symbol} from Alpaca`);
-      
-      return {
-        ...data,
-        source: 'alpaca'
-      };
+      return await response.json();
     } catch (error) {
       console.error(`Error fetching quote for ${symbol}:`, error);
-      
-      // Return an empty result instead of throwing
-      return {
-        symbol,
-        quote: null,
-        source: 'alpaca-error',
-        error: error instanceof Error ? error.message : String(error)
-      };
-    }
-  }
-  
-  /**
-   * Gets quotes for multiple symbols in a single batch call
-   * @param symbols Array of stock symbols to get quotes for
-   * @returns Array of quote data objects
-   */
-  async getBatchQuotes(symbols: string[]): Promise<any[]> {
-    try {
-      if (!this.isValid) {
-        console.warn("Alpaca API not configured correctly, using fallback data");
-        return symbols.map(symbol => ({
-          symbol,
-          quote: null,
-          source: 'alpaca-error',
-          error: "API not configured correctly"
-        }));
-      }
-      
-      if (symbols.length === 0) {
-        return [];
-      }
-      
-      console.log(`Fetching batch quotes from Alpaca for ${symbols.length} symbols`);
-      
-      // Group symbols into chunks to avoid overloading the API
-      const chunkSize = 5; // Process 5 symbols at a time
-      const chunkedSymbols = [];
-      
-      for (let i = 0; i < symbols.length; i += chunkSize) {
-        chunkedSymbols.push(symbols.slice(i, i + chunkSize));
-      }
-      
-      // Process each chunk sequentially to avoid rate limiting
-      const allQuotes = [];
-      
-      for (const chunk of chunkedSymbols) {
-        // Since Alpaca doesn't have a true batch quote endpoint,
-        // we'll make individual requests but in parallel within each chunk
-        const quotePromises = chunk.map(symbol => 
-          this.getQuote(symbol)
-            .then(quote => {
-              if (quote.error) {
-                console.warn(`Got error response for ${symbol}, will return error object`);
-              }
-              return quote; // Return the quote object even if it contains an error
-            })
-            .catch(error => {
-              console.error(`Error fetching quote for ${symbol}:`, error);
-              // Return error object instead of null
-              return {
-                symbol,
-                quote: null,
-                source: 'alpaca-error',
-                error: error instanceof Error ? error.message : String(error)
-              };
-            })
-        );
-        
-        const chunkQuotes = await Promise.all(quotePromises);
-        allQuotes.push(...chunkQuotes);
-        
-        // Add a small delay between chunks to avoid rate limiting
-        if (chunkedSymbols.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
-      
-      console.log(`Successfully retrieved ${allQuotes.length} quotes from Alpaca`);
-      
-      // Return all quotes, including those with errors
-      return allQuotes;
-    } catch (error) {
-      console.error(`Error fetching batch quotes from Alpaca:`, error);
-      
-      // Return an array of error objects instead of an empty array
-      return symbols.map(symbol => ({
-        symbol,
-        quote: null,
-        source: 'alpaca-error',
-        error: error instanceof Error ? error.message : String(error)
-      }));
+      throw error;
     }
   }
 
@@ -620,7 +466,7 @@ export class AlpacaAPI {
   /**
    * Get portfolio history for an account
    * @param period Time period to fetch (1D, 1W, 1M, 3M, 1Y, ALL)
-   * @param timeframe Resolution of the data (1D, 1H, 15Min, 1Min, etc.)
+   * @param timeframe Resolution of the data (1D, 1H, 15Min, etc.)
    * @returns Portfolio history data
    */
   async getPortfolioHistory(period: string = '1M', timeframe: string = '1D'): Promise<{
@@ -639,54 +485,23 @@ export class AlpacaAPI {
         alpacaPeriod = 'all';
       }
       
-      // For intraday data, ensure we have extended hours data for today
-      // Extended_hours=true will include pre-market and after-hours data
-      const extendedHours = (period === '1D' && (timeframe === '1Min' || timeframe === '5Min' || timeframe === '15Min')) ? 'true' : 'false';
-      
-      const response = await fetch(
-        `${this.tradingBaseUrl}/account/portfolio/history?period=${alpacaPeriod}&timeframe=${timeframe}&extended_hours=${extendedHours}`, 
-        {
-          method: 'GET',
-          headers: {
-            'APCA-API-KEY-ID': this.apiKey,
-            'APCA-API-SECRET-KEY': this.apiSecret
-          }
+      const response = await fetch(`${this.tradingBaseUrl}/account/portfolio/history?period=${alpacaPeriod}&timeframe=${timeframe}`, {
+        method: 'GET',
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret
         }
-      );
+      });
       
       if (!response.ok) {
-        const errorCode = response.status;
-        const errorText = await response.text();
-        
-        // If we get a 403 Forbidden, log a detailed message about the auth problem
-        if (errorCode === 403) {
-          console.error(`Alpaca API authentication failed (403 Forbidden). Check that your API keys are valid and have proper permissions.`);
-          console.error(`API_KEY_ID prefix: ${this.apiKey.substring(0, 5)}... (${this.apiKey.length} chars total)`);
-          console.error(`API endpoint: ${this.tradingBaseUrl}`);
-        }
-        
-        throw new Error(`Alpaca API portfolio history error: ${errorCode} ${response.statusText} - ${errorText}`);
+        throw new Error(`Alpaca API portfolio history error: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log(`Retrieved portfolio history from Alpaca for period: ${period}, timeframe: ${timeframe}, data points: ${data.timestamp ? data.timestamp.length : 0}`);
-      
-      // If this is intraday data (1D + 1Min) and there are no data points, try again with a fallback timeframe
-      if (period === '1D' && timeframe === '1Min' && (!data.timestamp || data.timestamp.length === 0)) {
-        console.log('No intraday data points found, attempting fallback to 5Min data');
-        return this.getPortfolioHistory(period, '5Min');
-      }
-      
-      // Market might be closed if we have very few data points, log this for debugging
-      if (period === '1D' && data.timestamp && data.timestamp.length < 5) {
-        console.log('Very limited intraday data points found, market may be closed');
-      }
-      
-      // Convert Unix timestamps to ISO strings with proper time formatting
-      const timestamps = data.timestamp.map((ts: number) => new Date(ts * 1000).toISOString());
+      console.log(`Retrieved portfolio history from Alpaca for period: ${period}, timeframe: ${timeframe}`);
       
       return {
-        timestamp: timestamps,
+        timestamp: data.timestamp.map((ts: number) => new Date(ts * 1000).toISOString()),
         equity: data.equity,
         profitLoss: data.profit_loss || [],
         profitLossPct: data.profit_loss_pct || [],
@@ -694,14 +509,7 @@ export class AlpacaAPI {
       };
     } catch (error) {
       console.error('Error fetching portfolio history from Alpaca:', error);
-      // Return empty data structure instead of throwing to keep app working
-      return {
-        timestamp: [],
-        equity: [],
-        profitLoss: [],
-        profitLossPct: [],
-        baseValue: 0
-      };
+      throw error;
     }
   }
 

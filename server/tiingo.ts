@@ -13,27 +13,17 @@ export default class TiingoAPI {
 
   /**
    * Creates a new Tiingo API client
-   * @param apiKeyOrIntegration Either an API key string or the full integration object
+   * @param integration Optional API integration details
    */
-  constructor(apiKeyOrIntegration?: string | ApiIntegration) {
-    // If the parameter is a string, treat it as the API key
-    if (typeof apiKeyOrIntegration === 'string') {
-      this.apiKey = apiKeyOrIntegration;
-      this.isValid = !!this.apiKey;
-    } 
-    // If it's an integration object, extract the API key
-    else if (apiKeyOrIntegration?.credentials?.apiKey) {
-      this.apiKey = apiKeyOrIntegration.credentials.apiKey;
-      this.integrationId = apiKeyOrIntegration.id;
+  constructor(integration?: ApiIntegration) {
+    if (integration?.credentials?.apiKey) {
+      this.apiKey = integration.credentials.apiKey;
+      this.integrationId = integration.id;
       this.isValid = true;
-    } 
-    // Fall back to environment variable
-    else if (process.env.TIINGO_API_KEY) {
+    } else if (process.env.TIINGO_API_KEY) {
       this.apiKey = process.env.TIINGO_API_KEY;
       this.isValid = true;
-    } 
-    // If no API key is available, mark as invalid
-    else {
+    } else {
       this.apiKey = '';
       this.isValid = false;
       console.warn('Tiingo API initialized without API key');

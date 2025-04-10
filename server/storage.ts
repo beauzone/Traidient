@@ -15,11 +15,8 @@ import {
   Deployment,
   InsertDeployment,
   watchlist,
-  watchlists,
   WatchlistItem,
-  Watchlist,
   InsertWatchlistItem,
-  InsertWatchlist,
   alertThresholds,
   AlertThreshold,
   InsertAlertThreshold,
@@ -31,30 +28,14 @@ import {
   InsertWebhook,
   screeners,
   Screener,
-  botInstances,
-  BotInstance,
-  InsertBotInstance,
-  botTrades,
-  BotTrade,
-  InsertBotTrade,
-  marketConditions,
-  MarketCondition,
-  symbolInsights,
-  SymbolInsight,
   InsertScreener
 } from "@shared/schema";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 
 export interface IStorage {
-  // Session Management
-  sessionStore: session.SessionStore;
-  
   // User management
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  getUserByReplitId(replitId: number): Promise<User | undefined>; // Get user by Replit ID for OpenID auth
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
 
@@ -112,14 +93,6 @@ export interface IStorage {
   addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem>;
   removeFromWatchlist(id: number): Promise<boolean>;
   
-  // Multiple Watchlists
-  getWatchlist(id: number): Promise<Watchlist | undefined>;
-  getWatchlistsByUser(userId: number): Promise<Watchlist[]>;
-  createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist>;
-  updateWatchlist(id: number, watchlist: Partial<Watchlist>): Promise<Watchlist | undefined>;
-  deleteWatchlist(id: number): Promise<boolean>;
-  getWatchlistItemsByWatchlistId(watchlistId: number): Promise<WatchlistItem[]>;
-  
   // Alert Thresholds
   getAlertThreshold(id: number): Promise<AlertThreshold | undefined>;
   getAlertThresholdsByUser(userId: number): Promise<AlertThreshold[]>;
@@ -135,48 +108,12 @@ export interface IStorage {
   markNotificationAsRead(id: number): Promise<Notification | undefined>;
   markAllNotificationsAsRead(userId: number): Promise<boolean>;
   deleteNotification(id: number): Promise<boolean>;
-  
-  // Bot Instances
-  getBotInstance(id: number): Promise<BotInstance | undefined>;
-  getBotInstancesByUser(userId: number): Promise<BotInstance[]>; 
-  getBotInstancesByStrategy(strategyId: number): Promise<BotInstance[]>;
-  createBotInstance(botInstance: InsertBotInstance): Promise<BotInstance>;
-  updateBotInstance(id: number, botInstance: Partial<BotInstance>): Promise<BotInstance | undefined>;
-  deleteBotInstance(id: number): Promise<boolean>;
-  
-  // Bot Trades
-  getBotTrade(id: number): Promise<BotTrade | undefined>;
-  getBotTradesByInstance(botInstanceId: number): Promise<BotTrade[]>;
-  getBotTradesByUser(userId: number): Promise<BotTrade[]>;
-  createBotTrade(trade: InsertBotTrade): Promise<BotTrade>;
-  updateBotTrade(id: number, trade: Partial<BotTrade>): Promise<BotTrade | undefined>;
-  deleteBotTrade(id: number): Promise<boolean>;
-  
-  // Market Conditions & Insights
-  getLatestMarketCondition(): Promise<MarketCondition | undefined>;
-  createMarketCondition(condition: Partial<MarketCondition>): Promise<MarketCondition>;
-  getLatestSymbolInsight(symbol: string): Promise<SymbolInsight | undefined>;
-  createSymbolInsight(insight: Partial<SymbolInsight>): Promise<SymbolInsight>;
 }
 
 import { db } from './db';
 import { eq, and, desc, SQL, asc } from 'drizzle-orm';
 
 export class DatabaseStorage implements IStorage {
-  // Session Store
-  sessionStore: session.SessionStore;
-  
-  constructor() {
-    // Initialize PostgreSQL session store
-    const PostgresStore = connectPgSimple(session);
-    this.sessionStore = new PostgresStore({
-      conString: process.env.DATABASE_URL,
-      schemaName: 'public', // Using the default schema
-      tableName: 'sessions', // You can customize this table name
-      createTableIfMissing: true,
-    });
-  }
-
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
@@ -190,11 +127,6 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
-    return result.length > 0 ? result[0] : undefined;
-  }
-  
-  async getUserByReplitId(replitId: number): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.replitId, replitId));
     return result.length > 0 ? result[0] : undefined;
   }
 
@@ -222,15 +154,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getApiIntegrationByProviderAndUser(userId: number, provider: string): Promise<ApiIntegration | undefined> {
-    // Get all integrations for the user
-    const integrations = await this.getApiIntegrationsByUser(userId);
-    
-    // Find the integration using case-insensitive matching
-    const matchingIntegration = integrations.find(
-      integration => integration.provider.toLowerCase().trim() === provider.toLowerCase().trim()
-    );
-    
-    return matchingIntegration;
+    const result = await db.select().from(apiIntegrations)
+      .where(and(
+        eq(apiIntegrations.userId, userId),
+        eq(apiIntegrations.provider, provider)
+      ));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async createApiIntegration(integration: InsertApiIntegration): Promise<ApiIntegration> {
@@ -395,241 +324,20 @@ export class DatabaseStorage implements IStorage {
 
   // Watchlist methods
   async getWatchlistItems(userId: number): Promise<WatchlistItem[]> {
-    // Find the default watchlist first
-    const defaultWatchlists = await db
-      .select()
-      .from(watchlists)
-      .where(and(
-        eq(watchlists.userId, userId),
-        eq(watchlists.isDefault, true)
-      ));
-    
-    // If we have a default watchlist, get its items
-    if (defaultWatchlists.length > 0) {
-      return await db
-        .select()
-        .from(watchlist)
-        .where(and(
-          eq(watchlist.userId, userId),
-          eq(watchlist.watchlistId, defaultWatchlists[0].id)
-        ));
-    }
-    
-    // If no default watchlist exists, try to get the first watchlist for this user
-    const userWatchlists = await db
-      .select()
-      .from(watchlists)
-      .where(eq(watchlists.userId, userId))
-      .orderBy(watchlists.displayOrder);
-    
-    if (userWatchlists.length > 0) {
-      // Get items from the first watchlist
-      return await db
-        .select()
-        .from(watchlist)
-        .where(and(
-          eq(watchlist.userId, userId),
-          eq(watchlist.watchlistId, userWatchlists[0].id)
-        ));
-    }
-    
-    // If no watchlists at all, create a default one
-    const [newWatchlist] = await db
-      .insert(watchlists)
-      .values({
-        name: 'My Watchlist',
-        userId,
-        isDefault: true,
-        displayOrder: 0
-      })
-      .returning();
-    
-    // Return empty array since the new watchlist has no items yet
-    return [];
+    return await db.select().from(watchlist).where(eq(watchlist.userId, userId));
   }
 
   async addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem> {
-    // If watchlistId is not provided, find or create a default watchlist
-    if (!item.watchlistId) {
-      // Find the default watchlist first
-      const defaultWatchlists = await db
-        .select()
-        .from(watchlists)
-        .where(and(
-          eq(watchlists.userId, item.userId),
-          eq(watchlists.isDefault, true)
-        ));
-      
-      let watchlistId: number;
-      
-      // If we have a default watchlist, use it
-      if (defaultWatchlists.length > 0) {
-        watchlistId = defaultWatchlists[0].id;
-      } else {
-        // Otherwise, create a new default watchlist
-        const [newWatchlist] = await db.insert(watchlists).values({
-          userId: item.userId,
-          name: 'My Watchlist',
-          isDefault: true,
-          displayOrder: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }).returning();
-        
-        watchlistId = newWatchlist.id;
-      }
-      
-      // Add the watchlistId to the item
-      item = { ...item, watchlistId };
-    }
-    
-    // Check if this symbol already exists in the watchlist to avoid duplicates
-    const existingItems = await db
-      .select()
-      .from(watchlist)
-      .where(and(
-        eq(watchlist.watchlistId, item.watchlistId),
-        eq(watchlist.symbol, item.symbol)
-      ));
-    
-    // If the item already exists, just return it
-    if (existingItems.length > 0) {
-      return existingItems[0];
-    }
-    
-    // Get highest display order to place item at the end
-    const existingWatchlistItems = await db
-      .select()
-      .from(watchlist)
-      .where(eq(watchlist.watchlistId, item.watchlistId));
-    
-    const highestOrder = existingWatchlistItems.length > 0
-      ? Math.max(...existingWatchlistItems.map(i => i.displayOrder || 0))
-      : -1;
-    
-    // Set display order if not already set
-    if (item.displayOrder === undefined) {
-      item = { ...item, displayOrder: highestOrder + 1 };
-    }
-    
     const [newItem] = await db.insert(watchlist).values({
       ...item,
       createdAt: new Date()
     }).returning();
-    
     return newItem;
   }
 
   async removeFromWatchlist(id: number): Promise<boolean> {
-    // First get the item to check that it exists
-    const items = await db.select().from(watchlist).where(eq(watchlist.id, id));
-    if (items.length === 0) {
-      return false;
-    }
-    
-    // Delete the watchlist item
     const result = await db.delete(watchlist).where(eq(watchlist.id, id));
     return result.count > 0;
-  }
-  
-  // Multiple Watchlists methods
-  async getWatchlist(id: number): Promise<Watchlist | undefined> {
-    const result = await db.select().from(watchlists).where(eq(watchlists.id, id));
-    return result.length > 0 ? result[0] : undefined;
-  }
-  
-  async getWatchlistsByUser(userId: number): Promise<Watchlist[]> {
-    return await db
-      .select()
-      .from(watchlists)
-      .where(eq(watchlists.userId, userId))
-      .orderBy(asc(watchlists.displayOrder));
-  }
-  
-  async createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist> {
-    const now = new Date();
-    
-    // If this is the first watchlist or marked as default
-    if (watchlist.isDefault) {
-      // Set all other watchlists for this user to non-default
-      await db.update(watchlists)
-        .set({ isDefault: false })
-        .where(and(
-          eq(watchlists.userId, watchlist.userId),
-          eq(watchlists.isDefault, true)
-        ));
-    }
-    
-    // Insert the new watchlist
-    const [newWatchlist] = await db.insert(watchlists).values({
-      ...watchlist,
-      createdAt: now,
-      updatedAt: now
-    }).returning();
-    
-    return newWatchlist;
-  }
-  
-  async updateWatchlist(id: number, watchlistData: Partial<Watchlist>): Promise<Watchlist | undefined> {
-    const now = new Date();
-    
-    // If updating to make this default
-    if (watchlistData.isDefault) {
-      // Get the watchlist first to check the user ID
-      const currentWatchlist = await this.getWatchlist(id);
-      if (currentWatchlist) {
-        // Set all other watchlists for this user to non-default
-        await db.update(watchlists)
-          .set({ isDefault: false })
-          .where(and(
-            eq(watchlists.userId, currentWatchlist.userId),
-            eq(watchlists.isDefault, true),
-            eq(watchlists.id, id).not() // Don't update the current one
-          ));
-      }
-    }
-    
-    // Update the watchlist
-    const [updatedWatchlist] = await db.update(watchlists)
-      .set({
-        ...watchlistData,
-        updatedAt: now
-      })
-      .where(eq(watchlists.id, id))
-      .returning();
-    
-    return updatedWatchlist;
-  }
-  
-  async deleteWatchlist(id: number): Promise<boolean> {
-    // First, get the watchlist to be deleted
-    const watchlistToDelete = await this.getWatchlist(id);
-    if (!watchlistToDelete) {
-      return false;
-    }
-    
-    // Delete all watchlist items associated with this watchlist
-    await db.delete(watchlist).where(eq(watchlist.watchlistId, id));
-    
-    // Delete the watchlist itself
-    const result = await db.delete(watchlists).where(eq(watchlists.id, id));
-    
-    // If this was the default watchlist, set another one as default if available
-    if (watchlistToDelete.isDefault) {
-      const remainingWatchlists = await this.getWatchlistsByUser(watchlistToDelete.userId);
-      if (remainingWatchlists.length > 0) {
-        await this.updateWatchlist(remainingWatchlists[0].id, { isDefault: true });
-      }
-    }
-    
-    return result.count > 0;
-  }
-  
-  async getWatchlistItemsByWatchlistId(watchlistId: number): Promise<WatchlistItem[]> {
-    return await db
-      .select()
-      .from(watchlist)
-      .where(eq(watchlist.watchlistId, watchlistId));
   }
   
   // Alert Threshold methods
@@ -953,147 +661,6 @@ export class DatabaseStorage implements IStorage {
       
       return updatedScreener;
     }
-  }
-
-  // Bot Instance methods
-  async getBotInstance(id: number): Promise<BotInstance | undefined> {
-    const result = await db.select().from(botInstances).where(eq(botInstances.id, id));
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  async getBotInstancesByUser(userId: number): Promise<BotInstance[]> {
-    return await db.select().from(botInstances).where(eq(botInstances.userId, userId));
-  }
-
-  async getBotInstancesByStrategy(strategyId: number): Promise<BotInstance[]> {
-    return await db.select().from(botInstances).where(eq(botInstances.strategyId, strategyId));
-  }
-
-  async createBotInstance(botInstance: InsertBotInstance): Promise<BotInstance> {
-    const now = new Date();
-    const [newBotInstance] = await db.insert(botInstances).values({
-      ...botInstance,
-      status: botInstance.status || 'stopped',
-      createdAt: now,
-      updatedAt: now,
-      lastRunAt: null,
-      lastErrorAt: null,
-      lastError: null,
-      metrics: botInstance.metrics || {},
-      settings: botInstance.settings || {},
-      schedule: botInstance.schedule || {}
-    }).returning();
-    return newBotInstance;
-  }
-
-  async updateBotInstance(id: number, botInstanceData: Partial<BotInstance>): Promise<BotInstance | undefined> {
-    const now = new Date();
-    const [updatedBotInstance] = await db.update(botInstances)
-      .set({
-        ...botInstanceData,
-        updatedAt: now
-      })
-      .where(eq(botInstances.id, id))
-      .returning();
-    return updatedBotInstance;
-  }
-
-  async deleteBotInstance(id: number): Promise<boolean> {
-    // First, delete any trades associated with the bot instance
-    await db.delete(botTrades).where(eq(botTrades.botInstanceId, id));
-    
-    // Then delete the bot instance itself
-    const result = await db.delete(botInstances).where(eq(botInstances.id, id));
-    return result.count > 0;
-  }
-
-  // Bot Trade methods
-  async getBotTrade(id: number): Promise<BotTrade | undefined> {
-    const result = await db.select().from(botTrades).where(eq(botTrades.id, id));
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  async getBotTradesByInstance(botInstanceId: number): Promise<BotTrade[]> {
-    return await db.select().from(botTrades).where(eq(botTrades.botInstanceId, botInstanceId));
-  }
-
-  async getBotTradesByUser(userId: number): Promise<BotTrade[]> {
-    // Join bot_trades and bot_instances to filter by userId
-    const result = await db
-      .select({
-        trade: botTrades
-      })
-      .from(botTrades)
-      .innerJoin(botInstances, eq(botTrades.botInstanceId, botInstances.id))
-      .where(eq(botInstances.userId, userId));
-    
-    return result.map(r => r.trade);
-  }
-
-  async createBotTrade(trade: InsertBotTrade): Promise<BotTrade> {
-    const now = new Date();
-    const [newTrade] = await db.insert(botTrades).values({
-      ...trade,
-      createdAt: now,
-      updatedAt: now,
-      exitedAt: trade.exitedAt || null,
-      metrics: trade.metrics || {},
-      tags: trade.tags || []
-    }).returning();
-    return newTrade;
-  }
-
-  async updateBotTrade(id: number, tradeData: Partial<BotTrade>): Promise<BotTrade | undefined> {
-    const now = new Date();
-    const [updatedTrade] = await db.update(botTrades)
-      .set({
-        ...tradeData,
-        updatedAt: now
-      })
-      .where(eq(botTrades.id, id))
-      .returning();
-    return updatedTrade;
-  }
-
-  async deleteBotTrade(id: number): Promise<boolean> {
-    const result = await db.delete(botTrades).where(eq(botTrades.id, id));
-    return result.count > 0;
-  }
-
-  // Market Conditions & Insights
-  async getLatestMarketCondition(): Promise<MarketCondition | undefined> {
-    const result = await db
-      .select()
-      .from(marketConditions)
-      .orderBy(desc(marketConditions.timestamp))
-      .limit(1);
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  async createMarketCondition(condition: Partial<MarketCondition>): Promise<MarketCondition> {
-    const [newCondition] = await db.insert(marketConditions).values({
-      ...condition,
-      timestamp: condition.timestamp || new Date()
-    }).returning();
-    return newCondition;
-  }
-
-  async getLatestSymbolInsight(symbol: string): Promise<SymbolInsight | undefined> {
-    const result = await db
-      .select()
-      .from(symbolInsights)
-      .where(eq(symbolInsights.symbol, symbol))
-      .orderBy(desc(symbolInsights.timestamp))
-      .limit(1);
-    return result.length > 0 ? result[0] : undefined;
-  }
-
-  async createSymbolInsight(insight: Partial<SymbolInsight>): Promise<SymbolInsight> {
-    const [newInsight] = await db.insert(symbolInsights).values({
-      ...insight,
-      timestamp: insight.timestamp || new Date()
-    }).returning();
-    return newInsight;
   }
 }
 

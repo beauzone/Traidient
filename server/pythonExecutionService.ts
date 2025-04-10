@@ -2,20 +2,16 @@
  * Python Execution Service
  * 
  * This service provides functionality to execute Python code for screeners,
- * with support for common financial analysis libraries and data provider abstraction.
+ * with support for common financial analysis libraries.
  */
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { Screener } from '@shared/schema';
-import { MarketDataProviderFactory } from './marketDataProviderInterface';
 
 // Ensure this directory exists
 const TEMP_SCRIPT_DIR = './tmp/python_scripts';
-
-// Global variable to store the detected Python path
-let detectedPythonPath = '';
 
 // Libraries that should be available for Python screeners
 // Note: Removed TA-Lib due to installation complexities, using pandas_ta instead
@@ -38,32 +34,32 @@ const REQUIRED_LIBRARIES = [
  * This should be called at application startup
  */
 export async function initPythonEnvironment(): Promise<void> {
-  // Always set Python path immediately to not block startup
-  detectedPythonPath = 'python3';
-  
   try {
     // Ensure temp script directory exists
     await fs.mkdir(TEMP_SCRIPT_DIR, { recursive: true });
     
-    console.log('Using default Python path for faster startup');
+    // Check Python installation
+    const pythonResult = await checkPythonInstallation();
     
-    // Run Python detection in the background after server is running
-    setTimeout(async () => {
-      try {
-        const pythonResult = await checkPythonInstallation();
-        if (pythonResult.installed) {
-          console.log(`Background check complete: Python ${pythonResult.version} detected`);
-        } else {
-          console.log('Background check complete: Python not found, using default path');
-        }
-      } catch (error) {
-        console.error('Background Python check failed:', error);
-      }
-    }, 15000); // Run 15 seconds after server startup
+    if (!pythonResult.installed) {
+      console.error('Python is not installed or not in PATH');
+      return;
+    }
     
-    console.log('Python environment initialized with default path');
+    console.log(`Python ${pythonResult.version} detected`);
+    
+    try {
+      // Check/Install required libraries
+      await checkAndInstallLibraries();
+    } catch (error) {
+      console.error('Error checking/installing Python libraries:', error);
+      // Continue execution even if libraries can't be installed
+      // The application will attempt to use what's available
+    }
+    
+    console.log('Python environment initialized successfully');
   } catch (error) {
-    console.error('Error creating temp directory:', error);
+    console.error('Failed to initialize Python environment:', error);
   }
 }
 
@@ -72,39 +68,8 @@ export async function initPythonEnvironment(): Promise<void> {
  */
 async function checkPythonInstallation(): Promise<{ installed: boolean, version: string }> {
   try {
-    // Try different possible paths to python3 in the Replit environment
-    const possiblePythonPaths = [
-      '/nix/store/znyfh95v21rpk95wqifb36rh130d6znm-python3-3.11.8/bin/python3',
-      '/home/runner/workspace/.pythonlibs/bin/python3',
-      'python3',
-      'python3.11',
-      'python'
-    ];
-    
-    let pythonPath = '';
-    
-    // Find the first working Python path
-    for (const path of possiblePythonPaths) {
-      try {
-        require('child_process').execSync(`${path} --version`, { stdio: 'ignore' });
-        pythonPath = path;
-        console.log(`Found working Python at: ${pythonPath}`);
-        // Store the working path in the global variable for other functions to use
-        detectedPythonPath = pythonPath;
-        break;
-      } catch (e) {
-        // Path doesn't work, try the next one
-        console.log(`Python not found at: ${path}`);
-      }
-    }
-    
-    if (!pythonPath) {
-      console.error('No working Python installation found');
-      return { installed: false, version: '' };
-    }
-    
     return new Promise((resolve) => {
-      const pythonProcess = spawn(pythonPath, ['--version']);
+      const pythonProcess = spawn('python3', ['--version']);
       
       let versionOutput = '';
       pythonProcess.stdout.on('data', (data) => {
@@ -123,11 +88,6 @@ async function checkPythonInstallation(): Promise<{ installed: boolean, version:
         } else {
           resolve({ installed: false, version: '' });
         }
-      });
-      
-      pythonProcess.on('error', (error) => {
-        console.error('Error spawning Python process:', error);
-        resolve({ installed: false, version: '' });
       });
     });
   } catch (error) {
@@ -163,98 +123,63 @@ async function checkAndInstallLibraries(): Promise<void> {
 /**
  * Get list of installed Python packages
  */
-
 async function getInstalledPackages(): Promise<Array<{ name: string, version: string }>> {
-  try {
-    console.log('Checking installed Python packages...');
+  return new Promise((resolve, reject) => {
+    const pipProcess = spawn('pip3', ['list', '--format=json']);
     
-    // Use the previously detected Python path, or fall back to reasonable defaults
-    const pythonPath = detectedPythonPath || 'python3';
-    console.log(`Using Python path for pip: ${pythonPath}`);
-    
-    return new Promise((resolve, reject) => {
-      // Try with python3 -m pip, which is more reliable across environments
-      const pipProcess = spawn(pythonPath, ['-m', 'pip', 'list', '--format=json']);
-      
-      let outputData = '';
-      pipProcess.stdout.on('data', (data) => {
-        outputData += data.toString();
-      });
-      
-      pipProcess.stderr.on('data', (data) => {
-        console.warn(`[pip warning] ${data.toString().trim()}`);
-      });
-      
-      pipProcess.on('close', (code) => {
-        if (code === 0) {
-          try {
-            const packages = JSON.parse(outputData);
-            console.log(`Found ${packages.length} installed Python packages`);
-            resolve(packages);
-          } catch (error: any) {
-            console.error(`Failed to parse pip list output: ${error?.message || 'Unknown error'}`);
-            resolve([]); // Return empty array instead of rejecting
-          }
-        } else {
-          console.warn(`pip list command failed with code ${code}, falling back to empty package list`);
-          resolve([]); // Return empty array instead of rejecting
-        }
-      });
-      
-      pipProcess.on('error', (error: any) => {
-        console.error(`Failed to execute pip: ${error?.message || 'Unknown error'}`);
-        resolve([]); // Return empty array instead of rejecting
-      });
+    let outputData = '';
+    pipProcess.stdout.on('data', (data) => {
+      outputData += data.toString();
     });
-  } catch (error: any) {
-    console.error('Error in getInstalledPackages:', error?.message || 'Unknown error');
-    return []; // Return empty array in case of any error
-  }
+    
+    pipProcess.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const packages = JSON.parse(outputData);
+          resolve(packages);
+        } catch (error) {
+          reject(new Error(`Failed to parse pip list output: ${error.message}`));
+        }
+      } else {
+        reject(new Error(`pip list command failed with code ${code}`));
+      }
+    });
+    
+    pipProcess.on('error', (error) => {
+      reject(new Error(`Failed to execute pip: ${error.message}`));
+    });
+  });
 }
 
 /**
  * Install specified Python libraries
  */
 async function installLibraries(libraries: string[]): Promise<void> {
-  try {
-    console.log(`Installing Python libraries: ${libraries.join(', ')}`);
+  return new Promise((resolve, reject) => {
+    const pipProcess = spawn('pip3', ['install', ...libraries]);
     
-    // Use the previously detected Python path, or fall back to reasonable defaults
-    const pythonPath = detectedPythonPath || 'python3';
-    console.log(`Using Python path for pip install: ${pythonPath}`);
-    
-    return new Promise((resolve, reject) => {
-      // Use python -m pip which is more reliable across environments
-      const pipProcess = spawn(pythonPath, ['-m', 'pip', 'install', ...libraries]);
-      
-      pipProcess.stdout.on('data', (data) => {
-        console.log(`[pip] ${data.toString().trim()}`);
-      });
-      
-      pipProcess.stderr.on('data', (data) => {
-        console.warn(`[pip warning] ${data.toString().trim()}`);
-      });
-      
-      pipProcess.on('close', (code) => {
-        if (code === 0) {
-          console.log(`Successfully installed libraries: ${libraries.join(', ')}`);
-          resolve();
-        } else {
-          console.error(`pip install command failed with code ${code}`);
-          resolve(); // Resolve anyway to prevent app crash
-        }
-      });
-      
-      pipProcess.on('error', (error: any) => {
-        console.error(`Failed to execute pip: ${error?.message || 'Unknown error'}`);
-        resolve(); // Resolve anyway to prevent app crash
-      });
+    let outputData = '';
+    pipProcess.stdout.on('data', (data) => {
+      outputData += data.toString();
+      console.log(`[pip] ${data.toString().trim()}`);
     });
-  } catch (error: any) {
-    console.error('Error in installLibraries:', error?.message || 'Unknown error');
-    // Resolve silently instead of rejecting to prevent app crash
-    return Promise.resolve();
-  }
+    
+    pipProcess.stderr.on('data', (data) => {
+      console.error(`[pip error] ${data.toString().trim()}`);
+    });
+    
+    pipProcess.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`pip install command failed with code ${code}`));
+      }
+    });
+    
+    pipProcess.on('error', (error) => {
+      reject(new Error(`Failed to execute pip: ${error.message}`));
+    });
+  });
 }
 
 /**
@@ -272,7 +197,6 @@ import numpy as np
 import json
 import sys
 import os
-import requests
 from datetime import datetime, timedelta
 import warnings
 import yfinance as yf
@@ -285,272 +209,32 @@ warnings.filterwarnings('ignore')
 ALPACA_API_KEY = os.environ.get('ALPACA_API_KEY', '')
 ALPACA_API_SECRET = os.environ.get('ALPACA_API_SECRET', '')
 POLYGON_API_KEY = os.environ.get('POLYGON_API_KEY', '')
-ALPHAVANTAGE_API_KEY = os.environ.get('ALPHAVANTAGE_API_KEY', '')
-TIINGO_API_KEY = os.environ.get('TIINGO_API_KEY', '')
-
-# Base URL for market data provider API
-API_BASE_URL = 'http://localhost:3000/api'  # Will be accessed internally
 `;
 
   // Helper functions
   const helperFunctions = `
-class MarketDataProvider:
-    """
-    A class providing access to market data from multiple providers through the API.
-    """
+def load_market_data(symbols, period='3mo', interval='1d'):
+    """Load market data for multiple symbols using yfinance"""
+    print(f"Loading data for {len(symbols)} symbols with period {period}, interval {interval}...")
     
-    def __init__(self, provider='yahoo'):
-        """
-        Initialize the market data provider.
-        
-        Parameters:
-        provider: The provider to use ('yahoo', 'alpaca', 'polygon', 'alphavantage', 'tiingo')
-        """
-        self.provider = provider
-        
-    def get_historical_data(self, symbols, period='3mo', interval='1d'):
-        """
-        Get historical market data for multiple symbols.
-        
-        Parameters:
-        symbols: List of stock symbols or a single symbol string
-        period: Time period to fetch (e.g., '1d', '5d', '1mo', '3mo', '1y')
-        interval: Data frequency (e.g., '1m', '5m', '1h', '1d', '1wk')
-        
-        Returns:
-        Dictionary of DataFrames with market data
-        """
+    data = {}
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    
+    for symbol in symbols:
         try:
-            # Ensure symbols is a list
-            if isinstance(symbols, str):
-                symbols_param = symbols
+            ticker = yf.Ticker(symbol)
+            history = ticker.history(period=period, interval=interval)
+            if not history.empty:
+                data[symbol] = history
+                print(f"Loaded data for {symbol}: {len(history)} bars")
             else:
-                symbols_param = ','.join(symbols)
-            
-            # Call the API
-            url = f"{API_BASE_URL}/market-data/historical"
-            params = {
-                'symbols': symbols_param,
-                'period': period,
-                'interval': interval,
-                'provider': self.provider
-            }
-            
-            print(f"Fetching data from {self.provider} for {len(symbols) if isinstance(symbols, list) else 1} symbols...")
-            
-            response = requests.get(url, params=params)
-            
-            if response.status_code != 200:
-                print(f"Error fetching market data: {response.status_code}")
-                print(response.text)
-                
-                # Fall back to yfinance if API fails
-                print("Falling back to yfinance for data retrieval")
-                return self._fallback_load_market_data(symbols, period, interval)
-            
-            result = response.json()
-            
-            if not result.get('success', False):
-                print(f"API Error: {result.get('error', 'Unknown error')}")
-                return self._fallback_load_market_data(symbols, period, interval)
-            
-            # Process the data
-            data_obj = result.get('data', {})
-            symbols_list = data_obj.get('symbols', [])
-            data_by_symbol = data_obj.get('data', {})
-            
-            # Convert API response to DataFrame dictionary
-            data = {}
-            for symbol in symbols_list:
-                if symbol in data_by_symbol and data_by_symbol[symbol]:
-                    bars = data_by_symbol[symbol]
-                    
-                    # Convert bars to DataFrame
-                    df = pd.DataFrame(bars)
-                    if not df.empty:
-                        # Rename columns if needed to match expected format
-                        column_map = {
-                            't': 'Date',
-                            'o': 'Open',
-                            'h': 'High',
-                            'l': 'Low',
-                            'c': 'Close',
-                            'v': 'Volume'
-                        }
-                        df = df.rename(columns=column_map)
-                        
-                        # Set index to Date if present
-                        if 'Date' in df.columns:
-                            df['Date'] = pd.to_datetime(df['Date'])
-                            df = df.set_index('Date')
-                        
-                        data[symbol] = df
-                        print(f"Loaded data for {symbol}: {len(df)} bars")
-            
-            print(f"Successfully loaded data for {len(data)} symbols")
-            return data
+                print(f"No data available for {symbol}")
         except Exception as e:
-            print(f"Error fetching market data from API: {str(e)}")
-            return self._fallback_load_market_data(symbols, period, interval)
+            print(f"Error loading data for {symbol}: {str(e)}")
     
-    def get_stock_universe(self, universe_type='default'):
-        """
-        Get a list of stock symbols based on the specified universe type.
-        
-        Parameters:
-        universe_type: Type of stock universe ('default', 'sp500', 'nasdaq100', 'dow30')
-        
-        Returns:
-        List of stock symbols
-        """
-        try:
-            # Call the API
-            url = f"{API_BASE_URL}/market-data/universe"
-            params = {
-                'universeType': universe_type,
-                'provider': self.provider
-            }
-            
-            print(f"Fetching {universe_type} universe from {self.provider}...")
-            
-            response = requests.get(url, params=params)
-            
-            if response.status_code != 200:
-                print(f"Error fetching stock universe: {response.status_code}")
-                print(response.text)
-                return self._fallback_stock_universe(universe_type)
-            
-            result = response.json()
-            
-            if not result.get('success', False):
-                print(f"API Error: {result.get('error', 'Unknown error')}")
-                return self._fallback_stock_universe(universe_type)
-            
-            symbols = result.get('symbols', [])
-            print(f"Retrieved {len(symbols)} symbols for {universe_type} universe")
-            return symbols
-        except Exception as e:
-            print(f"Error fetching stock universe from API: {str(e)}")
-            return self._fallback_stock_universe(universe_type)
-    
-    def is_market_open(self):
-        """
-        Check if the market is currently open.
-        
-        Returns:
-        Boolean indicating if the market is open
-        """
-        try:
-            # Call the API
-            url = f"{API_BASE_URL}/market-data/status"
-            params = {
-                'provider': self.provider
-            }
-            
-            response = requests.get(url, params=params)
-            
-            if response.status_code != 200:
-                print(f"Error checking market status: {response.status_code}")
-                print(response.text)
-                return self._fallback_market_status()
-            
-            result = response.json()
-            
-            if not result.get('success', False):
-                print(f"API Error: {result.get('error', 'Unknown error')}")
-                return self._fallback_market_status()
-            
-            return result.get('isMarketOpen', False)
-        except Exception as e:
-            print(f"Error checking market status from API: {str(e)}")
-            return self._fallback_market_status()
-    
-    def _fallback_load_market_data(self, symbols, period='3mo', interval='1d'):
-        """Fallback method to load market data using yfinance"""
-        print(f"Using yfinance fallback for loading data...")
-        
-        data = {}
-        if isinstance(symbols, str):
-            symbols = [symbols]
-        
-        for symbol in symbols:
-            try:
-                ticker = yf.Ticker(symbol)
-                history = ticker.history(period=period, interval=interval)
-                if not history.empty:
-                    data[symbol] = history
-                    print(f"Loaded data for {symbol} using yfinance: {len(history)} bars")
-                else:
-                    print(f"No data available for {symbol} from yfinance")
-            except Exception as e:
-                print(f"Error loading data for {symbol} using yfinance: {str(e)}")
-        
-        print(f"Successfully loaded data for {len(data)} symbols using yfinance")
-        return data
-    
-    def _fallback_stock_universe(self, universe_type='default'):
-        """Fallback method to get stock universe"""
-        print(f"Using fallback method for {universe_type} stock universe")
-        
-        if universe_type == 'sp500':
-            # Basic S&P 500 approximation
-            return [
-                'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'BRK.B', 'NVDA', 'JPM', 'JNJ',
-                'V', 'PG', 'UNH', 'HD', 'BAC', 'MA', 'DIS', 'ADBE', 'CRM', 'INTC'
-            ]
-        elif universe_type == 'nasdaq100':
-            # Basic Nasdaq 100 approximation
-            return [
-                'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'NVDA', 'NFLX', 'ADBE', 'PYPL',
-                'CMCSA', 'PEP', 'COST', 'INTC', 'CSCO', 'AVGO', 'TXN', 'QCOM', 'AMGN', 'AMD'
-            ]
-        else:
-            # Default universe of popular stocks
-            return [
-                'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT',
-                'PG', 'MA', 'DIS', 'NFLX', 'INTC', 'VZ', 'CSCO', 'KO', 'PEP', 'MRK'
-            ]
-    
-    def _fallback_market_status(self):
-        """Fallback method to check if market is open"""
-        print("Using fallback method for market status check")
-        
-        # Simple time-based check
-        now = datetime.now()
-        weekday = now.weekday()
-        
-        # Market is open on weekdays (Monday=0 to Friday=4)
-        if weekday > 4:
-            return False
-            
-        # Simple hours check (9:30 AM - 4:00 PM Eastern Time)
-        # This is very approximate and doesn't account for holidays or timezone
-        hour = now.hour
-        minute = now.minute
-        
-        # Convert to minutes for simpler comparison
-        time_minutes = hour * 60 + minute
-        market_open_minutes = 9 * 60 + 30   # 9:30 AM
-        market_close_minutes = 16 * 60      # 4:00 PM
-        
-        return time_minutes >= market_open_minutes and time_minutes < market_close_minutes
-
-def load_market_data(symbols, period='3mo', interval='1d', provider='yahoo'):
-    """
-    Load market data for multiple symbols from the specified provider.
-    This function provides backwards compatibility with the original function.
-    
-    Parameters:
-    symbols: List of stock symbols or a single symbol string
-    period: Time period to fetch (e.g., '1d', '5d', '1mo', '3mo', '1y')
-    interval: Data frequency (e.g., '1m', '5m', '1h', '1d', '1wk')
-    provider: Data provider to use ('yahoo', 'alpaca', 'polygon', 'alphavantage', 'tiingo')
-    
-    Returns:
-    Dictionary of DataFrames with market data
-    """
-    data_provider = MarketDataProvider(provider)
-    return data_provider.get_historical_data(symbols, period, interval)
+    print(f"Successfully loaded data for {len(data)} symbols")
+    return data
 
 def calculate_technical_indicators(dataframes):
     """Calculate technical indicators using numpy and pandas"""

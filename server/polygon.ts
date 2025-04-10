@@ -13,27 +13,17 @@ export default class PolygonAPI {
 
   /**
    * Creates a new Polygon.io API client
-   * @param integration Optional API integration details or API key as string
+   * @param integration Optional API integration details
    */
-  constructor(integration?: ApiIntegration | string) {
-    // Handle integration object
-    if (typeof integration === 'object' && integration?.credentials?.apiKey) {
+  constructor(integration?: ApiIntegration) {
+    if (integration?.credentials?.apiKey) {
       this.apiKey = integration.credentials.apiKey;
       this.integrationId = integration.id;
       this.isValid = true;
-    } 
-    // Handle string API key directly
-    else if (typeof integration === 'string') {
-      this.apiKey = integration;
-      this.isValid = true;
-    }
-    // Fallback to environment variable
-    else if (process.env.POLYGON_API_KEY) {
+    } else if (process.env.POLYGON_API_KEY) {
       this.apiKey = process.env.POLYGON_API_KEY;
       this.isValid = true;
-    } 
-    // No API key available
-    else {
+    } else {
       this.apiKey = '';
       this.isValid = false;
       console.warn('Polygon API initialized without API key');
@@ -233,65 +223,6 @@ export default class PolygonAPI {
   }
 
   /**
-   * Gets market data aggregates (adapter interface method)
-   * @param symbol Stock symbol
-   * @param timespan Timespan for the data (day, hour, minute, etc.)
-   * @param startDate Start date in ISO format
-   * @param endDate End date in ISO format
-   * @param multiplier Optional multiplier for the timespan (default: 1)
-   * @returns Historical market data in the same format as getHistoricalData
-   */
-  async getAggregates(
-    symbol: string,
-    timespan: string = 'day', 
-    startDate: string, 
-    endDate: string,
-    multiplier: number = 1
-  ): Promise<any> {
-    console.log(`Polygon.getAggregates called with: ${symbol}, ${timespan}, ${startDate}, ${endDate}`);
-    
-    if (!this.isValid) {
-      throw new Error('Polygon API not properly initialized with valid API key');
-    }
-    
-    try {
-      console.log(`Polygon.io API calling: /v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${startDate}/${endDate}`);
-      const response = await axios.get(
-        `${this.baseUrl}/v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${startDate}/${endDate}`,
-        {
-          params: { 
-            apiKey: this.apiKey
-          }
-        }
-      );
-      
-      console.log(`Polygon.io API response status: ${response.status}`);
-      const results = response.data.results || [];
-      console.log(`Polygon.io API returned ${results.length} bars for ${symbol}`);
-      
-      // Format the response to match our expected format
-      const bars = results.map((bar: any) => ({
-        t: new Date(bar.t).toISOString(),
-        o: bar.o,
-        h: bar.h,
-        l: bar.l,
-        c: bar.c,
-        v: bar.v
-      }));
-      
-      return {
-        symbol: symbol,
-        bars: bars,
-        isSimulated: false,
-        dataSource: 'polygon'
-      };
-    } catch (error) {
-      console.error('Polygon API aggregates error:', error);
-      throw error;
-    }
-  }
-  
-  /**
    * Checks if the US stock market is currently open
    * @returns Boolean indicating if the market is open
    */
@@ -370,28 +301,5 @@ export default class PolygonAPI {
     firstSundayInNov.setHours(2); // DST ends at 2 AM local time
     
     return date >= secondSundayInMarch && date < firstSundayInNov;
-  }
-  
-  /**
-   * Gets the current market status
-   * @returns The market status object (used by adapter)
-   */
-  async getMarketStatus(): Promise<{ market: string }> {
-    if (!this.isValid) {
-      throw new Error('Polygon API not properly initialized with valid API key');
-    }
-    
-    try {
-      const response = await axios.get(`${this.baseUrl}/v1/marketstatus/now`, {
-        params: { apiKey: this.apiKey }
-      });
-      
-      return { market: response.data.market };
-    } catch (error) {
-      console.error('Polygon API market status error:', error);
-      // Default to basic time-based check if API fails
-      const isOpen = this.isMarketOpenByTime();
-      return { market: isOpen ? 'open' : 'closed' };
-    }
   }
 }
