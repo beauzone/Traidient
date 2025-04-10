@@ -3269,7 +3269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const accounts = [];
       
       // Process Alpaca accounts
-      const alpacaIntegrations = integrations.filter(i => i.provider === 'alpaca');
+      const alpacaIntegrations = integrations.filter(i => i.provider === 'alpaca');ca');
       
       if (alpacaIntegrations.length > 0) {
         // Process each Alpaca integration
@@ -3332,9 +3332,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 accountNumber: `ALP-${integration.id}`,
                 accountType: integration.credentials?.additionalFields?.accountType || 'paper',
                 balance: 0,
+                portfolioValue: 0,
+                buyingPower: 0,
                 provider: 'Alpaca',
                 performance: 0,
-                status: 'ERROR',
+                status: 'ACTIVE',
+                currency: 'USD',
                 error: errorMessage.toLowerCase().includes('forbidden') ? 
                   "Authentication failed - please check your API keys" : 
                   "Connection error - Alpaca API unavailable"
