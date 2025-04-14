@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import WebSocket from 'ws'; // Import WebSocket library
+import { WebSocketServer } from 'ws';
 
 const app = express();
 app.use(express.json());
@@ -77,7 +77,7 @@ app.use((req, res, next) => {
   });
 
   // Set up WebSocket server
-  const wss = new WebSocket.Server({ server: expressServer });
+  const wss = new WebSocketServer({ server: expressServer });
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
     ws.on('close', () => console.log('WebSocket client disconnected'));
