@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-const WebSocket = require('ws'); //Import WebSocket library
+import WebSocket from 'ws'; // Import WebSocket library
 
 const app = express();
 app.use(express.json());
