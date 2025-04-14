@@ -19,7 +19,7 @@ export async function apiRequest<T = any>(
       method,
       data
     };
-    
+
     // The queryApiRequest function already parses the JSON response
     const response = await queryApiRequest(url, options);
     return response as T;

@@ -65,7 +65,7 @@ export const useWebSocket = (
 
       // On Replit, we need to ensure we're connecting to the correct host and port
       const isReplitEnv = host.includes('.repl.co') || host.includes('.replit.app');
-      
+
       // For Replit environments, use the host without explicit port
       if (isReplitEnv) {
         wsUrl = `${protocol}//${location.hostname}/ws?${cacheBuster}`;
