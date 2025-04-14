@@ -63,10 +63,16 @@ export const useWebSocket = (
 
       // For Replit environments, we have two potential connection approaches:
 
-      // APPROACH 1: Connect to the specific WebSocket endpoint /ws path
-      // This is the standard approach that connects to our dedicated WebSocket route
-      // IMPORTANT: Don't add any port specification - let the browser handle it based on host
-      wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
+      // On Replit, we need to ensure we're connecting to the correct host and port
+      const isReplitEnv = host.includes('.repl.co') || host.includes('.replit.app');
+      
+      // For Replit environments, use the host without explicit port
+      if (isReplitEnv) {
+        wsUrl = `${protocol}//${location.hostname}/ws?${cacheBuster}`;
+      } else {
+        // For other environments, keep the host (which includes port if specified)
+        wsUrl = `${protocol}//${host}/ws?${cacheBuster}`;
+      }
 
       // Log the detailed location information for troubleshooting
       console.log('WebSocket connection details:', {

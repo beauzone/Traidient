@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+const WebSocket = require('ws'); //Import WebSocket library
 
 const app = express();
 app.use(express.json());
@@ -70,12 +71,15 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  const port = process.env.PORT || 5000;
+  const expressServer = app.listen(port, '0.0.0.0', () => {
+    console.log(`[express] serving on port ${port}`);
+  });
+
+  // Set up WebSocket server
+  const wss = new WebSocket.Server({ server: expressServer });
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    ws.on('close', () => console.log('WebSocket client disconnected'));
   });
 })();
