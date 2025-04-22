@@ -10,7 +10,6 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
-  replitId: integer("replit_id").unique(), // Store Replit user ID for OpenID auth
   createdAt: timestamp("created_at").defaultNow().notNull(),
   subscription: jsonb("subscription").$type<{
     tier: 'free' | 'standard' | 'professional';
@@ -65,7 +64,6 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   email: true,
   name: true,
-  replitId: true, // Add replitId to allow creation with Replit ID
 });
 
 // API Integrations
@@ -329,46 +327,23 @@ export const insertDeploymentSchema = createInsertSchema(deployments).pick({
   configuration: true,
 });
 
-// Watchlist Groups
-export const watchlists = pgTable("watchlists", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  name: varchar("name", { length: 100 }).notNull(),
-  isDefault: boolean("is_default").notNull().default(false),
-  displayOrder: integer("display_order").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const insertWatchlistSchema = createInsertSchema(watchlists).pick({
-  userId: true,
-  name: true,
-  isDefault: true,
-  displayOrder: true,
-});
-
-// Watchlist Items
+// Market Watchlist
 export const watchlist = pgTable("watchlist", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  watchlistId: integer("watchlist_id").references(() => watchlists.id),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   name: varchar("name", { length: 100 }).notNull(),
   exchange: varchar("exchange", { length: 20 }).notNull(),
   type: varchar("type", { length: 20 }).notNull(), // 'stock', 'crypto', 'etf', etc.
-  displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertWatchlistItemSchema = createInsertSchema(watchlist).pick({
+export const insertWatchlistSchema = createInsertSchema(watchlist).pick({
   userId: true,
-  watchlistId: true,
   symbol: true,
   name: true,
   exchange: true,
   type: true,
-  displayOrder: true,
 });
 
 // Type exports
@@ -493,11 +468,8 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
   metadata: true,
 });
 
-export type Watchlist = typeof watchlists.$inferSelect;
-export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
-
 export type WatchlistItem = typeof watchlist.$inferSelect;
-export type InsertWatchlistItem = z.infer<typeof insertWatchlistItemSchema>;
+export type InsertWatchlistItem = z.infer<typeof insertWatchlistSchema>;
 
 export type AlertThreshold = typeof alertThresholds.$inferSelect;
 export type InsertAlertThreshold = z.infer<typeof insertAlertThresholdSchema>;
@@ -1043,7 +1015,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   strategies: many(strategies),
   backtests: many(backtests),
   deployments: many(deployments),
-  watchlists: many(watchlists),
   watchlistItems: many(watchlist),
   alertThresholds: many(alertThresholds),
   notifications: many(notifications),
@@ -1093,22 +1064,10 @@ export const deploymentsRelations = relations(deployments, ({ one }) => ({
   }),
 }));
 
-export const watchlistsRelations = relations(watchlists, ({ one, many }) => ({
-  user: one(users, {
-    fields: [watchlists.userId],
-    references: [users.id],
-  }),
-  items: many(watchlist),
-}));
-
 export const watchlistRelations = relations(watchlist, ({ one }) => ({
   user: one(users, {
     fields: [watchlist.userId],
     references: [users.id],
-  }),
-  watchlist: one(watchlists, {
-    fields: [watchlist.watchlistId],
-    references: [watchlists.id],
   }),
 }));
 

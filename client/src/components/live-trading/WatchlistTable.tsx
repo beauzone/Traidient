@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,26 +21,14 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { X, Plus, ChevronUp, ChevronDown } from "lucide-react";
-import { fetchData } from "@/lib/api";
+import { fetchData, postData, deleteData } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
-import { WatchlistSelector } from "@/components/watchlist/WatchlistSelector";
-import { useWatchlist } from "@/contexts/WatchlistContext";
 
-// Define the watchlist item from WatchlistContext
-interface BaseWatchlistItem {
+interface WatchlistItem {
   id: number;
   symbol: string;
   name: string;
-  exchange: string;
-  type: string;
-  createdAt?: Date;
-  userId?: number;
-  displayOrder?: number;
-  watchlistId?: number | null;
-}
-
-// Extended interface for display with market data
-interface WatchlistItem extends BaseWatchlistItem {
   lastPrice: string;
   change: string;
   changePercent: string;
@@ -72,16 +60,12 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
   const [watchlistWithHistory, setWatchlistWithHistory] = useState<WatchlistItem[]>([]);
   const { toast } = useToast();
 
-  // Use the watchlist context instead of direct API queries
-  const { 
-    currentWatchlist, 
-    isLoading, 
-    addToWatchlist: addToWatchlistContext,
-    removeFromWatchlist: removeFromWatchlistContext
-  } = useWatchlist();
-  
-  // Get items from the current watchlist
-  const watchlist = currentWatchlist?.items || [];
+  // Query to fetch watchlist items
+  const { data: watchlist = [], isLoading } = useQuery({
+    queryKey: ['/api/watchlist'],
+    queryFn: () => fetchData<WatchlistItem[]>('/api/watchlist'),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   // Fetch historical data for each symbol in the watchlist
   useEffect(() => {
@@ -90,7 +74,7 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
       
       try {
         const updatedWatchlist = await Promise.all(
-          watchlist.map(async (item: any) => {
+          watchlist.map(async (item) => {
             try {
               // Fetch intraday data for the mini chart
               const historicalData = await fetchData<{ bars: { t: string; c: number }[] }>(
@@ -99,38 +83,14 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
               
               return {
                 ...item,
-                // Cast the item to have the required properties for visualization
-                id: item.id,
-                symbol: item.symbol,
-                name: item.name,
-                lastPrice: '—',
-                change: '—',
-                changePercent: '—',
-                volume: '—', 
-                marketCap: '—',
-                isPositive: true,
-                createdAt: item.createdAt?.toString() || new Date().toString(),
                 priceHistory: historicalData.bars?.map(bar => ({
                   time: bar.t,
                   price: bar.c
                 })) || []
-              } as WatchlistItem;
+              };
             } catch (error) {
               console.error(`Failed to fetch historical data for ${item.symbol}:`, error);
-              // Return item with default display properties
-              return {
-                ...item,
-                id: item.id,
-                symbol: item.symbol,
-                name: item.name,
-                lastPrice: '—',
-                change: '—',
-                changePercent: '—',
-                volume: '—', 
-                marketCap: '—',
-                isPositive: true,
-                createdAt: item.createdAt?.toString() || new Date().toString(),
-              } as WatchlistItem;
+              return item; // Return original item if fetching fails
             }
           })
         );
@@ -146,23 +106,9 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
 
   // Mutation to add item to watchlist
   const addToWatchlist = useMutation({
-    mutationFn: async (data: AddWatchlistFormData) => {
-      if (!currentWatchlist) {
-        throw new Error("No watchlist selected");
-      }
-      
-      console.log('Adding to watchlist:', currentWatchlist.id, data);
-      
-      // Include only the required fields
-      return addToWatchlistContext(currentWatchlist.id, {
-        symbol: data.symbol,
-        name: data.name,
-        exchange: data.exchange,
-        type: data.type,
-        displayOrder: watchlist.length // Add at the end of the list
-      });
-    },
+    mutationFn: (data: AddWatchlistFormData) => postData('/api/watchlist', data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
       setIsAddDialogOpen(false);
       setFormData({
         symbol: "",
@@ -176,9 +122,6 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
       });
     },
     onError: (error) => {
-      // Log detailed error for debugging
-      console.error("Error adding symbol to watchlist:", error);
-      
       toast({
         title: "Failed to add symbol",
         description: error instanceof Error ? error.message : "An error occurred.",
@@ -189,26 +132,15 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
 
   // Mutation to remove item from watchlist
   const removeFromWatchlist = useMutation({
-    mutationFn: async (itemId: number) => {
-      if (!currentWatchlist) {
-        throw new Error("No watchlist selected");
-      }
-      
-      // Also update local state to prevent UI flicker
-      setWatchlistWithHistory(prev => prev.filter(item => item.id !== itemId));
-      
-      return removeFromWatchlistContext(currentWatchlist.id, itemId);
-    },
-    onSuccess: () => {
+    mutationFn: (id: number) => deleteData(`/api/watchlist/${id}`),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
       toast({
         title: "Symbol removed",
         description: "The symbol has been removed from your watchlist.",
       });
     },
     onError: (error) => {
-      // Log the error to help with debugging
-      console.error("Error removing symbol from watchlist:", error);
-      
       toast({
         title: "Failed to remove symbol",
         description: error instanceof Error ? error.message : "An error occurred.",
@@ -246,26 +178,12 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
     return numericValue.toFixed(2) + '%';
   };
 
-  // Make sure we're displaying data with all the required properties
-  const displayData: WatchlistItem[] = watchlistWithHistory.length > 0 
-    ? watchlistWithHistory 
-    : watchlist.map(item => ({
-        ...item,
-        lastPrice: '—',
-        change: '—',
-        changePercent: '—',
-        volume: '—',
-        marketCap: '—',
-        isPositive: true,
-      })) as WatchlistItem[];
+  const displayData = watchlistWithHistory.length > 0 ? watchlistWithHistory : watchlist;
 
   return (
     <Card className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-lg font-medium">Watchlists</h3>
-        <div className="flex items-center space-x-2">
-          <WatchlistSelector />
-        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">

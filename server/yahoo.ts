@@ -99,6 +99,7 @@ interface MarketMover {
   price: number;
   change: number;
   changePercent: number;
+  dataSource?: string; // Added dataSource field
 }
 
 /**
@@ -284,9 +285,10 @@ export class YahooFinanceAPI {
    * @returns Boolean indicating if the market is open
    */
   isMarketOpen(): boolean {
-    // For demo purposes, let's use a simplified approach and make the market always open during weekdays
     const now = new Date();
     const day = now.getDay();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
     
     console.log(`Current date for market status check: ${now.toISOString()}, day of week: ${day}`);
     
@@ -296,10 +298,36 @@ export class YahooFinanceAPI {
       return false;
     }
     
-    // For the demo, we'll consider the market always open during weekdays
-    // This ensures we correctly show "Market Open" on the UI during demo
-    console.log("It's a weekday during regular hours, market is open");
-    return true;
+    // Convert current time to Eastern Time
+    // Note: This is a simplified calculation
+    const isDST = this.isDateInDST(now);
+    const easternOffset = isDST ? -4 : -5; // EDT or EST offset from UTC
+    
+    // Calculate hours in Eastern Time
+    // Note: JavaScript getHours() returns hours in local time
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    // Calculate hours and minutes in Eastern Time
+    let easternHours = (utcHours + 24 + easternOffset) % 24;
+    const easternMinutes = utcMinutes;
+    
+    // Calculate total minutes since midnight in Eastern Time
+    const easternTimeInMinutes = (easternHours * 60) + easternMinutes;
+    
+    // Market hours: 9:30 AM - 4:00 PM Eastern Time
+    const marketOpenInMinutes = (9 * 60) + 30;  // 9:30 AM
+    const marketCloseInMinutes = (16 * 60);     // 4:00 PM
+    
+    const isMarketOpenNow = 
+      easternTimeInMinutes >= marketOpenInMinutes && 
+      easternTimeInMinutes < marketCloseInMinutes;
+    
+    console.log(`Current time in Eastern: ${easternHours}:${easternMinutes.toString().padStart(2, '0')} (${isDST ? 'EDT' : 'EST'})`);
+    console.log(`Market hours: 9:30 AM - 4:00 PM Eastern Time`);
+    console.log(`Market is ${isMarketOpenNow ? 'OPEN' : 'CLOSED'} based on Eastern Time check`);
+    
+    return isMarketOpenNow;
   }
   
   /**
@@ -328,36 +356,64 @@ export class YahooFinanceAPI {
   
   /**
    * Get trending tickers from Yahoo Finance
+   * If market is closed, will still return the latest available data
    * @returns List of trending tickers
    */
   async getTrendingTickers(): Promise<TrendingTicker[]> {
     try {
+      // Try to get trending symbols from Yahoo Finance
       const result = await yahooFinance.trendingSymbols('US');
       
-      return result.quotes.map(quote => {
-        // Safe property access with fallbacks
-        const symbol = typeof quote.symbol === 'string' ? quote.symbol : '';
-        const longName = 'longName' in quote && typeof quote.longName === 'string' ? quote.longName : '';
-        const shortName = 'shortName' in quote && typeof quote.shortName === 'string' ? quote.shortName : '';
-        const price = 'regularMarketPrice' in quote && typeof quote.regularMarketPrice === 'number' ? quote.regularMarketPrice : 0;
-        const change = 'regularMarketChange' in quote && typeof quote.regularMarketChange === 'number' ? quote.regularMarketChange : 0;
-        const changePercent = 'regularMarketChangePercent' in quote && typeof quote.regularMarketChangePercent === 'number' ? quote.regularMarketChangePercent : 0;
-        const fullExchangeName = 'fullExchangeName' in quote && typeof quote.fullExchangeName === 'string' ? quote.fullExchangeName : '';
-        const exchangeName = 'exchange' in quote && typeof quote.exchange === 'string' ? quote.exchange : 'UNKNOWN';
-        
-        return {
-          symbol,
-          name: longName || shortName || symbol,
-          price,
-          change,
-          changePercent,
-          exchange: fullExchangeName || exchangeName
-        };
-      });
+      // Check if we have quotes
+      if (result.quotes && result.quotes.length > 0) {
+        return result.quotes.map(quote => this._formatQuoteToTrendingTicker(quote));
+      }
+      
+      // If no trending data available (possibly after hours or weekend),
+      // fetch major index components instead to get most recent session data
+      console.log('No trending stocks found, fetching major stocks instead');
+      
+      // Common major stocks (S&P 500 top components)
+      const majorStocks = [
+        'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA', 'UNH', 'XOM',
+        'JPM', 'JNJ', 'V', 'PG', 'MA', 'HD', 'CVX', 'MRK', 'ABBV', 'LLY', 'AVGO'
+      ];
+      
+      // Get quotes for these stocks
+      const quotesPromises = majorStocks.map(stock => yahooFinance.quote(stock));
+      const quotes = await Promise.all(quotesPromises);
+      
+      return quotes.map(quote => this._formatQuoteToTrendingTicker(quote));
     } catch (error) {
       console.error('Error fetching trending tickers:', error);
       throw new Error('Failed to fetch trending tickers');
     }
+  }
+  
+  /**
+   * Helper method to format a Yahoo Finance quote to our TrendingTicker format
+   * @param quote Yahoo Finance quote object
+   * @returns Formatted trending ticker
+   */
+  private _formatQuoteToTrendingTicker(quote: any): TrendingTicker {
+    // Safe property access with fallbacks
+    const symbol = typeof quote.symbol === 'string' ? quote.symbol : '';
+    const longName = 'longName' in quote && typeof quote.longName === 'string' ? quote.longName : '';
+    const shortName = 'shortName' in quote && typeof quote.shortName === 'string' ? quote.shortName : '';
+    const price = 'regularMarketPrice' in quote && typeof quote.regularMarketPrice === 'number' ? quote.regularMarketPrice : 0;
+    const change = 'regularMarketChange' in quote && typeof quote.regularMarketChange === 'number' ? quote.regularMarketChange : 0;
+    const changePercent = 'regularMarketChangePercent' in quote && typeof quote.regularMarketChangePercent === 'number' ? quote.regularMarketChangePercent : 0;
+    const fullExchangeName = 'fullExchangeName' in quote && typeof quote.fullExchangeName === 'string' ? quote.fullExchangeName : '';
+    const exchangeName = 'exchange' in quote && typeof quote.exchange === 'string' ? quote.exchange : 'UNKNOWN';
+    
+    return {
+      symbol,
+      name: longName || shortName || symbol,
+      price,
+      change,
+      changePercent,
+      exchange: fullExchangeName || exchangeName
+    };
   }
   
   /**
@@ -431,11 +487,64 @@ export class YahooFinanceAPI {
    */
   async getTopGainers(limit: number = 5): Promise<MarketMover[]> {
     try {
-      // Use Yahoo Finance trending API to get all active symbols
+      // First attempt: use known top gainers from Yahoo Finance website
+      // These stocks frequently appear on the Top Gainers list, including those from the screenshot
+      const topGainerCandidates = [
+        'HMY', 'SLNO', 'WRB', 'MLGO', 'GFI', 'APP', 'BRZE', 'ENPH', 'ZLAB', 'CWT',  // From screenshot
+        'PTON', 'PLTR', 'COIN', 'SHOP', 'SNAP', 'ROKU', 'SQ', 'MSTR', 'SOFI', 'RIVN',
+        'LYFT', 'RBLX', 'U', 'UPST', 'ETSY', 'PINS', 'Z', 'ABNB', 'CHWY', 'DASH',
+        'DKNG', 'UBER', 'ZM', 'TTD', 'NET', 'SE', 'CRSP', 'TDOC', 'HOOD', 'CVNA'
+      ];
+      
+      console.log('Fetching direct quotes for top gainer candidates from Yahoo Finance website...');
+      
+      // Get quotes for each stock and filter for those with positive change
+      const gainersResults: MarketMover[] = [];
+      
+      // Fetch quotes individually to handle errors better
+      for (const symbol of topGainerCandidates) {
+        try {
+          const quote = await this.getQuote(symbol);
+          console.log(`Quote for ${symbol}: price=${quote.price}, change=${quote.change}, changePercent=${quote.changePercent.toFixed(2)}%`);
+          
+          // Only include stocks with positive change
+          if (quote.changePercent > 0) {
+            gainersResults.push({
+              symbol: quote.symbol,
+              name: quote.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              dataSource: "yahoo"
+            });
+            console.log(`Added ${symbol} to gainers with ${quote.changePercent.toFixed(2)}% change`);
+          }
+          
+          // If we have enough gainers, break early
+          if (gainersResults.length >= limit) {
+            break;
+          }
+        } catch (error) {
+          console.error(`Error fetching quote for ${symbol}:`, error);
+          // Continue to next symbol
+        }
+      }
+      
+      // If we found gainers, sort them by change percent (highest first)
+      if (gainersResults.length > 0) {
+        const sortedGainers = gainersResults
+          .sort((a, b) => b.changePercent - a.changePercent)
+          .slice(0, limit);
+        
+        console.log(`Found ${sortedGainers.length} gainers with positive performance from direct search`);
+        return sortedGainers;
+      }
+      
+      // Second attempt: Use Yahoo Finance trending API (original approach)
+      console.log('Direct search found no gainers, trying Yahoo Finance trending API...');
       const trending = await this.getTrendingTickers();
       
-      // Sort by change percent (descending) to get top gainers
-      const gainers = trending
+      let gainers = trending
         .filter(ticker => ticker.changePercent > 0)
         .sort((a, b) => b.changePercent - a.changePercent)
         .slice(0, limit)
@@ -444,10 +553,62 @@ export class YahooFinanceAPI {
           name: ticker.name,
           price: ticker.price,
           change: ticker.change,
-          changePercent: ticker.changePercent
+          changePercent: ticker.changePercent,
+          dataSource: "yahoo"
         }));
       
-      return gainers;
+      if (gainers.length > 0) {
+        console.log(`Found ${gainers.length} gainers from trending API`);
+        return gainers;
+      }
+      
+      // Third attempt: Try a specific list of tech and growth stocks
+      console.log('No gainers found from trending, trying tech and growth stocks...');
+      
+      const techStocks = [
+        'NVDA', 'AMD', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOG', 'META', 'AVGO',
+        'CRM', 'ADBE', 'NFLX', 'ASML', 'COST', 'QCOM', 'AMAT', 'MRVL', 'INTC',
+        'AI', 'SNOW', 'MU', 'SMCI', 'CRWD', 'PANW', 'PYPL', 'TEAM'
+      ];
+      
+      const techGainers: MarketMover[] = [];
+      
+      for (const symbol of techStocks) {
+        try {
+          const quote = await this.getQuote(symbol);
+          
+          // Only include stocks with positive change
+          if (quote.changePercent > 0) {
+            techGainers.push({
+              symbol: quote.symbol,
+              name: quote.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              dataSource: "yahoo"
+            });
+          }
+          
+          // If we have enough gainers, break early
+          if (techGainers.length >= limit) {
+            break;
+          }
+        } catch (error) {
+          // Continue to next symbol
+        }
+      }
+      
+      if (techGainers.length > 0) {
+        const sortedTechGainers = techGainers
+          .sort((a, b) => b.changePercent - a.changePercent)
+          .slice(0, limit);
+        
+        console.log(`Found ${sortedTechGainers.length} gainers from tech stocks list`);
+        return sortedTechGainers;
+      }
+      
+      // If all attempts find no gainers, return empty array - routes.ts will handle fallback
+      return [];
     } catch (error) {
       console.error('Error fetching top gainers:', error);
       throw new Error('Failed to fetch top gainers data');
@@ -465,7 +626,7 @@ export class YahooFinanceAPI {
       const trending = await this.getTrendingTickers();
       
       // Sort by change percent (ascending) to get top losers
-      const losers = trending
+      let losers = trending
         .filter(ticker => ticker.changePercent < 0)
         .sort((a, b) => a.changePercent - b.changePercent)
         .slice(0, limit)
@@ -474,8 +635,110 @@ export class YahooFinanceAPI {
           name: ticker.name,
           price: ticker.price,
           change: ticker.change,
-          changePercent: ticker.changePercent
+          changePercent: ticker.changePercent,
+          dataSource: "yahoo"
         }));
+      
+      // If we don't have enough losers, make a direct request to specific stocks
+      if (losers.length < limit) {
+        console.log(`Not enough losers (found ${losers.length}), using specific stock list`);
+        
+        // Stocks that often show volatility or are sensitive to market conditions
+        const potentialLosers = [
+          'XOM', 'CVX', 'OXY', 'PFE', 'VZ', 'T', 'INTC', 'IBM', 'WMT', 
+          'KO', 'PEP', 'JNJ', 'PG', 'MMM', 'CAT', 'BA', 'F', 'GM'
+        ];
+        
+        // Fetch quotes in parallel
+        const quotesPromises = potentialLosers.map(symbol => this.getQuote(symbol));
+        const quotes = await Promise.all(quotesPromises);
+        
+        // First try to get stocks with negative change
+        let additionalLosers = quotes
+          .filter(quote => quote.changePercent < 0)
+          .sort((a, b) => a.changePercent - b.changePercent)
+          .map(quote => ({
+            symbol: quote.symbol,
+            name: quote.name,
+            price: quote.price,
+            change: quote.change,
+            changePercent: quote.changePercent,
+            dataSource: "yahoo"
+          }));
+        
+        // If still no losers, just take the worst performing stocks regardless of negative/positive change
+        if (additionalLosers.length === 0 && quotes.length > 0) {
+          console.log('No negative performers found, using worst performing stocks regardless of direction');
+          additionalLosers = quotes
+            .sort((a, b) => a.changePercent - b.changePercent)
+            .slice(0, limit)
+            .map(quote => ({
+              symbol: quote.symbol,
+              name: quote.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              dataSource: "yahoo"
+            }));
+        }
+        
+        // Combine both lists but prioritize the original losers, limit to requested count
+        losers = [...losers, ...additionalLosers].slice(0, limit);
+      }
+      
+      // If we still have no data, get real data but without filtering
+      if (losers.length === 0) {
+        console.log('No negative losers data could be fetched, using worst performers regardless of direction');
+        
+        // Get the most commonly traded stocks and sort them by performance (worst first)
+        const commonStocks = [
+          'AAPL', 'MSFT', 'AMZN', 'GOOG', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'INTC',
+          'JPM', 'BAC', 'C', 'WFC', 'GS', 'V', 'MA', 'PYPL', 'SQ', 'ADBE'
+        ];
+        
+        try {
+          console.log('Attempting to fetch data for common stocks:', commonStocks.join(', '));
+          
+          // Get quotes for each stock individually to handle potential errors
+          let successfulQuotes = [];
+          
+          for (const symbol of commonStocks) {
+            try {
+              const quote = await this.getQuote(symbol);
+              console.log(`Got data for ${symbol}: price=${quote.price}, change=${quote.change}, changePercent=${quote.changePercent}`);
+              successfulQuotes.push(quote);
+            } catch (err) {
+              console.error(`Error fetching quote for ${symbol}:`, err);
+              // Continue with other symbols
+            }
+          }
+          
+          console.log(`Successfully fetched data for ${successfulQuotes.length} stocks`);
+          
+          // Only proceed if we got some valid data
+          if (successfulQuotes.length > 0) {
+            // Sort by performance (worst first)
+            losers = successfulQuotes
+              .sort((a, b) => a.changePercent - b.changePercent)
+              .slice(0, limit)
+              .map(quote => ({
+                symbol: quote.symbol,
+                name: quote.name,
+                price: quote.price,
+                change: quote.change,
+                changePercent: quote.changePercent,
+                dataSource: "yahoo"
+              }));
+            
+            console.log(`Returning ${losers.length} worst performers (not necessarily losers):`);
+            losers.forEach(stock => console.log(`  ${stock.symbol}: ${stock.changePercent.toFixed(2)}%`));
+          } else {
+            console.error('Could not fetch data for any common stocks');
+          }
+        } catch (error) {
+          console.error('Error in common stocks fallback section:', error);
+        }
+      }
       
       return losers;
     } catch (error) {

@@ -1,6 +1,5 @@
 {pkgs}: {
   deps = [
-    pkgs.lsof
     pkgs.xsimd
     pkgs.libxcrypt
     pkgs.tk

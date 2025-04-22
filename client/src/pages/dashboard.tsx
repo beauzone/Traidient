@@ -8,7 +8,6 @@ import AssetAllocation from "@/components/dashboard/AssetAllocation";
 import PositionsTable from "@/components/dashboard/PositionsTable";
 import StrategyTable from "@/components/dashboard/StrategyTable";
 import WatchlistTable from "@/components/dashboard/WatchlistTable";
-import { WatchlistSelector } from "@/components/watchlist/WatchlistSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useAccountContext } from "@/context/AccountContext";
 
@@ -32,17 +31,10 @@ const Dashboard = () => {
   const { selectedAccount } = useAccountContext();
   
   // Fetch strategies
-  const { data: strategiesData } = useQuery({
+  const { data: strategies = [] } = useQuery({
     queryKey: ['/api/strategies'],
     queryFn: () => fetchData<Strategy[]>('/api/strategies'),
   });
-  
-  // Ensure strategies is always an array
-  const strategies = useMemo(() => {
-    if (!strategiesData) return [];
-    if (Array.isArray(strategiesData)) return strategiesData;
-    return Object.keys(strategiesData).length > 0 ? [strategiesData] : [];
-  }, [strategiesData]);
 
   // Fetch account data from Alpaca
   const { data: accountData, isLoading: isLoadingAccount } = useQuery({
@@ -62,7 +54,7 @@ const Dashboard = () => {
   });
 
   // Fetch orders from Alpaca
-  const { data: ordersData, isLoading: isLoadingOrders } = useQuery({
+  const { data: orders = [], isLoading: isLoadingOrders } = useQuery({
     queryKey: ['/api/trading/orders', selectedAccount],
     queryFn: () => {
       const endpoint = selectedAccount && selectedAccount !== "all" 
@@ -71,13 +63,6 @@ const Dashboard = () => {
       return fetchData(endpoint);
     },
   });
-  
-  // Ensure orders is always an array
-  const orders = useMemo(() => {
-    if (!ordersData) return [];
-    if (Array.isArray(ordersData)) return ordersData;
-    return Object.keys(ordersData).length > 0 ? [ordersData] : [];
-  }, [ordersData]);
 
   // State for managing the portfolio time range
   const [portfolioTimeRange, setPortfolioTimeRange] = useState<'1D' | '1W' | '1M' | '1Y' | 'ALL'>('1W');
@@ -166,22 +151,15 @@ const Dashboard = () => {
     console.log("Positions received:", positions);
     console.log("Selected account:", selectedAccount);
     
-    // Check if positions is an array or empty object
-    const isPositionsArray = Array.isArray(positions);
-    const isEmpty = isPositionsArray ? positions.length === 0 : Object.keys(positions).length === 0;
-    
-    if (!positions || isEmpty) {
+    if (!positions || positions.length === 0) {
       console.log("No positions found, returning empty array");
       return [];
     }
     
-    // Convert to array if it's not already
-    const positionsArray = isPositionsArray ? positions : Object.values(positions);
-    
     // If using all accounts, return all positions
     if (selectedAccount === "all") {
-      console.log("All accounts selected, returning all positions");
-      return positionsArray;
+      console.log("All accounts selected, returning all positions:", positions);
+      return positions;
     }
     
     // For the "Nancy" account (id: 11), which is 100% cash, return empty positions
@@ -192,8 +170,8 @@ const Dashboard = () => {
     
     // For the "Beau" account (id: 12), which has XOM, return the positions
     if (selectedAccount === "12") {
-      console.log("Beau account selected, returning positions");
-      return positionsArray;
+      console.log("Beau account selected, returning positions:", positions);
+      return positions;
     }
     
     // Default fallback - should not reach here
@@ -203,19 +181,14 @@ const Dashboard = () => {
   
   // Calculate and update asset allocation data
   useEffect(() => {
-    // Check if accountData is an array or an object
-    const accountDataArray = accountData ? 
-      (Array.isArray(accountData) ? accountData : 
-       Object.keys(accountData).length > 0 ? [accountData] : []) : [];
-    
     console.log("Calculating asset allocation with:", { 
       filteredPositions, 
       selectedAccount, 
-      accountData: accountDataArray.length > 0 ? `${accountDataArray.length} accounts` : "none" 
+      accountData: accountData ? `${accountData.length} accounts` : "none" 
     });
     
     // Default to all cash if no data
-    if ((!filteredPositions || filteredPositions.length === 0) && accountDataArray.length === 0) {
+    if ((!filteredPositions || filteredPositions.length === 0) && (!accountData || !Array.isArray(accountData))) {
       console.log("No positions or account data, defaulting to 100% cash");
       setAssetAllocationData([{ name: "Cash", value: 100, color: "#EF4444" }]);
       return;
@@ -244,22 +217,22 @@ const Dashboard = () => {
     let cashValue = 0;
     let portfolioValue = 0;
     
-    if (accountDataArray.length > 0) {
+    if (Array.isArray(accountData) && accountData.length > 0) {
       if (selectedAccount === "all") {
         // Sum values across all accounts
-        portfolioValue = accountDataArray.reduce((sum, acc) => sum + (acc.portfolioValue || 0), 0);
-        cashValue = accountDataArray.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        portfolioValue = accountData.reduce((sum, acc) => sum + (acc.portfolioValue || 0), 0);
+        cashValue = accountData.reduce((sum, acc) => sum + (acc.balance || 0), 0);
       } else {
         // Find the specific account
-        const account = accountDataArray.find((acc) => acc.id?.toString() === selectedAccount);
+        const account = accountData.find((acc) => acc.id.toString() === selectedAccount);
         
         if (account) {
           portfolioValue = account.portfolioValue || 0;
           cashValue = account.balance || 0;
-        } else if (accountDataArray.length > 0) {
+        } else if (accountData.length > 0) {
           // Fallback to first account
-          portfolioValue = accountDataArray[0].portfolioValue || 0;
-          cashValue = accountDataArray[0].balance || 0;
+          portfolioValue = accountData[0].portfolioValue || 0;
+          cashValue = accountData[0].balance || 0;
         }
       }
     }
@@ -364,12 +337,7 @@ const Dashboard = () => {
   
   // Calculate real P&L data from Alpaca account
   const calculatePnL = () => {
-    // Check if accountData is an array or an object or empty
-    const accountDataArray = accountData ? 
-      (Array.isArray(accountData) ? accountData : 
-       Object.keys(accountData).length > 0 ? [accountData] : []) : [];
-    
-    if (accountDataArray.length === 0) {
+    if (!accountData || accountData.length === 0) {
       return {
         value: "+$0.00",
         percentage: "0.00%",
@@ -381,47 +349,26 @@ const Dashboard = () => {
     let selectedAccountData: any;
     let performanceValue = 0;
     
-    if (selectedAccount === "all" && accountDataArray.length > 1) {
+    if (selectedAccount === "all") {
       // Calculate aggregated P&L across all accounts
-      try {
-        const totalEquity = accountDataArray.reduce((sum: number, acc: any) => sum + (acc.equity || 0), 0);
-        const totalPerformance = accountDataArray.reduce((sum: number, acc: any) => sum + (acc.performance || 0), 0);
-        
-        selectedAccountData = {
-          equity: totalEquity
-        };
-        performanceValue = totalPerformance;
-      } catch (error) {
-        console.error("Error calculating P&L for all accounts:", error);
-        return {
-          value: "+$0.00",
-          percentage: "0.00%",
-          isPositive: true
-        };
-      }
+      const totalEquity = accountData.reduce((sum: number, acc: any) => sum + (acc.equity || 0), 0);
+      const totalPerformance = accountData.reduce((sum: number, acc: any) => sum + (acc.performance || 0), 0);
+      
+      selectedAccountData = {
+        equity: totalEquity
+      };
+      performanceValue = totalPerformance;
     } else {
-      // Find the specific account or use the first one
-      try {
-        if (selectedAccount !== "all") {
-          // Try to find the selected account
-          selectedAccountData = accountDataArray.find((acc: any) => acc.id?.toString() === selectedAccount);
-        }
-        
-        // If not found or "all" selected with only one account, use the first account
-        if (!selectedAccountData && accountDataArray.length > 0) {
-          selectedAccountData = accountDataArray[0];
-        }
-        
-        if (selectedAccountData) {
-          performanceValue = selectedAccountData.performance || 0;
-        }
-      } catch (error) {
-        console.error("Error finding account data for P&L calculation:", error);
-        return {
-          value: "+$0.00",
-          percentage: "0.00%",
-          isPositive: true
-        };
+      // Find the specific account
+      selectedAccountData = accountData.find((acc: any) => acc.id.toString() === selectedAccount);
+      
+      // If account not found, use the first account as fallback
+      if (!selectedAccountData && accountData.length > 0) {
+        selectedAccountData = accountData[0];
+      }
+      
+      if (selectedAccountData) {
+        performanceValue = selectedAccountData.performance || 0;
       }
     }
     
@@ -469,7 +416,18 @@ const Dashboard = () => {
           <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <PortfolioChart
               data={portfolioData}
-              currentValue={formatCurrency(0)}  // Simplified version for debugging
+              currentValue={
+                Array.isArray(accountData) 
+                  ? (selectedAccount === "all"
+                    ? formatCurrency(accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0))
+                    : formatCurrency(
+                        accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.equity || 
+                        accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.balance || 
+                        (accountData.length > 0 ? accountData[0].equity || accountData[0].balance || 0 : 0)
+                      )
+                  )
+                  : formatCurrency(0)
+              }
               change={{
                 value: pnlData.value,
                 percentage: pnlData.percentage,
@@ -503,16 +461,7 @@ const Dashboard = () => {
       />
 
       {/* Watchlist */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium">Watchlists</h3>
-          <div className="flex items-center space-x-2">
-            {/* Include WatchlistSelector here */}
-            <WatchlistSelector />
-          </div>
-        </div>
-        <WatchlistTable />
-      </div>
+      <WatchlistTable />
     </MainLayout>
   );
 };

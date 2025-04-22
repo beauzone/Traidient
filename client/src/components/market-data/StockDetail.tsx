@@ -31,16 +31,15 @@ import {
   Target,
   Award,
   Info,
+  Bookmark,
   Share2,
-  Bell,
-  Bookmark
+  Bell
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import AddToWatchlistButton from "@/components/watchlist/AddToWatchlistButton";
 
 interface StockDetailProps {
   symbol: string;
@@ -323,11 +322,9 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                 <Button variant="outline" size="sm">
                   <Bell className="h-4 w-4 mr-1" /> Alert
                 </Button>
-                <AddToWatchlistButton 
-                  symbol={symbol} 
-                  companyName={getName()}
-                  className="h-8 px-2" 
-                />
+                <Button variant="outline" size="sm">
+                  <Bookmark className="h-4 w-4 mr-1" /> Add to List
+                </Button>
                 <Button variant="outline" size="sm">
                   <Share2 className="h-4 w-4" />
                 </Button>

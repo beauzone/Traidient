@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { Router } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateStrategy, explainStrategy, optimizeStrategy, generateScreen, explainScreen } from "./openai";
@@ -10,10 +11,13 @@ import TiingoAPI from "./tiingo";
 import { startMarketDataStream, stopMarketDataStream, getHistoricalMarketData } from "./marketDataService";
 import { createMarketDataProvider } from './marketDataProviders';
 import { runBacktest } from './backtestService';
+import { MarketDataProviderFactory } from './marketDataProviderInterface';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from 'ws';
 import webhookRoutes from './routes/webhooks';
+import botRoutes from './routes/bots';
+import { snaptradeRoutes } from './routes/snaptradeRoutes';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -1585,135 +1589,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Symbol is required' });
       }
       
-      // Check if market is open using our Yahoo Finance API
-      const isMarketOpen = yahooFinance.isMarketOpen();
+      // Get the provider from query parameters, default to alpaca
+      const providerParam = req.query.provider as string;
+      // Store original provider name for user messages
+      const originalProvider = providerParam || 'alpaca';
+      // Convert to lowercase for consistency in the code
+      const provider = originalProvider.toLowerCase();
+      console.log(`Using provider: ${originalProvider} for quote data`);
       
-      if (isMarketOpen) {
-        try {
-          // If market is open, first try to get real-time data from Alpaca API
-          // Try to get user-specific API integration for market data, fallback to environment variables
-          let alpacaAPI;
-          try {
-            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-            alpacaAPI = new AlpacaAPI(alpacaIntegration);
-            console.log("Using user's Alpaca API integration");
-          } catch (err) {
-            console.log("No user-specific Alpaca integration found, using environment variables");
-            alpacaAPI = new AlpacaAPI();
-          }
-          
-          // Get asset information
-          const assetInfo = await alpacaAPI.getAssetInformation(symbol);
-          
-          // Get the latest quote from Alpaca
-          const quoteData = await alpacaAPI.getQuote(symbol);
-          const quote = quoteData.quote;
-          
-          // Calculate price change from previous day (this is simplified)
-          const price = quote.ap || quote.bp || 100; // Ask price or bid price
-          const prevPrice = price * (1 - (Math.random() * 0.05 - 0.025)); // For demonstration
-          const change = price - prevPrice;
-          const changePercent = (change / prevPrice) * 100;
-          
-          const responseQuote = {
-            symbol: symbol,
-            name: assetInfo.name || symbol,
-            price: price,
-            change: change,
-            changePercent: changePercent,
-            open: price * (1 - Math.random() * 0.02),
-            high: price * (1 + Math.random() * 0.02),
-            low: price * (1 - Math.random() * 0.03),
-            volume: Math.floor(Math.random() * 10000000),
-            marketCap: Math.floor(Math.random() * 1000000000000),
-            peRatio: 15 + Math.random() * 25,
-            dividend: Math.random() * 3,
-            eps: 5 + Math.random() * 15,
-            exchange: assetInfo.exchange || "NASDAQ",
-            isSimulated: false,
-            dataSource: "alpaca"
-          };
-          
-          res.json(responseQuote);
-          return;
-        } catch (alpacaError) {
-          console.log(`Alpaca API error for ${symbol}, falling back to Yahoo Finance:`, alpacaError);
-          // Fall through to Yahoo Finance if Alpaca fails
+      // Get all integrations for this user
+      let integration;
+      try {
+        // Get all integrations
+        const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+        // Find matching integration (case insensitive)
+        integration = integrations.find(i => 
+          i.provider.toLowerCase().trim() === provider.trim());
+        
+        if (integration) {
+          console.log(`Using user's ${integration.provider} API integration`);
+        } else {
+          console.log(`No user-specific ${originalProvider} integration found, using environment variables`);
         }
+      } catch (err: unknown) {
+        console.log(`Error finding ${originalProvider} integration:`, err);
+      }
+      
+      // Use the factory to create the appropriate provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
+      
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${originalProvider}. Please add API credentials in Integrations.` 
+        });
       }
       
       try {
-        // During non-market hours or if Alpaca fails, get data from Yahoo Finance
-        console.log(`Using Yahoo Finance for ${symbol} during non-market hours or as fallback`);
-        const quoteData = await yahooFinance.getQuote(symbol);
+        // Get quote data from the provider
+        const quoteData = await dataProvider.getQuote(symbol);
+        
+        // Add the data source to the response
+        quoteData.dataSource = originalProvider;
+        
         res.json(quoteData);
         return;
-      } catch (yahooError) {
-        console.log(`Yahoo Finance API error for ${symbol}, falling back to simulation:`, yahooError);
+      } catch (providerError) {
+        console.error(`Error getting quote for ${symbol} from ${originalProvider}:`, providerError);
         
-        // Reference prices as a last resort fallback
-        const referencePrices: Record<string, any> = {
-          'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
-          'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
-          'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
-          'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
-          'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
-          'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
-          'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
-          'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
-          'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
-          'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
-          'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
-          'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
-          'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
-          'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
-          'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
-          'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
-          'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
-          'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
-          'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
-          'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
-          'PLTR': { price: 24.30, name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
-          'CRWD': { price: 322.00, name: 'CrowdStrike Holdings Inc.', exchange: 'NASDAQ' },
-          'PANS': { price: 688.24, name: 'Palo Alto Networks Inc.', exchange: 'NASDAQ' }
-        };
+        // Try Yahoo Finance as a fallback for all providers except Yahoo itself
+        if (provider !== 'yahoo') {
+          try {
+            console.log(`Falling back to Yahoo Finance for ${symbol}`);
+            const yahooProvider = MarketDataProviderFactory.createProvider('yahoo');
+            if (yahooProvider) {
+              const yahooQuoteData = await yahooProvider.getQuote(symbol);
+              yahooQuoteData.dataSource = 'yahoo';
+              res.json(yahooQuoteData);
+              return;
+            }
+          } catch (yahooError) {
+            console.error(`Yahoo Finance fallback error for ${symbol}:`, yahooError);
+          }
+        }
         
-        // Fall back to reference data as a last resort
-        const upperSymbol = symbol.toUpperCase();
-        const refData = referencePrices[upperSymbol];
-        const basePrice = refData?.price || 100 + Math.random() * 900;
-        const name = refData?.name || symbol;
-        const exchange = refData?.exchange || "NASDAQ";
-        
-        // Add a small random variation to the price (±1%)
-        const priceVariation = basePrice * 0.01 * (Math.random() * 2 - 1);
-        const currentPrice = basePrice + priceVariation;
-        
-        // Calculate a plausible daily change (±2%)
-        const changeDirection = Math.random() > 0.5 ? 1 : -1;
-        const changeAmount = basePrice * (Math.random() * 0.02) * changeDirection;
-        const changePercent = (changeAmount / basePrice) * 100;
-        
-        const responseQuote = {
-          symbol: upperSymbol,
-          name: name,
-          price: currentPrice,
-          change: parseFloat(changeAmount.toFixed(2)),
-          changePercent: parseFloat(changePercent.toFixed(2)),
-          open: basePrice - basePrice * 0.005 * (Math.random() * 2 - 1),
-          high: basePrice + basePrice * 0.01 * Math.random(),
-          low: basePrice - basePrice * 0.01 * Math.random(),
-          volume: Math.floor(Math.random() * 10000000),
-          marketCap: Math.floor(basePrice * 1000000000 * (1 + Math.random())),
-          peRatio: 15 + Math.random() * 25,
-          dividend: Math.random() * 3,
-          eps: 5 + Math.random() * 15,
-          exchange: exchange,
-          isSimulated: true,
-          dataSource: "reference"
-        };
-        
-        res.json(responseQuote);
+        try {
+          // Reference prices as a last resort fallback
+          const referencePrices: Record<string, any> = {
+            'AAPL': { price: 214.50, name: 'Apple Inc.', exchange: 'NASDAQ' },
+            'MSFT': { price: 428.50, name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+            'GOOG': { price: 175.90, name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
+            'GOOGL': { price: 176.30, name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+            'AMZN': { price: 178.30, name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+            'META': { price: 499.50, name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+            'TSLA': { price: 177.50, name: 'Tesla Inc.', exchange: 'NASDAQ' },
+            'NVDA': { price: 924.70, name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+            'NFLX': { price: 626.80, name: 'Netflix Inc.', exchange: 'NASDAQ' },
+            'AMD': { price: 172.40, name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
+            'INTC': { price: 42.80, name: 'Intel Corporation', exchange: 'NASDAQ' },
+            'CSCO': { price: 48.70, name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+            'ORCL': { price: 126.30, name: 'Oracle Corporation', exchange: 'NYSE' },
+            'IBM': { price: 173.00, name: 'International Business Machines', exchange: 'NYSE' },
+            'PYPL': { price: 62.80, name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
+            'ADBE': { price: 511.50, name: 'Adobe Inc.', exchange: 'NASDAQ' },
+            'CRM': { price: 295.50, name: 'Salesforce Inc.', exchange: 'NYSE' },
+            'QCOM': { price: 167.00, name: 'Qualcomm Inc.', exchange: 'NASDAQ' },
+            'AVGO': { price: 1361.00, name: 'Broadcom Inc.', exchange: 'NASDAQ' },
+            'TXN': { price: 170.80, name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
+            'PLTR': { price: 24.30, name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
+            'CRWD': { price: 322.00, name: 'CrowdStrike Holdings Inc.', exchange: 'NASDAQ' },
+            'PANS': { price: 688.24, name: 'Palo Alto Networks Inc.', exchange: 'NASDAQ' }
+          };
+          
+          // Fall back to reference data as a last resort
+          const upperSymbol = symbol.toUpperCase();
+          const refData = referencePrices[upperSymbol];
+          const basePrice = refData?.price || 100 + Math.random() * 900;
+          const name = refData?.name || symbol;
+          const exchange = refData?.exchange || "NASDAQ";
+          
+          // Add a small random variation to the price (±1%)
+          const priceVariation = basePrice * 0.01 * (Math.random() * 2 - 1);
+          const currentPrice = basePrice + priceVariation;
+          
+          // Calculate a plausible daily change (±2%)
+          const changeDirection = Math.random() > 0.5 ? 1 : -1;
+          const changeAmount = basePrice * (Math.random() * 0.02) * changeDirection;
+          const changePercent = (changeAmount / basePrice) * 100;
+          
+          const responseQuote = {
+            symbol: upperSymbol,
+            name: name,
+            price: currentPrice,
+            change: parseFloat(changeAmount.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2)),
+            open: basePrice - basePrice * 0.005 * (Math.random() * 2 - 1),
+            high: basePrice + basePrice * 0.01 * Math.random(),
+            low: basePrice - basePrice * 0.01 * Math.random(),
+            volume: Math.floor(Math.random() * 10000000),
+            marketCap: Math.floor(basePrice * 1000000000 * (1 + Math.random())),
+            peRatio: 15 + Math.random() * 25,
+            dividend: Math.random() * 3,
+            eps: 5 + Math.random() * 15,
+            exchange: exchange,
+            isSimulated: true,
+            dataSource: "reference"
+          };
+          
+          res.json(responseQuote);
+        } catch (referenceError) {
+          console.error('Reference data error:', referenceError);
+          res.status(500).json({ message: 'Error creating quote data' });
+        }
       }
     } catch (error) {
       console.error('Get quote error:', error);
@@ -1744,10 +1751,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Try to get user-specific API integration for market data, fallback to environment variables
           let alpacaAPI;
           try {
-            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-            alpacaAPI = new AlpacaAPI(alpacaIntegration);
-            console.log("Using user's Alpaca API integration for historical data");
-          } catch (err) {
+            // Get all integrations for the user
+            const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+            // Find the Alpaca integration using case-insensitive matching
+            const alpacaIntegration = integrations.find(i => 
+              i.provider.toLowerCase().trim() === 'alpaca');
+            
+            if (alpacaIntegration) {
+              alpacaAPI = new AlpacaAPI(alpacaIntegration);
+              console.log(`Using user's ${alpacaIntegration.provider} API integration for historical data`);
+            } else {
+              throw new Error("No Alpaca integration found");
+            }
+          } catch (err: unknown) {
             console.log("No user-specific Alpaca integration found, using environment variables for historical data");
             alpacaAPI = new AlpacaAPI();
           }
@@ -2075,16 +2091,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               throw new Error(`No valid Alpaca integration found for ID: ${accountId}`);
             }
-          } catch (err) {
-            console.log(`Error getting specific integration: ${err.message}`);
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            console.log(`Error getting specific integration: ${errorMessage}`);
             throw err;
           }
         } else {
           // Otherwise get the default one for the user
           try {
-            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-            alpacaAPI = new AlpacaAPI(alpacaIntegration);
-            console.log("Using user's default Alpaca API integration for portfolio history");
+            // Get all integrations for the user
+            const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+            // Find the Alpaca integration using case-insensitive matching
+            const alpacaIntegration = integrations.find(i => 
+              i.provider.toLowerCase().trim() === 'alpaca');
+            
+            if (alpacaIntegration) {
+              alpacaAPI = new AlpacaAPI(alpacaIntegration);
+              console.log(`Using user's ${alpacaIntegration.provider} API integration for portfolio history`);
+            } else {
+              throw new Error("No Alpaca integration found");
+            }
           } catch (err) {
             console.log("No user-specific Alpaca integration found, using environment variables for portfolio history");
             alpacaAPI = new AlpacaAPI();
@@ -2110,11 +2136,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           baseValue: historyData.baseValue,
           dataSource: "alpaca"
         });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error fetching portfolio history from Alpaca:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         res.status(500).json({ 
           error: 'Failed to retrieve portfolio history',
-          message: error.message,
+          message: errorMessage,
           dataSource: "error"
         });
       }
@@ -2135,9 +2162,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         let alpacaAPI;
         try {
-          const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(req.user.id, 'alpaca');
-          alpacaAPI = new AlpacaAPI(alpacaIntegration);
-          console.log("Using user's Alpaca API integration for orders");
+          // Get all integrations for the user
+          const integrations = await storage.getApiIntegrationsByUser(req.user.id);
+          // Find the Alpaca integration using case-insensitive matching
+          const alpacaIntegration = integrations.find(i => 
+            i.provider.toLowerCase().trim() === 'alpaca');
+          
+          if (alpacaIntegration) {
+            alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            console.log(`Using user's ${alpacaIntegration.provider} API integration for orders`);
+          } else {
+            throw new Error("No Alpaca integration found");
+          }
         } catch (err) {
           console.log("No user-specific Alpaca integration found, using environment variables for orders");
           alpacaAPI = new AlpacaAPI();
@@ -2579,67 +2615,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/gainers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      try {
-        // Get top gainers from Yahoo Finance
-        const gainers = await yahooFinance.getTopGainers(5);
-        
-        // Add dataSource field to each gainer
-        const gainersWithSource = gainers.map(gainer => ({
-          ...gainer,
-          dataSource: "yahoo"
-        }));
-        
-        res.json(gainersWithSource);
-      } catch (error) {
-        console.error('Yahoo Finance API error for top gainers:', error);
-        
-        // Fallback to reference data if Yahoo Finance fails
-        const gainers = [
+      // Try to get top gainers from Yahoo Finance (already includes dataSource field)
+      // Changed limit from 5 to 10 as requested
+      let gainers = await yahooFinance.getTopGainers(10);
+      console.log('Fetched gainers:', gainers);
+      
+      // If we have no real data from Yahoo, use real reference data
+      if (gainers.length === 0) {
+        console.log('API did not return any gainers, using reference data');
+        // These are real stock tickers with realistic values
+        gainers = [
           { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 938.46, change: 13.76, changePercent: 1.49, dataSource: "reference" },
           { symbol: 'MRVL', name: 'Marvell Technology, Inc.', price: 72.35, change: 4.18, changePercent: 6.13, dataSource: "reference" },
           { symbol: 'PANW', name: 'Palo Alto Networks Inc', price: 311.78, change: 9.52, changePercent: 3.15, dataSource: "reference" },
           { symbol: 'AMD', name: 'Advanced Micro Devices Inc', price: 175.24, change: 4.83, changePercent: 2.83, dataSource: "reference" },
-          { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92, dataSource: "reference" }
+          { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92, dataSource: "reference" },
+          { symbol: 'MSFT', name: 'Microsoft Corporation', price: 424.57, change: 5.83, changePercent: 1.39, dataSource: "reference" },
+          { symbol: 'AAPL', name: 'Apple Inc.', price: 171.15, change: 2.25, changePercent: 1.33, dataSource: "reference" },
+          { symbol: 'META', name: 'Meta Platforms Inc', price: 504.22, change: 6.34, changePercent: 1.27, dataSource: "reference" },
+          { symbol: 'AMZN', name: 'Amazon.com Inc', price: 183.26, change: 2.14, changePercent: 1.18, dataSource: "reference" },
+          { symbol: 'GOOG', name: 'Alphabet Inc', price: 164.32, change: 1.87, changePercent: 1.15, dataSource: "reference" }
         ];
-        
-        res.json(gainers);
       }
+      
+      res.json(gainers);
     } catch (error) {
-      console.error('Get gainers error:', error);
-      res.status(500).json({ message: 'Error fetching top gainers' });
+      console.error('Yahoo Finance API error for top gainers:', error);
+      
+      // Return reference data in case of error
+      const gainers = [
+        { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 938.46, change: 13.76, changePercent: 1.49, dataSource: "reference" },
+        { symbol: 'MRVL', name: 'Marvell Technology, Inc.', price: 72.35, change: 4.18, changePercent: 6.13, dataSource: "reference" },
+        { symbol: 'PANW', name: 'Palo Alto Networks Inc', price: 311.78, change: 9.52, changePercent: 3.15, dataSource: "reference" },
+        { symbol: 'AMD', name: 'Advanced Micro Devices Inc', price: 175.24, change: 4.83, changePercent: 2.83, dataSource: "reference" },
+        { symbol: 'AVGO', name: 'Broadcom Inc', price: 1374.75, change: 25.93, changePercent: 1.92, dataSource: "reference" },
+        { symbol: 'MSFT', name: 'Microsoft Corporation', price: 424.57, change: 5.83, changePercent: 1.39, dataSource: "reference" },
+        { symbol: 'AAPL', name: 'Apple Inc.', price: 171.15, change: 2.25, changePercent: 1.33, dataSource: "reference" },
+        { symbol: 'META', name: 'Meta Platforms Inc', price: 504.22, change: 6.34, changePercent: 1.27, dataSource: "reference" },
+        { symbol: 'AMZN', name: 'Amazon.com Inc', price: 183.26, change: 2.14, changePercent: 1.18, dataSource: "reference" },
+        { symbol: 'GOOG', name: 'Alphabet Inc', price: 164.32, change: 1.87, changePercent: 1.15, dataSource: "reference" }
+      ];
+      
+      res.json(gainers);
     }
   });
 
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      try {
-        // Get top losers from Yahoo Finance
-        const losers = await yahooFinance.getTopLosers(5);
-        
-        // Add dataSource field to each loser
-        const losersWithSource = losers.map(loser => ({
-          ...loser,
-          dataSource: "yahoo"
-        }));
-        
-        res.json(losersWithSource);
-      } catch (error) {
-        console.error('Yahoo Finance API error for top losers:', error);
-        
-        // Fallback to reference data if Yahoo Finance fails
-        const losers = [
-          { symbol: 'CVX', name: 'Chevron Corporation', price: 155.61, change: -2.43, changePercent: -1.54, dataSource: "reference" },
-          { symbol: 'XOM', name: 'Exxon Mobil Corporation', price: 113.65, change: -1.54, changePercent: -1.34, dataSource: "reference" },
-          { symbol: 'WMT', name: 'Walmart Inc', price: 59.53, change: -0.75, changePercent: -1.24, dataSource: "reference" },
-          { symbol: 'VZ', name: 'Verizon Communications Inc', price: 41.02, change: -0.48, changePercent: -1.16, dataSource: "reference" },
-          { symbol: 'INTC', name: 'Intel Corporation', price: 41.93, change: -0.47, changePercent: -1.11, dataSource: "reference" }
+      // Try to get top losers from Yahoo Finance (already includes dataSource field)
+      // Changed limit from 5 to 10 as requested
+      let losers = await yahooFinance.getTopLosers(10);
+      console.log('Fetched losers:', losers);
+      
+      // If we have no real data from Yahoo, use real reference data
+      if (losers.length === 0) {
+        console.log('API did not return any losers, using reference data');
+        // These are real stock tickers with realistic values
+        losers = [
+          { symbol: 'INTC', name: 'Intel Corporation', price: 22.71, change: -0.91, changePercent: -3.84, dataSource: "reference" },
+          { symbol: 'CAT', name: 'Caterpillar Inc.', price: 329.23, change: -10.07, changePercent: -2.97, dataSource: "reference" },
+          { symbol: 'BA', name: 'The Boeing Company', price: 174.45, change: -4.66, changePercent: -2.60, dataSource: "reference" },
+          { symbol: 'MMM', name: '3M Company', price: 144.74, change: -3.70, changePercent: -2.49, dataSource: "reference" },
+          { symbol: 'F', name: 'Ford Motor Company', price: 9.67, change: -0.24, changePercent: -2.37, dataSource: "reference" },
+          { symbol: 'OXY', name: 'Occidental Petroleum Corporation', price: 48.62, change: -0.89, changePercent: -1.80, dataSource: "reference" },
+          { symbol: 'GM', name: 'General Motors Company', price: 46.51, change: -0.69, changePercent: -1.46, dataSource: "reference" },
+          { symbol: 'IBM', name: 'International Business Machines Corp', price: 243.07, change: -3.14, changePercent: -1.28, dataSource: "reference" },
+          { symbol: 'WMT', name: 'Walmart Inc.', price: 84.98, change: -0.66, changePercent: -0.77, dataSource: "reference" },
+          { symbol: 'CVX', name: 'Chevron Corporation', price: 165.97, change: -0.69, changePercent: -0.41, dataSource: "reference" }
         ];
-        
-        res.json(losers);
       }
+      
+      res.json(losers);
     } catch (error) {
-      console.error('Get losers error:', error);
-      res.status(500).json({ message: 'Error fetching top losers' });
+      console.error('Yahoo Finance API error for top losers:', error);
+      
+      // Return reference data in case of error
+      const losers = [
+        { symbol: 'INTC', name: 'Intel Corporation', price: 22.71, change: -0.91, changePercent: -3.84, dataSource: "reference" },
+        { symbol: 'CAT', name: 'Caterpillar Inc.', price: 329.23, change: -10.07, changePercent: -2.97, dataSource: "reference" },
+        { symbol: 'BA', name: 'The Boeing Company', price: 174.45, change: -4.66, changePercent: -2.60, dataSource: "reference" },
+        { symbol: 'MMM', name: '3M Company', price: 144.74, change: -3.70, changePercent: -2.49, dataSource: "reference" },
+        { symbol: 'F', name: 'Ford Motor Company', price: 9.67, change: -0.24, changePercent: -2.37, dataSource: "reference" },
+        { symbol: 'OXY', name: 'Occidental Petroleum Corporation', price: 48.62, change: -0.89, changePercent: -1.80, dataSource: "reference" },
+        { symbol: 'GM', name: 'General Motors Company', price: 46.51, change: -0.69, changePercent: -1.46, dataSource: "reference" },
+        { symbol: 'IBM', name: 'International Business Machines Corp', price: 243.07, change: -3.14, changePercent: -1.28, dataSource: "reference" },
+        { symbol: 'WMT', name: 'Walmart Inc.', price: 84.98, change: -0.66, changePercent: -0.77, dataSource: "reference" },
+        { symbol: 'CVX', name: 'Chevron Corporation', price: 165.97, change: -0.69, changePercent: -0.41, dataSource: "reference" }
+      ];
+      
+      res.json(losers);
     }
   });
 
@@ -2838,6 +2902,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Market Data Provider API for Python Screeners
+  
+  // Get historical market data
+  app.get('/api/market-data/historical', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const symbols = req.query.symbols as string;
+      const period = req.query.period as string || '3mo';
+      const interval = req.query.interval as string || '1d';
+      const provider = req.query.provider as string || 'yahoo';
+      
+      if (!symbols) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Missing required parameter: symbols' 
+        });
+      }
+      
+      // Get the provider adapter
+      let integration = undefined;
+      
+      // If provider is not yahoo (which doesn't need credentials), get the user's API integration
+      if (provider !== 'yahoo') {
+        try {
+          integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        } catch (err) {
+          console.log(`No user-specific ${provider} integration found`);
+        }
+      }
+      
+      // Use the static factory method to create the provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
+      
+      // Verify provider is valid
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
+      }
+      
+      // Get the historical data
+      const symbolsList = symbols.split(',').map(s => s.trim());
+      const data = await dataProvider.getHistoricalData(symbolsList, period, interval);
+      
+      // Format the response
+      return res.status(200).json({
+        success: true,
+        data: {
+          symbols: symbolsList,
+          data,
+          provider
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error fetching historical market data:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+  
+  // Get stock universe
+  app.get('/api/market-data/universe', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const universeType = req.query.universeType as string || 'default';
+      const provider = req.query.provider as string || 'yahoo';
+      
+      // Get the provider adapter
+      let integration = undefined;
+      
+      // If provider is not yahoo (which doesn't need credentials), get the user's API integration
+      if (provider !== 'yahoo') {
+        try {
+          integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        } catch (err) {
+          console.log(`No user-specific ${provider} integration found`);
+        }
+      }
+      
+      // Initialize the provider factory
+      // Use the static factory method to create the provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
+      // Verify provider is valid
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
+      }
+      
+      // Get the stock universe
+      const symbols = await dataProvider.getStockUniverse(universeType);
+      
+      // Format the response
+      return res.status(200).json({
+        success: true,
+        symbols,
+        universeType,
+        provider
+      });
+      
+    } catch (error) {
+      console.error('Error fetching stock universe:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+  
+  // Check market status
+  app.get('/api/market-data/status', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const provider = req.query.provider as string || 'yahoo';
+      
+      // Get the provider adapter
+      let integration = undefined;
+      
+      // If provider is not yahoo (which doesn't need credentials), get the user's API integration
+      if (provider !== 'yahoo') {
+        try {
+          integration = await storage.getApiIntegrationByProviderAndUser(req.user.id, provider);
+        } catch (err) {
+          console.log(`No user-specific ${provider} integration found`);
+        }
+      }
+      
+      // Use the static factory method to create the provider
+      const dataProvider = MarketDataProviderFactory.createProvider(provider, integration);
+      if (!dataProvider || !dataProvider.isValid()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid or unconfigured data provider: ${provider}. Please add API credentials in Integrations.` 
+        });
+      }
+      
+      // Check if market is open
+      const isMarketOpen = await dataProvider.isMarketOpen();
+      
+      // Format the response
+      return res.status(200).json({
+        success: true,
+        isMarketOpen,
+        provider
+      });
+      
+    } catch (error) {
+      console.error('Error checking market status:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+  
   // Direct Screener Execution (bypasses template issues)
   app.post('/api/direct-screener', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
@@ -3450,6 +3683,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register webhook routes
   app.use('/api/webhooks', webhookRoutes);
+  
+  // Register bot routes
+  app.use('/api/bots', authMiddleware, botRoutes);
+  
+  // Register SnapTrade routes
+  // Create a separate router for public SnapTrade endpoints
+  const publicSnapTradeRoutes = Router();
+  
+  // Add the public routes to the public router
+  // Add the brokerages route (available without login)
+  publicSnapTradeRoutes.get('/brokerages', snaptradeRoutes.stack
+    .find(layer => layer.route && layer.route.path === '/brokerages')!.handle);
+  
+  // Add the status route (available without login)
+  publicSnapTradeRoutes.get('/status', snaptradeRoutes.stack
+    .find(layer => layer.route && layer.route.path === '/status')!.handle);
+  
+  // Register public SnapTrade routes (without auth)
+  app.use('/api/snaptrade', publicSnapTradeRoutes);
+  
+  // Register authenticated SnapTrade routes
+  app.use('/api/snaptrade', authMiddleware, snaptradeRoutes);
   
   // Process webhook triggers (public endpoint)
   app.post('/api/webhook-triggers/:token', async (req: Request, res: Response) => {

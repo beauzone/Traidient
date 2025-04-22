@@ -5,7 +5,6 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccountProvider } from "@/context/AccountContext";
-import { WatchlistProvider } from "@/contexts/WatchlistContext";
 import { useAuth } from "@/hooks/useAuth";
 
 // Pages
@@ -16,7 +15,6 @@ import Strategies from "@/pages/strategies"; // Renamed from bot-builder to stra
 import EditStrategy from "@/pages/edit-strategy";
 import Screeners from "@/pages/screeners"; // New screeners page
 import StrategyScreener from "@/pages/strategy-screener"; // New fixed strategy screener page
-import Watchlist from "@/pages/watchlist"; // New watchlist page with multiple lists support
 import Backtest from "@/pages/backtest";
 import Bots from "@/pages/bots"; // New bots (deployment & automation) page
 import LiveTrading from "@/pages/live-trading";
@@ -31,7 +29,6 @@ import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
 import DebugPage from "@/pages/debug";
 import Webhooks from "@/pages/webhooks";
-import WebSocketTest from "@/pages/WebSocketTest"; // New WebSocket test page
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -44,9 +41,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   }
 
   if (!isAuthenticated) {
-    // Redirect to the server authentication endpoint
-    window.location.href = "/api/login";
-    return null;
+    return <Redirect to="/login" />;
   }
 
   return <Component {...rest} />;
@@ -130,14 +125,6 @@ function AppRoutes() {
         <ProtectedRoute component={LiveTrading} />
       </Route>
       
-      {/* Watchlists */}
-      <Route path="/watchlist">
-        <ProtectedRoute component={Watchlist} />
-      </Route>
-      <Route path="/watchlists">
-        <ProtectedRoute component={Watchlist} />
-      </Route>
-      
       {/* Market Data */}
       <Route path="/market-data">
         <ProtectedRoute component={MarketData} />
@@ -179,25 +166,10 @@ function AppRoutes() {
         <ProtectedRoute component={DebugPage} />
       </Route>
       
-      {/* WebSocket Testing */}
-      <Route path="/websocket-test">
-        <ProtectedRoute component={WebSocketTest} />
-      </Route>
-      
       <Route path="/">
         <Redirect to="/dashboard" />
       </Route>
-      
-      {/* Server routes - Handle callbacks from API endpoints */}
-      <Route path="/api/:rest*">
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-          <p className="text-lg">Processing authentication, please wait...</p>
-        </div>
-      </Route>
-      
-      {/* 404 for any other client routes */}
-      <Route path="/:rest*" component={NotFound} />
+      <Route component={NotFound} />
     </Switch>
   );
 }
@@ -207,10 +179,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AccountProvider>
-          <WatchlistProvider>
-            <AppRoutes />
-            <Toaster />
-          </WatchlistProvider>
+          <AppRoutes />
+          <Toaster />
         </AccountProvider>
       </AuthProvider>
     </QueryClientProvider>

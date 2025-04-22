@@ -28,6 +28,16 @@ import {
   InsertWebhook,
   screeners,
   Screener,
+  botInstances,
+  BotInstance,
+  InsertBotInstance,
+  botTrades,
+  BotTrade,
+  InsertBotTrade,
+  marketConditions,
+  MarketCondition,
+  symbolInsights,
+  SymbolInsight,
   InsertScreener
 } from "@shared/schema";
 
@@ -108,6 +118,28 @@ export interface IStorage {
   markNotificationAsRead(id: number): Promise<Notification | undefined>;
   markAllNotificationsAsRead(userId: number): Promise<boolean>;
   deleteNotification(id: number): Promise<boolean>;
+  
+  // Bot Instances
+  getBotInstance(id: number): Promise<BotInstance | undefined>;
+  getBotInstancesByUser(userId: number): Promise<BotInstance[]>; 
+  getBotInstancesByStrategy(strategyId: number): Promise<BotInstance[]>;
+  createBotInstance(botInstance: InsertBotInstance): Promise<BotInstance>;
+  updateBotInstance(id: number, botInstance: Partial<BotInstance>): Promise<BotInstance | undefined>;
+  deleteBotInstance(id: number): Promise<boolean>;
+  
+  // Bot Trades
+  getBotTrade(id: number): Promise<BotTrade | undefined>;
+  getBotTradesByInstance(botInstanceId: number): Promise<BotTrade[]>;
+  getBotTradesByUser(userId: number): Promise<BotTrade[]>;
+  createBotTrade(trade: InsertBotTrade): Promise<BotTrade>;
+  updateBotTrade(id: number, trade: Partial<BotTrade>): Promise<BotTrade | undefined>;
+  deleteBotTrade(id: number): Promise<boolean>;
+  
+  // Market Conditions & Insights
+  getLatestMarketCondition(): Promise<MarketCondition | undefined>;
+  createMarketCondition(condition: Partial<MarketCondition>): Promise<MarketCondition>;
+  getLatestSymbolInsight(symbol: string): Promise<SymbolInsight | undefined>;
+  createSymbolInsight(insight: Partial<SymbolInsight>): Promise<SymbolInsight>;
 }
 
 import { db } from './db';
@@ -154,12 +186,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getApiIntegrationByProviderAndUser(userId: number, provider: string): Promise<ApiIntegration | undefined> {
-    const result = await db.select().from(apiIntegrations)
-      .where(and(
-        eq(apiIntegrations.userId, userId),
-        eq(apiIntegrations.provider, provider)
-      ));
-    return result.length > 0 ? result[0] : undefined;
+    // Get all integrations for the user
+    const integrations = await this.getApiIntegrationsByUser(userId);
+    
+    // Find the integration using case-insensitive matching
+    const matchingIntegration = integrations.find(
+      integration => integration.provider.toLowerCase().trim() === provider.toLowerCase().trim()
+    );
+    
+    return matchingIntegration;
   }
 
   async createApiIntegration(integration: InsertApiIntegration): Promise<ApiIntegration> {
@@ -661,6 +696,147 @@ export class DatabaseStorage implements IStorage {
       
       return updatedScreener;
     }
+  }
+
+  // Bot Instance methods
+  async getBotInstance(id: number): Promise<BotInstance | undefined> {
+    const result = await db.select().from(botInstances).where(eq(botInstances.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getBotInstancesByUser(userId: number): Promise<BotInstance[]> {
+    return await db.select().from(botInstances).where(eq(botInstances.userId, userId));
+  }
+
+  async getBotInstancesByStrategy(strategyId: number): Promise<BotInstance[]> {
+    return await db.select().from(botInstances).where(eq(botInstances.strategyId, strategyId));
+  }
+
+  async createBotInstance(botInstance: InsertBotInstance): Promise<BotInstance> {
+    const now = new Date();
+    const [newBotInstance] = await db.insert(botInstances).values({
+      ...botInstance,
+      status: botInstance.status || 'stopped',
+      createdAt: now,
+      updatedAt: now,
+      lastRunAt: null,
+      lastErrorAt: null,
+      lastError: null,
+      metrics: botInstance.metrics || {},
+      settings: botInstance.settings || {},
+      schedule: botInstance.schedule || {}
+    }).returning();
+    return newBotInstance;
+  }
+
+  async updateBotInstance(id: number, botInstanceData: Partial<BotInstance>): Promise<BotInstance | undefined> {
+    const now = new Date();
+    const [updatedBotInstance] = await db.update(botInstances)
+      .set({
+        ...botInstanceData,
+        updatedAt: now
+      })
+      .where(eq(botInstances.id, id))
+      .returning();
+    return updatedBotInstance;
+  }
+
+  async deleteBotInstance(id: number): Promise<boolean> {
+    // First, delete any trades associated with the bot instance
+    await db.delete(botTrades).where(eq(botTrades.botInstanceId, id));
+    
+    // Then delete the bot instance itself
+    const result = await db.delete(botInstances).where(eq(botInstances.id, id));
+    return result.count > 0;
+  }
+
+  // Bot Trade methods
+  async getBotTrade(id: number): Promise<BotTrade | undefined> {
+    const result = await db.select().from(botTrades).where(eq(botTrades.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getBotTradesByInstance(botInstanceId: number): Promise<BotTrade[]> {
+    return await db.select().from(botTrades).where(eq(botTrades.botInstanceId, botInstanceId));
+  }
+
+  async getBotTradesByUser(userId: number): Promise<BotTrade[]> {
+    // Join bot_trades and bot_instances to filter by userId
+    const result = await db
+      .select({
+        trade: botTrades
+      })
+      .from(botTrades)
+      .innerJoin(botInstances, eq(botTrades.botInstanceId, botInstances.id))
+      .where(eq(botInstances.userId, userId));
+    
+    return result.map(r => r.trade);
+  }
+
+  async createBotTrade(trade: InsertBotTrade): Promise<BotTrade> {
+    const now = new Date();
+    const [newTrade] = await db.insert(botTrades).values({
+      ...trade,
+      createdAt: now,
+      updatedAt: now,
+      exitedAt: trade.exitedAt || null,
+      metrics: trade.metrics || {},
+      tags: trade.tags || []
+    }).returning();
+    return newTrade;
+  }
+
+  async updateBotTrade(id: number, tradeData: Partial<BotTrade>): Promise<BotTrade | undefined> {
+    const now = new Date();
+    const [updatedTrade] = await db.update(botTrades)
+      .set({
+        ...tradeData,
+        updatedAt: now
+      })
+      .where(eq(botTrades.id, id))
+      .returning();
+    return updatedTrade;
+  }
+
+  async deleteBotTrade(id: number): Promise<boolean> {
+    const result = await db.delete(botTrades).where(eq(botTrades.id, id));
+    return result.count > 0;
+  }
+
+  // Market Conditions & Insights
+  async getLatestMarketCondition(): Promise<MarketCondition | undefined> {
+    const result = await db
+      .select()
+      .from(marketConditions)
+      .orderBy(desc(marketConditions.timestamp))
+      .limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async createMarketCondition(condition: Partial<MarketCondition>): Promise<MarketCondition> {
+    const [newCondition] = await db.insert(marketConditions).values({
+      ...condition,
+      timestamp: condition.timestamp || new Date()
+    }).returning();
+    return newCondition;
+  }
+
+  async getLatestSymbolInsight(symbol: string): Promise<SymbolInsight | undefined> {
+    const result = await db
+      .select()
+      .from(symbolInsights)
+      .where(eq(symbolInsights.symbol, symbol))
+      .orderBy(desc(symbolInsights.timestamp))
+      .limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async createSymbolInsight(insight: Partial<SymbolInsight>): Promise<SymbolInsight> {
+    const [newInsight] = await db.insert(symbolInsights).values({
+      ...insight,
+      timestamp: insight.timestamp || new Date()
+    }).returning();
+    return newInsight;
   }
 }
 
