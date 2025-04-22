@@ -37,7 +37,32 @@ let devModeUser: User | null = null;
 // Authentication middleware that works with both JWT tokens and Replit Auth
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // For development auto-login
+    // Check for existing authenticated user from Replit Auth first
+    if (req.session?.authenticated && req.session.user) {
+      const user = await storage.getUserByReplitId(parseInt(req.session.user.id as string));
+      if (user) {
+        (req as AuthRequest).user = user;
+        return next();
+      }
+    }
+
+    // Then check for JWT token
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+        const user = await storage.getUser(decoded.userId);
+        if (user) {
+          (req as AuthRequest).user = user;
+          return next();
+        }
+      } catch (error) {
+        console.error('JWT verification failed:', error);
+      }
+    }
+
+    // For development auto-login as fallback
     if (DEV_AUTO_LOGIN) {
       try {
         // Get or create a development user
