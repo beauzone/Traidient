@@ -45,10 +45,17 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   } = useQuery({
     queryKey: ['/api/watchlists'],
     select: (data: WatchlistWithItems[]) => {
+      // Check if data is valid array
+      if (!Array.isArray(data)) {
+        console.error('Invalid watchlists data received:', data);
+        return [];
+      }
       console.log('Received watchlists data:', data);
       // Sort by display order
       return [...data].sort((a, b) => a.displayOrder - b.displayOrder);
-    }
+    },
+    retry: false,
+    enabled: true // Always try to fetch but handle errors gracefully
   });
 
   // Log errors from watchlist query
@@ -69,7 +76,19 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
     error: defaultWatchlistError
   } = useQuery({
     queryKey: ['/api/watchlists/default'],
-    enabled: watchlists.length === 0 // Only run this query if no watchlists were found initially
+    enabled: true, // Always try to fetch default watchlist
+    retry: false,
+    onError: (error: any) => {
+      console.error('Error fetching default watchlist:', error);
+      // Don't show error toast for auth errors since they're expected when not logged in
+      if (!error.message?.includes('Unauthorized')) {
+        toast({
+          title: "Error loading default watchlist",
+          description: error.message || "There was a problem loading the default watchlist",
+          variant: "destructive"
+        });
+      }
+    }
   });
   
   // Log default watchlist data and errors
