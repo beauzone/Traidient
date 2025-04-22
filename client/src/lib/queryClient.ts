@@ -258,10 +258,18 @@ export const getQueryFn: <T>(options: {
             return null;
           }
           
-          console.warn('Authentication required, redirecting to Replit login');
-          
-          // Use a direct synchronous redirect to prevent race conditions
-          window.location.href = '/api/login';
+          // Check if we're already on the login page to prevent redirect loops
+          const currentPath = window.location.pathname;
+          if (currentPath === '/api/login' || currentPath.includes('/auth/')) {
+            console.warn('Already on auth page, not redirecting to prevent loop');
+            return null;
+          }
+
+          // Only redirect if we're not already being redirected
+          if (!window.location.href.includes('/api/login')) {
+            console.warn('Authentication required, redirecting to Replit login');
+            window.location.href = '/api/login';
+          }
           return null;
         };
         
