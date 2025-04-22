@@ -45,14 +45,25 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
   } = useQuery({
     queryKey: ['/api/watchlists'],
     select: (data: WatchlistWithItems[]) => {
-      // Check if data is valid array
-      if (!Array.isArray(data)) {
-        console.error('Invalid watchlists data received:', data);
+      // Handle null, undefined or invalid data
+      if (!data || typeof data !== 'object') {
+        console.log('No watchlists data available yet');
         return [];
       }
-      console.log('Received watchlists data:', data);
-      // Sort by display order
-      return [...data].sort((a, b) => a.displayOrder - b.displayOrder);
+      
+      // Convert to array if single object received
+      const watchlistArray = Array.isArray(data) ? data : [data];
+      
+      // Filter out invalid entries and sort
+      const validWatchlists = watchlistArray.filter(w => w && typeof w === 'object');
+      
+      if (validWatchlists.length === 0) {
+        console.log('No valid watchlists found in data');
+        return [];
+      }
+
+      console.log('Processing watchlists data:', validWatchlists);
+      return [...validWatchlists].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     },
     retry: false,
     enabled: true // Always try to fetch but handle errors gracefully
