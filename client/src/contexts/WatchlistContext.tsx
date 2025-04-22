@@ -84,21 +84,15 @@ export const WatchlistProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Set current watchlist to default one if not already set
   useEffect(() => {
-    // First check regular watchlists
-    if (watchlists.length > 0 && !currentWatchlist) {
-      const defaultWatchlist = watchlists.find(w => w.isDefault) || watchlists[0];
-      setCurrentWatchlist(defaultWatchlist);
-    }
-    // If no regular watchlists but we have a default one
-    else if (watchlists.length === 0 && defaultWatchlist && !currentWatchlist) {
-      // Make sure we have a valid WatchlistWithItems to set
-      if (defaultWatchlist && typeof defaultWatchlist === 'object') {
+    if (!currentWatchlist && !isLoading) {
+      if (watchlists.length > 0) {
+        const defaultWatchlist = watchlists.find(w => w.isDefault) || watchlists[0];
+        setCurrentWatchlist(defaultWatchlist);
+      } else if (defaultWatchlist && typeof defaultWatchlist === 'object') {
         setCurrentWatchlist(defaultWatchlist as WatchlistWithItems);
-        // Invalidate watchlists query to include the new default
-        queryClient.invalidateQueries({ queryKey: ['/api/watchlists'] });
       }
     }
-  }, [watchlists, currentWatchlist, defaultWatchlist, queryClient]);
+  }, [watchlists, currentWatchlist, defaultWatchlist, isLoading]);
   
   // Create watchlist mutation
   const createWatchlistMutation = useMutation({
