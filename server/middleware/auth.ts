@@ -124,48 +124,22 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
 
     // Check for existing authenticated user from Replit Auth (passport.js)
-    if (req.isAuthenticated && req.isAuthenticated()) {
+    if (req.session?.authenticated && req.session.user) {
       // User is already authenticated via Replit Auth
-      // Passport puts the user object directly in req.user
-      const passportUser = req.user as any;
-
-      if (!passportUser || !passportUser.sub) {
-        console.error('Invalid user from Replit Auth');
-        return res.status(401).json({ message: 'Unauthorized: Invalid Replit Auth user' });
-      }
-
-      // Look up the user in our database using their Replit ID
-      const replitId = parseInt(passportUser.sub);
-      const dbUser = await storage.getUserByReplitId(replitId);
-
-      if (dbUser) {
-        // If user exists in our DB, use that record
-        (req as AuthRequest).user = {
-          id: dbUser.id,
-          replitId: replitId,
-          username: dbUser.username,
-          email: dbUser.email,
-          name: dbUser.name,
-          ...passportUser // Keep all other Replit properties
-        };
+      const user = await storage.getUserByReplitId(parseInt(req.session.user.id as string));
+      if (user) {
+        (req as AuthRequest).user = user;
+        return next();
       } else {
-        // User authenticated with Replit but not in our DB yet
-        // This could happen if they're a new user
-        console.warn(`User with Replit ID ${replitId} authenticated but not found in database`);
+        console.warn(`User with Replit ID ${req.session.user.id} authenticated but not found in database`);
         return res.status(401).json({ 
           message: 'Unauthorized: User needs to register',
           replitAuth: true,
-          replitUser: {
-            sub: passportUser.sub,
-            username: passportUser.username,
-            email: passportUser.email,
-            name: passportUser.name || passportUser.username
-          }
+          replitUser: req.session.user
         });
       }
-
-      return next();
     }
+
 
     // Fallback to JWT token authentication
     const authHeader = req.headers.authorization;
@@ -181,13 +155,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ message: 'Unauthorized: User not found' });
     }
 
-    (req as AuthRequest).user = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      replitId: user.replitId
-    };
+    (req as AuthRequest).user = user;
     next();
   } catch (error) {
     console.error('Auth error:', error);
