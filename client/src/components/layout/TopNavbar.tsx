@@ -174,14 +174,19 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
             {/* Account Selector Dropdown moved to left corner */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 min-w-[180px]">
-                  <CircleDollarSign className="h-4 w-4" />
-                  <span className="truncate">
-                    {selectedAccount === "all" 
-                      ? "All Accounts" 
-                      : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
+                <Button variant="ghost" className="flex items-center gap-2 min-w-[180px] h-10 rounded-lg bg-background hover:bg-accent/10">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2 text-primary">
+                      <path d="M4.5 3.75a3 3 0 00-3 3v.75h21v-.75a3 3 0 00-3-3h-15z" />
+                      <path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 003 3h15a3 3 0 003-3v-7.5zm-18 3.75a.75.75 0 01.75-.75h6a.75.75 0 010 1.5h-6a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-semibold">
+                      {selectedAccount === "all" 
+                        ? "All Accounts" 
+                        : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
+                    </span>
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-auto" />
+                  <ChevronDown className="h-4 w-4 ml-auto opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[300px]">

@@ -85,18 +85,7 @@ const Sidebar = () => {
 
       <div className={sidebarClasses}>
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="flex items-center space-x-2">
-            <svg className="h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 5C4 4.44772 4.44772 4 5 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V5Z" stroke="currentColor" strokeWidth="2"/>
-              <path d="M4 9H20" stroke="currentColor" strokeWidth="2"/>
-              <path d="M8 9V20" stroke="currentColor" strokeWidth="2"/>
-              <path d="M9 15L15 15" stroke="currentColor" strokeWidth="2"/>
-              <path d="M9 18L13 18" stroke="currentColor" strokeWidth="2"/>
-            </svg>
-            <h1 className="text-xl font-bold">TradeBrain AI</h1>
-          </div>
-          
-          {/* Mobile close button */}
+          {/* Mobile close button only */}
           <button 
             className="lg:hidden text-gray-400 hover:text-white"
             onClick={closeMobileMenu}
