@@ -47,7 +47,8 @@ const AssetAllocation = ({ data }: AssetAllocationProps) => {
     <Card className="h-full">
       <CardContent className="p-0">
         <div className="px-5 py-4">
-          <h3 className="text-lg font-medium">Asset Allocation</h3>
+          <h3 className="text-lg font-medium">Asset Allocation by Type</h3>
+          <p className="text-sm text-muted-foreground mt-1">Cash, Stocks, and Crypto assets</p>
         </div>
         <div className="flex flex-col md:flex-row p-4">
           <div className="w-full md:w-1/2 h-64">
@@ -87,12 +88,19 @@ const AssetAllocation = ({ data }: AssetAllocationProps) => {
                 <div key={`legend-${item.name}-${index}`} className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div 
-                      className="w-3 h-3 rounded-sm mr-2" 
+                      className="w-4 h-4 rounded-sm mr-2" 
                       style={{ backgroundColor: item.color || COLORS[index % COLORS.length] }}
                     ></div>
-                    <span className="text-sm">{item.name}</span>
+                    <span className="text-sm font-medium">{item.name}</span>
                   </div>
-                  <span className="text-sm font-medium">{((item.value / total) * 100).toFixed(0)}%</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm font-medium">{((item.value / total) * 100).toFixed(0)}%</span>
+                    {item.originalValue && (
+                      <span className="text-xs text-muted-foreground">
+                        ${new Intl.NumberFormat('en-US').format(Math.round(item.originalValue))}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

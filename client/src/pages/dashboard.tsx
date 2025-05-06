@@ -260,35 +260,64 @@ const Dashboard = () => {
       assetGroups: Object.fromEntries(assetGroups) 
     });
     
-    // Format for chart with fixed colors per asset
-    const colors = ["#3B82F6", "#6366F1", "#10B981", "#F59E0B", "#EF4444", 
-                    "#EC4899", "#8B5CF6", "#14B8A6", "#F97316", "#06B6D4"];
+    // Define the asset class categories and their fixed colors
+    const assetClassColors = {
+      "Cash": "#EF4444",    // Red
+      "Stocks": "#3B82F6",  // Blue
+      "Crypto": "#10B981"   // Green
+    };
+    
+    // Group by asset class instead of individual securities
+    const assetClassGroups = new Map<string, number>();
+    
+    // Set initial cash value
+    assetClassGroups.set("Cash", cashValue);
+    
+    // Group all non-cash assets as "Stocks" for now
+    // In the future, we can detect crypto assets and group them separately
+    let stocksValue = 0;
+    let cryptoValue = 0;
+    
+    Array.from(assetGroups.entries()).forEach(([name, value]) => {
+      if (name !== "Cash") {
+        // In the future, add logic to detect crypto vs. stocks
+        // For now, all non-cash assets are considered stocks
+        stocksValue += value;
+      }
+    });
+    
+    // Add the stock assets to the asset class groups if there are any
+    if (stocksValue > 0) {
+      assetClassGroups.set("Stocks", stocksValue);
+    }
+    
+    // Add crypto assets to the asset class groups if there are any (future feature)
+    if (cryptoValue > 0) {
+      assetClassGroups.set("Crypto", cryptoValue);
+    }
     
     // Convert to percentage values for the pie chart
-    const result = Array.from(assetGroups.entries())
-      .map(([name, value], index) => {
-        // For short positions (negative value), we want to show them as positive percentages
-        // but with a "Short" indicator in the name
+    const result = Array.from(assetClassGroups.entries())
+      .map(([name, value]) => {
         const absValue = Math.abs(value);
-        const displayName = value < 0 ? `${name} (Short)` : name;
         const percentage = totalEquity > 0 ? Math.round((absValue / totalEquity) * 100) : 0;
         
         return {
-          name: displayName,
+          name,
           value: percentage,
-          color: name === "Cash" ? "#EF4444" : colors[index % colors.length],
+          color: assetClassColors[name as keyof typeof assetClassColors],
           // Store the original market value for sorting
           originalValue: absValue
         };
       })
-      .filter(item => item.value > 0) // Still filter zero values
+      .filter(item => item.value > 0) // Filter zero values
       .sort((a, b) => b.originalValue - a.originalValue);
     
-    console.log("Final asset allocation data:", result);
+    console.log("Final asset allocation data (by asset class):", result);
     
     // If there's no data, show 100% cash
     if (result.length === 0) {
-      result.push({ name: "Cash", value: 100, color: "#EF4444", originalValue: 100 });
+      result.push({ name: "Cash", value: 100, color: assetClassColors["Cash"], originalValue: 100 });
     }
     
     // Update the asset allocation data
