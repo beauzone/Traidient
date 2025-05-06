@@ -167,301 +167,283 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   };
 
   return (
-      <div className="bg-dark-surface border-b border-border">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="hidden sm:flex sm:items-center ml-4">
-                <div className="relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <Input
-                    type="text"
-                    placeholder="Search..."
-                    className="pl-10 bg-background border-border"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <div className="flex items-center">
-                {/* Account Selector Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2 min-w-[180px]">
-                      <CircleDollarSign className="h-4 w-4" />
-                      <span className="truncate">
-                        {selectedAccount === "all" 
-                          ? "All Accounts" 
-                          : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
-                      </span>
-                      <ChevronDown className="h-4 w-4 ml-auto" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[300px]">
-                    <DropdownMenuItem 
+    <div className="bg-dark-surface border-b border-border">
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            {/* Account Selector Dropdown moved to left corner */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 min-w-[180px]">
+                  <CircleDollarSign className="h-4 w-4" />
+                  <span className="truncate">
+                    {selectedAccount === "all" 
+                      ? "All Accounts" 
+                      : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-auto" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[300px]">
+                <DropdownMenuItem 
+                  className="flex justify-between py-2 px-4 cursor-pointer"
+                  onClick={() => setSelectedAccount("all")}
+                >
+                  <div className="font-semibold">All Accounts</div>
+                  <div>{formatCurrency(accounts.reduce((sum, account) => sum + (account.portfolioValue || account.equity || account.balance || 0), 0))}</div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>LIVE ACCOUNTS</DropdownMenuLabel>
+                
+                {accounts
+                  .filter(account => account.accountType === 'live')
+                  .map(account => (
+                    <DropdownMenuItem
+                      key={account.id}
                       className="flex justify-between py-2 px-4 cursor-pointer"
-                      onClick={() => setSelectedAccount("all")}
+                      onClick={() => setSelectedAccount(account.id.toString())}
                     >
-                      <div className="font-semibold">All Accounts</div>
-                      <div>{formatCurrency(accounts.reduce((sum, account) => sum + (account.portfolioValue || account.equity || account.balance || 0), 0))}</div>
-                    </DropdownMenuItem>
-                    
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>LIVE ACCOUNTS</DropdownMenuLabel>
-                    
-                    {accounts
-                      .filter(account => account.accountType === 'live')
-                      .map(account => (
-                        <DropdownMenuItem
-                          key={account.id}
-                          className="flex justify-between py-2 px-4 cursor-pointer"
-                          onClick={() => setSelectedAccount(account.id.toString())}
-                        >
-                          <div>
-                            <div className="font-medium">{account.name}</div>
-                            <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
-                          </div>
-                          <div className="flex flex-col items-end">
-                            <div>{formatCurrency(account.portfolioValue || account.equity || account.balance || 0)}</div>
-                            {account.performance !== undefined && (
-                              <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
-                                {formatPercentage(account.performance)}
-                              </div>
-                            )}
-                          </div>
-                        </DropdownMenuItem>
-                      ))
-                    }
-                    
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>PAPER ACCOUNTS</DropdownMenuLabel>
-                    
-                    {accounts
-                      .filter(account => account.accountType === 'paper')
-                      .map(account => (
-                        <DropdownMenuItem
-                          key={account.id}
-                          className="flex justify-between py-2 px-4 cursor-pointer"
-                          onClick={() => setSelectedAccount(account.id.toString())}
-                        >
-                          <div>
-                            <div className="font-medium">{account.name}</div>
-                            <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
-                          </div>
-                          <div className="flex flex-col items-end">
-                            <div>{formatCurrency(account.portfolioValue || account.equity || account.balance || 0)}</div>
-                            {account.performance !== undefined && (
-                              <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
-                                {formatPercentage(account.performance)}
-                              </div>
-                            )}
-                          </div>
-                        </DropdownMenuItem>
-                      ))
-                    }
-                    
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>ACCOUNT MANAGEMENT</DropdownMenuLabel>
-                    <DropdownMenuItem>
-                      <Link href="/settings" className="w-full">
-                        Account Settings
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              
-              <div className="flex items-center md:ml-6">
-                {/* Market Status Indicators */}
-                <div className="flex items-center mr-4">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center mr-3">
-                          <div className={`w-2 h-2 rounded-full mr-1.5 ${marketStatus.isMarketOpen ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                          <span className="text-xs font-medium">
-                            Market {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
-                          </span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">U.S. Stock Market status</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center">
-                          <Database className="h-3.5 w-3.5 mr-1" />
-                          <span className="text-xs font-medium">
-                            {marketStatus.dataSource || 'Unknown'}
-                          </span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">Current data provider</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                
-                {/* Notification dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative">
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 h-4 w-4 bg-accent rounded-full flex items-center justify-center">
-                          <span className="text-xs text-white">{unreadCount}</span>
-                        </span>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[360px] p-0 max-h-[70vh] overflow-y-auto">
-                    <div className="flex items-center justify-between py-2 px-4 border-b">
-                      <div className="font-semibold">Notifications</div>
-                      {unreadCount > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 px-2 text-xs" 
-                          onClick={() => markAllAsReadMutation.mutate()}
-                          disabled={markAllAsReadMutation.isPending}
-                        >
-                          {markAllAsReadMutation.isPending ? (
-                            <span className="flex items-center">
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Marking...
-                            </span>
-                          ) : "Mark all as read"}
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {isLoadingNotifications && (
-                      <div className="py-4 px-4">
-                        <div className="space-y-4">
-                          {[1, 2, 3].map((i) => (
-                            <div key={i} className="flex items-start space-x-3">
-                              <Skeleton className="h-8 w-8 rounded-full" />
-                              <div className="space-y-2 flex-1">
-                                <Skeleton className="h-4 w-3/4" />
-                                <Skeleton className="h-3 w-full" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {!isLoadingNotifications && (!Array.isArray(notifications) || notifications.length === 0) && (
-                      <div className="py-6 px-4 text-center text-muted-foreground">
-                        <div className="flex justify-center mb-2">
-                          <Bell className="h-8 w-8 opacity-40" />
-                        </div>
-                        <p>No notifications yet</p>
-                      </div>
-                    )}
-                    
-                    {!isLoadingNotifications && Array.isArray(notifications) && notifications.length > 0 && (
                       <div>
-                        {notifications.map((notification) => {
-                          // Helper to get icon based on notification type
-                          const getNotificationIcon = () => {
-                            switch(notification.type) {
-                              case 'order_placed':
-                              case 'order_filled': 
-                              case 'order_rejected':
-                                return <ShoppingCart className="h-5 w-5" />;
-                              case 'backtest_finished':
-                                return <Clock className="h-5 w-5" />;
-                              case 'strategy_performance':
-                                return <BarChart4 className="h-5 w-5" />;
-                              case 'price':
-                              case 'price_change_percent':
-                              case 'volume':
-                                return <AlertCircle className="h-5 w-5" />;
-                              case 'market_events':
-                                return <Briefcase className="h-5 w-5" />;
-                              default:
-                                return <ShieldAlert className="h-5 w-5" />;
-                            }
-                          };
-                          
-                          // Get icon color based on severity
-                          const getSeverityColor = () => {
-                            switch(notification.severity) {
-                              case 'critical': return 'text-red-500';
-                              case 'high': return 'text-orange-500';
-                              case 'medium': return 'text-yellow-500';
-                              case 'low': return 'text-blue-500';
-                              default: return 'text-green-500';
-                            }
-                          };
-                          
-                          // Format notification time
-                          const formattedTime = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
-                          
-                          return (
-                            <DropdownMenuItem 
-                              key={notification.id}
-                              className={`py-3 px-4 border-b cursor-pointer flex items-start hover:bg-accent/10 ${!notification.isRead ? 'bg-accent/5' : ''}`}
-                              onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
-                            >
-                              <div className="flex items-start">
-                                <div className={`mr-3 mt-1 ${getSeverityColor()}`}>
-                                  {getNotificationIcon()}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex justify-between">
-                                    <span className="font-medium text-sm">{notification.title}</span>
-                                    <span className="text-xs text-muted-foreground ml-2">{formattedTime}</span>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                                  
-                                  {notification.metadata && notification.metadata.symbol && (
-                                    <Badge variant="outline" className="mt-2">
-                                      {notification.metadata.symbol}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </DropdownMenuItem>
-                          );
-                        })}
-                        
-                        {/* View all notifications link */}
-                        <div className="border-t">
-                          <DropdownMenuItem asChild>
-                            <Link href="/settings?tab=notifications" className="w-full flex justify-center py-2">
-                              <span className="text-sm font-medium text-primary">View all notifications</span>
-                            </Link>
-                          </DropdownMenuItem>
-                        </div>
+                        <div className="font-medium">{account.name}</div>
+                        <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
                       </div>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <div className="flex flex-col items-end">
+                        <div>{formatCurrency(account.portfolioValue || account.equity || account.balance || 0)}</div>
+                        {account.performance !== undefined && (
+                          <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
+                            {formatPercentage(account.performance)}
+                          </div>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                }
                 
-                {/* Theme toggle */}
-                <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-3">
-                  {theme === 'dark' ? (
-                    <Moon className="h-5 w-5" />
-                  ) : (
-                    <Sun className="h-5 w-5" />
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>PAPER ACCOUNTS</DropdownMenuLabel>
+                
+                {accounts
+                  .filter(account => account.accountType === 'paper')
+                  .map(account => (
+                    <DropdownMenuItem
+                      key={account.id}
+                      className="flex justify-between py-2 px-4 cursor-pointer"
+                      onClick={() => setSelectedAccount(account.id.toString())}
+                    >
+                      <div>
+                        <div className="font-medium">{account.name}</div>
+                        <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <div>{formatCurrency(account.portfolioValue || account.equity || account.balance || 0)}</div>
+                        {account.performance !== undefined && (
+                          <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
+                            {formatPercentage(account.performance)}
+                          </div>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                }
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>ACCOUNT MANAGEMENT</DropdownMenuLabel>
+                <DropdownMenuItem>
+                  <Link href="/settings" className="w-full">
+                    Account Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          
+          <div className="flex items-center">
+            {/* Market Status Indicators */}
+            <div className="flex items-center mr-4">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center mr-3">
+                      <div className={`w-2 h-2 rounded-full mr-1.5 ${marketStatus.isMarketOpen ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-xs font-medium">
+                        Market {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">U.S. Stock Market status</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center">
+                      <Database className="h-3.5 w-3.5 mr-1" />
+                      <span className="text-xs font-medium">
+                        {marketStatus.dataSource || 'Unknown'}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Current data provider</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            {/* Notification dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-accent rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white">{unreadCount}</span>
+                    </span>
                   )}
                 </Button>
-              </div>
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[360px] p-0 max-h-[70vh] overflow-y-auto">
+                <div className="flex items-center justify-between py-2 px-4 border-b">
+                  <div className="font-semibold">Notifications</div>
+                  {unreadCount > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 px-2 text-xs" 
+                      onClick={() => markAllAsReadMutation.mutate()}
+                      disabled={markAllAsReadMutation.isPending}
+                    >
+                      {markAllAsReadMutation.isPending ? (
+                        <span className="flex items-center">
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Marking...
+                        </span>
+                      ) : "Mark all as read"}
+                    </Button>
+                  )}
+                </div>
+                
+                {isLoadingNotifications && (
+                  <div className="py-4 px-4">
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-start space-x-3">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <div className="space-y-2 flex-1">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-3 w-full" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {!isLoadingNotifications && (!Array.isArray(notifications) || notifications.length === 0) && (
+                  <div className="py-6 px-4 text-center text-muted-foreground">
+                    <div className="flex justify-center mb-2">
+                      <Bell className="h-8 w-8 opacity-40" />
+                    </div>
+                    <p>No notifications yet</p>
+                  </div>
+                )}
+                
+                {!isLoadingNotifications && Array.isArray(notifications) && notifications.length > 0 && (
+                  <div>
+                    {notifications.map((notification) => {
+                      // Helper to get icon based on notification type
+                      const getNotificationIcon = () => {
+                        switch(notification.type) {
+                          case 'order_placed':
+                          case 'order_filled': 
+                          case 'order_rejected':
+                            return <ShoppingCart className="h-5 w-5" />;
+                          case 'backtest_finished':
+                            return <Clock className="h-5 w-5" />;
+                          case 'strategy_performance':
+                            return <BarChart4 className="h-5 w-5" />;
+                          case 'price':
+                          case 'price_change_percent':
+                          case 'volume':
+                            return <AlertCircle className="h-5 w-5" />;
+                          case 'market_events':
+                            return <Briefcase className="h-5 w-5" />;
+                          default:
+                            return <ShieldAlert className="h-5 w-5" />;
+                        }
+                      };
+                      
+                      // Get icon color based on severity
+                      const getSeverityColor = () => {
+                        switch(notification.severity) {
+                          case 'critical': return 'text-red-500';
+                          case 'high': return 'text-orange-500';
+                          case 'medium': return 'text-yellow-500';
+                          case 'low': return 'text-blue-500';
+                          default: return 'text-green-500';
+                        }
+                      };
+                      
+                      // Format notification time
+                      const formattedTime = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
+                      
+                      return (
+                        <DropdownMenuItem 
+                          key={notification.id}
+                          className={`py-3 px-4 border-b cursor-pointer flex items-start hover:bg-accent/10 ${!notification.isRead ? 'bg-accent/5' : ''}`}
+                          onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
+                        >
+                          <div className="flex items-start">
+                            <div className={`mr-3 mt-1 ${getSeverityColor()}`}>
+                              {getNotificationIcon()}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <span className="font-medium text-sm">{notification.title}</span>
+                                <span className="text-xs text-muted-foreground ml-2">{formattedTime}</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                              
+                              {notification.metadata && notification.metadata.symbol && (
+                                <Badge variant="outline" className="mt-2">
+                                  {notification.metadata.symbol}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    
+                    {/* View all notifications link */}
+                    <div className="border-t">
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings?tab=notifications" className="w-full flex justify-center py-2">
+                          <span className="text-sm font-medium text-primary">View all notifications</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    </div>
+                  </div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            {/* Theme toggle */}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-3">
+              {theme === 'dark' ? (
+                <Moon className="h-5 w-5" />
+              ) : (
+                <Sun className="h-5 w-5" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
+    </div>
   );
 };
 
