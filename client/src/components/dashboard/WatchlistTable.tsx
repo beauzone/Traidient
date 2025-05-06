@@ -227,8 +227,8 @@ const WatchlistTable = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
             </div>
           ) : watchlist.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Your watchlist is empty. Add symbols to track their performance.</p>
+            <div className="text-center py-8">
+              <p>Your watchlist is empty</p>
             </div>
           ) : (
             <Table>
@@ -249,7 +249,7 @@ const WatchlistTable = () => {
                     <TableCell>
                       <div className="flex items-center">
                         <div className="text-sm font-medium">{item.symbol}</div>
-                        <div className="ml-2 text-xs text-muted-foreground">{item.name}</div>
+                        <div className="ml-2 text-xs">{item.name}</div>
                       </div>
                     </TableCell>
                     <TableCell>

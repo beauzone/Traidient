@@ -95,7 +95,7 @@ const AssetAllocation = ({ data }: AssetAllocationProps) => {
                   <div className="flex flex-col items-end">
                     <span className="text-sm font-medium">{((item.value / total) * 100).toFixed(0)}%</span>
                     {item.originalValue && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs">
                         ${new Intl.NumberFormat('en-US').format(Math.round(item.originalValue))}
                       </span>
                     )}
