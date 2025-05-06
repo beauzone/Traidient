@@ -127,7 +127,7 @@ export function WebhookManager() {
 
   // Delete webhook
   const deleteWebhookMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/webhooks/${id}`),
+    mutationFn: (id: number) => apiRequest(`/api/webhooks/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
       setCurrentWebhook(null);
