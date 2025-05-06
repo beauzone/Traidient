@@ -2118,12 +2118,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Get portfolio history from Alpaca
-        const historyData = await alpacaAPI.getPortfolioHistory(
-          period as string, 
-          timeframe as string
-        );
-        
-        console.log(`Retrieved portfolio history with ${historyData.timestamp.length} data points`);
+        let historyData;
+        try {
+          // First try with user's keys
+          historyData = await alpacaAPI.getPortfolioHistory(
+            period as string, 
+            timeframe as string
+          );
+          console.log(`Retrieved portfolio history with ${historyData.timestamp.length} data points`);
+        } catch (historyError) {
+          const errorMessage = historyError instanceof Error ? historyError.message : String(historyError);
+          console.error('Error fetching portfolio history from Alpaca:', errorMessage);
+          
+          if (errorMessage.toLowerCase().includes('forbidden')) {
+            console.log("Trying fallback to environment API keys for Alpaca portfolio history");
+            try {
+              // Create API client with environment credentials as fallback
+              const fallbackAPI = new AlpacaAPI();
+              historyData = await fallbackAPI.getPortfolioHistory(
+                period as string, 
+                timeframe as string
+              );
+              console.log(`Successfully used environment API keys for portfolio history (${historyData.timestamp.length} data points)`);
+            } catch (fallbackError) {
+              console.error("Fallback to environment API keys for portfolio history also failed:", fallbackError);
+              return res.status(500).json({ error: "Failed to retrieve portfolio history data" });
+            }
+          } else {
+            // Re-throw if it's not an auth error
+            return res.status(500).json({ error: "Failed to retrieve portfolio history data: " + errorMessage });
+          }
+        }
         
         // Format the response for the frontend
         res.json({
@@ -2180,8 +2205,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Get real orders from Alpaca
-        const orders = await alpacaAPI.getOrders();
-        console.log(`Retrieved ${orders.length} orders from Alpaca`);
+        let orders: any[] = [];
+        try {
+          // First try with user's keys
+          orders = await alpacaAPI.getOrders();
+          console.log(`Retrieved ${orders.length} orders from Alpaca`);
+        } catch (ordersError) {
+          const errorMessage = ordersError instanceof Error ? ordersError.message : String(ordersError);
+          console.warn("Error fetching orders with user's Alpaca keys:", errorMessage);
+          
+          if (errorMessage.toLowerCase().includes('forbidden')) {
+            console.log("Trying fallback to environment API keys for Alpaca orders");
+            try {
+              // Create API client with environment credentials as fallback
+              const fallbackAPI = new AlpacaAPI();
+              orders = await fallbackAPI.getOrders();
+              console.log(`Successfully used environment API keys for Alpaca orders (${orders.length})`);
+            } catch (fallbackError) {
+              console.error("Fallback to environment API keys for orders also failed:", fallbackError);
+              console.error("Returning empty orders array");
+            }
+          }
+        }
         
         // Format for frontend
         const formattedOrders = orders.map((order: any) => ({
@@ -2275,8 +2320,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (positionStatus === 'closed') {
           // Fetch closed positions with a 90-day lookback by default
-          const closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
-          console.log(`Retrieved ${closedPositions.length} closed positions from Alpaca`);
+          let closedPositions: any[] = [];
+          
+          try {
+            closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+            console.log(`Retrieved ${closedPositions.length} closed positions from Alpaca`);
+          } catch (closedError) {
+            const errorMessage = closedError instanceof Error ? closedError.message : String(closedError);
+            console.warn("Error fetching closed positions with user's Alpaca keys:", errorMessage);
+            
+            if (errorMessage.toLowerCase().includes('forbidden')) {
+              console.log("Trying fallback to environment API keys for Alpaca closed positions");
+              try {
+                // Create API client with environment credentials as fallback
+                const fallbackAPI = new AlpacaAPI();
+                closedPositions = await fallbackAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+                console.log(`Successfully used environment API keys for Alpaca closed positions (${closedPositions.length})`);
+              } catch (fallbackError) {
+                console.error("Fallback to environment API keys for closed positions also failed:", fallbackError);
+                console.error("Returning empty closed positions array");
+              }
+            }
+          }
           
           // Format closed positions for frontend
           positions = closedPositions.map((position: any) => ({
@@ -2369,8 +2434,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           positions = [...formattedOpenPositions, ...formattedClosedPositions];
         } else {
           // Default to open positions
-          const openPositions = await alpacaAPI.getPositions();
-          console.log(`Retrieved ${openPositions.length} open positions from Alpaca`);
+          let openPositions: any[] = [];
+          
+          try {
+            openPositions = await alpacaAPI.getPositions();
+            console.log(`Retrieved ${openPositions.length} open positions from Alpaca`);
+          } catch (openError) {
+            const errorMessage = openError instanceof Error ? openError.message : String(openError);
+            console.warn("Error fetching open positions with user's Alpaca keys:", errorMessage);
+            
+            if (errorMessage.toLowerCase().includes('forbidden')) {
+              console.log("Trying fallback to environment API keys for Alpaca open positions");
+              try {
+                // Create API client with environment credentials as fallback
+                const fallbackAPI = new AlpacaAPI();
+                openPositions = await fallbackAPI.getPositions();
+                console.log(`Successfully used environment API keys for Alpaca open positions (${openPositions.length})`);
+              } catch (fallbackError) {
+                console.error("Fallback to environment API keys for open positions also failed:", fallbackError);
+                console.error("Returning empty positions array");
+              }
+            }
+          }
           
           // Format open positions for frontend
           positions = openPositions.map((position: any) => ({
