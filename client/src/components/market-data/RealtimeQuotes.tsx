@@ -67,23 +67,7 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
             {connected ? 'Connected' : 'Disconnected'}
           </Badge>
         </CardTitle>
-        <CardDescription className="space-y-1">
-          <div>Watch real-time price updates for your favorite symbols</div>
-          {connected && (
-            <div className="flex items-center text-xs space-x-2">
-              <Badge variant={marketStatus.isMarketOpen ? "default" : "secondary"} className="px-1 py-0">
-                {marketStatus.isMarketOpen ? "Market Open" : "Market Closed"}
-              </Badge>
-              <span>Data Source: {
-                marketStatus.dataSource === 'yahoo' ? 'Yahoo Finance' : 
-                marketStatus.dataSource === 'alpaca' ? 'Alpaca API' : 
-                marketStatus.dataSource === 'alpaca-simulation' ? 'Market Simulation' :
-                marketStatus.dataSource === 'reference-data-fallback' ? 'Reference Data' :
-                marketStatus.dataSource
-              }</span>
-            </div>
-          )}
-        </CardDescription>
+        <CardDescription></CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex space-x-2 mb-4">

@@ -100,7 +100,7 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
           </div>
         ) : positions.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No positions found</p>
+            <p className="">No positions found</p>
             <p className="text-sm text-muted-foreground mt-1">Deploy a strategy to start trading</p>
           </div>
         ) : (

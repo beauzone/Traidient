@@ -608,7 +608,7 @@ const OrdersTable = () => {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No orders found</p>
+            <p className="">No orders found</p>
             <p className="text-sm text-muted-foreground mt-1">
               {orderTab === "open" ? "Place an order to start trading" : "No matching orders for the selected filter"}
             </p>

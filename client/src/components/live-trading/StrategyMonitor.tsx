@@ -61,7 +61,7 @@ const StrategyMonitor = ({ strategies, deployments, selectedDeployment }: Strate
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No deployment selected</p>
+            <p className="">No deployment selected</p>
             <p className="text-sm text-muted-foreground mt-1">Select a strategy deployment from the Overview tab</p>
           </div>
         </CardContent>
@@ -219,7 +219,7 @@ const StrategyMonitor = ({ strategies, deployments, selectedDeployment }: Strate
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center">
-                  <p className="text-muted-foreground">No performance data available</p>
+                  <p className="">No performance data available</p>
                 </div>
               )}
             </div>
@@ -230,19 +230,19 @@ const StrategyMonitor = ({ strategies, deployments, selectedDeployment }: Strate
               <h3 className="font-medium mb-2">Runtime Info</h3>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status:</span>
+                  <span className="">Status:</span>
                   <span>{selectedDeployment.status.charAt(0).toUpperCase() + selectedDeployment.status.slice(1)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Last Heartbeat:</span>
+                  <span className="">Last Heartbeat:</span>
                   <span>{selectedDeployment.runtime?.lastHeartbeat ? formatTime(selectedDeployment.runtime.lastHeartbeat) : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Uptime:</span>
+                  <span className="">Uptime:</span>
                   <span>{calculateUptime()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Deployed:</span>
+                  <span className="">Deployed:</span>
                   <span>{formatDate(selectedDeployment.createdAt)}</span>
                 </div>
               </div>
@@ -252,15 +252,15 @@ const StrategyMonitor = ({ strategies, deployments, selectedDeployment }: Strate
               <h3 className="font-medium mb-2">Strategy Info</h3>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Type:</span>
+                  <span className="">Type:</span>
                   <span>{strategy.type}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Assets:</span>
+                  <span className="">Assets:</span>
                   <span>{strategy.configuration.assets.join(', ')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Risk Controls:</span>
+                  <span className="">Risk Controls:</span>
                   <span>
                     {strategy.configuration.riskControls ? (
                       `${strategy.configuration.riskControls.maxPositionSize}% max position`
@@ -268,7 +268,7 @@ const StrategyMonitor = ({ strategies, deployments, selectedDeployment }: Strate
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Last Updated:</span>
+                  <span className="">Last Updated:</span>
                   <span>{formatDate(strategy.updatedAt)}</span>
                 </div>
               </div>

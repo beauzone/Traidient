@@ -421,7 +421,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
         </>
       ) : (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">No data available for {symbol}</p>
+          <p className="">No data available for {symbol}</p>
         </div>
       )}
 
@@ -665,7 +665,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No historical data available for {symbol}</p>
+              <p className="">No historical data available for {symbol}</p>
             </div>
           )}
         </CardContent>
