@@ -7,11 +7,22 @@ import { z } from 'zod';
 const router = express.Router();
 
 // Middleware to ensure user is authenticated
-const ensureAuthenticated = (req: any, res: Response, next: Function) => {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Unauthorized: Authentication required' });
+const ensureAuthenticated = async (req: any, res: Response, next: Function) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized: Authentication required' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    // Verify token and set user
+    const decoded = await storage.verifyAuthToken(token);
+    req.user = { id: decoded.userId };
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
   }
-  next();
 };
 
 // Get all webhooks for current user
