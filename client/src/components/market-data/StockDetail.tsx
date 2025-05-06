@@ -380,19 +380,15 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create Strategy for {symbol}</DialogTitle>
-                  <DialogDescription>
-                    Generate an AI-powered trading strategy for this asset
-                  </DialogDescription>
+                  <DialogDescription></DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    We'll create a momentum-based strategy for {symbol} that you can customize and backtest.
-                  </p>
+
                   <div className="flex items-center space-x-2">
                     <LineChartIcon className="h-12 w-12 text-primary" />
                     <div>
                       <h4 className="font-medium">Momentum Strategy</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm">
                         Buy on breakouts, sell on pullbacks
                       </p>
                     </div>

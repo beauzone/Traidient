@@ -89,8 +89,8 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
 
         <div className="grid gap-2">
           {subscribedSymbols.length === 0 ? (
-            <div className="text-center text-muted-foreground p-4">
-              No symbols added yet. Add a symbol to see real-time updates.
+            <div className="text-center p-4">
+              No symbols added yet
             </div>
           ) : (
             subscribedSymbols.map((symbol) => {
