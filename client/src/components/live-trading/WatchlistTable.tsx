@@ -194,7 +194,7 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add to Watchlist</DialogTitle>
-              <DialogDescription></DialogDescription>
+
             </DialogHeader>
             <form onSubmit={handleAddSymbol}>
               <div className="grid gap-4 py-4">

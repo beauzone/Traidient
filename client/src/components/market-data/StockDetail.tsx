@@ -380,7 +380,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create Strategy for {symbol}</DialogTitle>
-                  <DialogDescription></DialogDescription>
+
                 </DialogHeader>
                 <div className="py-4">
 
