@@ -145,9 +145,6 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle>Positions</CardTitle>
-              <CardDescription>
-                Current holdings in your portfolio
-              </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <div className="relative w-full sm:w-64">

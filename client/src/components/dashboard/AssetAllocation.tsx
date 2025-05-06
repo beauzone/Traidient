@@ -48,7 +48,6 @@ const AssetAllocation = ({ data }: AssetAllocationProps) => {
       <CardContent className="p-0">
         <div className="px-5 py-4">
           <h3 className="text-lg font-medium">Asset Allocation by Type</h3>
-          <p className="text-sm text-muted-foreground mt-1">Cash, Stocks, and Crypto assets</p>
         </div>
         <div className="flex flex-col md:flex-row p-4">
           <div className="w-full md:w-1/2 h-64">
