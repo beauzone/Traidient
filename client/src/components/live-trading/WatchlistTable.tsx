@@ -194,9 +194,7 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add to Watchlist</DialogTitle>
-              <DialogDescription>
-                Add a new symbol to your watchlist to track its performance.
-              </DialogDescription>
+              <DialogDescription></DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddSymbol}>
               <div className="grid gap-4 py-4">
@@ -279,8 +277,8 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
             </div>
           ) : displayData.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Your watchlist is empty. Add symbols to track their performance.</p>
+            <div className="text-center py-8">
+              <p>Your watchlist is empty.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-800">

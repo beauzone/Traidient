@@ -78,9 +78,7 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
         <div className="flex justify-between items-center">
           <div>
             <CardTitle>Open Positions</CardTitle>
-            <CardDescription>
-              Currently active market positions
-            </CardDescription>
+
           </div>
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -100,8 +98,7 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
           </div>
         ) : positions.length === 0 ? (
           <div className="text-center py-8">
-            <p className="">No positions found</p>
-            <p className="text-sm text-muted-foreground mt-1">Deploy a strategy to start trading</p>
+            <p>No positions found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -127,7 +124,7 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
                       >
                         {position.symbol}
                       </div>
-                      <div className="text-xs text-muted-foreground">{position.assetName}</div>
+                      <div className="text-xs">{position.assetName}</div>
                     </TableCell>
                     <TableCell>{position.quantity}</TableCell>
                     <TableCell>{formatCurrency(position.averageEntryPrice)}</TableCell>
