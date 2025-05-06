@@ -3681,8 +3681,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Register webhook routes
-  app.use('/api/webhooks', webhookRoutes);
+  // Register webhook routes - use the main auth middleware
+  app.use('/api/webhooks', authMiddleware, webhookRoutes);
   
   // Register bot routes
   app.use('/api/bots', authMiddleware, botRoutes);

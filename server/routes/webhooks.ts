@@ -6,27 +6,10 @@ import { z } from 'zod';
 
 const router = express.Router();
 
-// Middleware to ensure user is authenticated
-const ensureAuthenticated = async (req: any, res: Response, next: Function) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Unauthorized: Authentication required' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    // Verify token and set user
-    const decoded = await storage.verifyAuthToken(token);
-    req.user = { id: decoded.userId };
-    next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-  }
-};
+// Note: This route is now protected by the main authMiddleware from routes.ts
 
 // Get all webhooks for current user
-router.get('/', ensureAuthenticated, async (req: any, res: Response) => {
+router.get('/', async (req: any, res: Response) => {
   try {
     const webhooks = await storage.getWebhooksByUser(req.user.id);
     res.json(webhooks);
@@ -37,7 +20,7 @@ router.get('/', ensureAuthenticated, async (req: any, res: Response) => {
 });
 
 // Create a new webhook
-router.post('/', ensureAuthenticated, async (req: any, res: Response) => {
+router.post('/', async (req: any, res: Response) => {
   try {
     // Validate request body
     const validatedData = insertWebhookSchema.parse({
@@ -61,7 +44,7 @@ router.post('/', ensureAuthenticated, async (req: any, res: Response) => {
 });
 
 // Get a specific webhook by ID
-router.get('/:id', ensureAuthenticated, async (req: any, res: Response) => {
+router.get('/:id', async (req: any, res: Response) => {
   try {
     const webhook = await storage.getWebhook(Number(req.params.id));
     
@@ -81,7 +64,7 @@ router.get('/:id', ensureAuthenticated, async (req: any, res: Response) => {
 });
 
 // Update a webhook
-router.put('/:id', ensureAuthenticated, async (req: any, res: Response) => {
+router.put('/:id', async (req: any, res: Response) => {
   try {
     const webhookId = Number(req.params.id);
     const webhook = await storage.getWebhook(webhookId);
@@ -106,7 +89,7 @@ router.put('/:id', ensureAuthenticated, async (req: any, res: Response) => {
 });
 
 // Delete a webhook
-router.delete('/:id', ensureAuthenticated, async (req: any, res: Response) => {
+router.delete('/:id', async (req: any, res: Response) => {
   try {
     const webhookId = Number(req.params.id);
     const webhook = await storage.getWebhook(webhookId);
@@ -128,7 +111,7 @@ router.delete('/:id', ensureAuthenticated, async (req: any, res: Response) => {
 });
 
 // Get logs for a webhook
-router.get('/:id/logs', ensureAuthenticated, async (req: any, res: Response) => {
+router.get('/:id/logs', async (req: any, res: Response) => {
   try {
     const webhookId = Number(req.params.id);
     const webhook = await storage.getWebhook(webhookId);
