@@ -2294,8 +2294,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }));
         } else if (positionStatus === 'all') {
           // Fetch both open and closed positions (with 90-day lookback for closed positions by default)
-          const openPositions = await alpacaAPI.getPositions();
-          const closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+          let openPositions: any[] = [];
+          let closedPositions: any[] = [];
+          
+          try {
+            openPositions = await alpacaAPI.getPositions();
+          } catch (openError) {
+            const errorMessage = openError instanceof Error ? openError.message : String(openError);
+            console.warn("Error fetching open positions with user's Alpaca keys:", errorMessage);
+            
+            if (errorMessage.toLowerCase().includes('forbidden')) {
+              console.log("Trying fallback to environment API keys for Alpaca open positions");
+              try {
+                // Create API client with environment credentials as fallback
+                const fallbackAPI = new AlpacaAPI();
+                openPositions = await fallbackAPI.getPositions();
+                console.log("Successfully used environment API keys for Alpaca open positions");
+              } catch (fallbackError) {
+                console.error("Fallback to environment API keys for open positions also failed:", fallbackError);
+              }
+            }
+          }
+          
+          try {
+            closedPositions = await alpacaAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+          } catch (closedError) {
+            const errorMessage = closedError instanceof Error ? closedError.message : String(closedError);
+            console.warn("Error fetching closed positions with user's Alpaca keys:", errorMessage);
+            
+            if (errorMessage.toLowerCase().includes('forbidden')) {
+              console.log("Trying fallback to environment API keys for Alpaca closed positions");
+              try {
+                // Create API client with environment credentials as fallback
+                const fallbackAPI = new AlpacaAPI();
+                closedPositions = await fallbackAPI.getClosedPositions(startDate || undefined, endDate || undefined, 100);
+                console.log("Successfully used environment API keys for Alpaca closed positions");
+              } catch (fallbackError) {
+                console.error("Fallback to environment API keys for closed positions also failed:", fallbackError);
+              }
+            }
+          }
           
           console.log(`Retrieved ${openPositions.length} open positions and ${closedPositions.length} closed positions from Alpaca`);
           
@@ -2469,7 +2507,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Try to get live account data
             try {
               console.log("Using user's Alpaca API integration for account data");
-              const account = await alpacaAPI.getAccount();
+              let account;
+              
+              try {
+                // Try with user's keys first
+                account = await alpacaAPI.getAccount();
+              } catch (userKeyError) {
+                const errorMessage = userKeyError instanceof Error ? userKeyError.message : String(userKeyError);
+                console.warn("Error with user's Alpaca keys:", errorMessage);
+                
+                if (errorMessage.toLowerCase().includes('forbidden')) {
+                  console.log("Trying fallback to environment API keys for Alpaca");
+                  // Create API client with environment credentials as fallback
+                  const fallbackAPI = new AlpacaAPI();
+                  account = await fallbackAPI.getAccount();
+                  console.log("Successfully used environment API keys for Alpaca account data");
+                } else {
+                  // Re-throw if it's not an auth error
+                  throw userKeyError;
+                }
+              }
               
               // Format for frontend with account name
               const accountName: string = 
