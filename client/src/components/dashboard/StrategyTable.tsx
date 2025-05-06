@@ -114,7 +114,7 @@ const StrategyTable = ({
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium">{strategy.name}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs">
                           Created {new Date(strategy.createdAt).toLocaleDateString(undefined, { 
                             year: 'numeric', 
                             month: 'short', 
@@ -140,7 +140,7 @@ const StrategyTable = ({
                         </span>
                       )}
                       {!Array.isArray(strategy.assets) && (
-                        <span className="text-xs text-muted-foreground">No assets</span>
+                        <span className="text-xs">No assets</span>
                       )}
                     </div>
                   </TableCell>
@@ -153,7 +153,7 @@ const StrategyTable = ({
                         {strategy.profitLoss.value} ({strategy.profitLoss.percentage})
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground">Not available</div>
+                      <div className="text-xs">Not available</div>
                     )}
                   </TableCell>
                   <TableCell>
@@ -171,7 +171,7 @@ const StrategyTable = ({
                         </div>
                       </>
                     ) : (
-                      <div className="text-xs text-muted-foreground">Not available</div>
+                      <div className="text-xs">Not available</div>
                     )}
                   </TableCell>
                   <TableCell>

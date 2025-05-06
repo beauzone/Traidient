@@ -54,7 +54,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-muted-foreground truncate">Total P&L</dt>
+                  <dt className="text-sm font-medium truncate">Total P&L</dt>
                   <dd>
                     <div className="flex items-baseline">
                       <div className="text-lg font-semibold">{totalPnL.value}</div>
@@ -91,7 +91,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-muted-foreground truncate">Today's Trades</dt>
+                  <dt className="text-sm font-medium truncate">Today's Trades</dt>
                   <dd>
                     <div className="text-lg font-semibold">{todayTrades}</div>
                   </dd>
@@ -119,7 +119,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-muted-foreground truncate">Alerts</dt>
+                  <dt className="text-sm font-medium truncate">Alerts</dt>
                   <dd>
                     <div className="text-lg font-semibold">{alerts}</div>
                   </dd>
