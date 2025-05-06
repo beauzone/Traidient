@@ -11,7 +11,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -148,7 +147,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4" />
                 <Input
                   placeholder="Search positions..."
                   className="pl-8"
@@ -179,8 +178,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
             </div>
           ) : positions.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No positions found</p>
-              <p className="text-sm text-muted-foreground mt-1">Create a strategy and deploy it to start trading</p>
+              <p>No positions found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -220,7 +218,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                         >
                           {position.symbol}
                         </div>
-                        <div className="text-xs text-muted-foreground">{position.assetName}</div>
+                        <div className="text-xs">{position.assetName}</div>
                       </TableCell>
                       <TableCell>{position.quantity}</TableCell>
                       <TableCell>{formatCurrency(position.averageEntryPrice)}</TableCell>
@@ -273,7 +271,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                  className="h-8 w-8 hover:text-primary"
                                   onClick={() => {
                                     setSelectedPosition(position);
                                     toast({
@@ -299,7 +297,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                                  className="h-8 w-8 hover:text-red-500"
                                   onClick={() => {
                                     setSelectedPosition(position);
                                     toast({
@@ -325,7 +323,7 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                               <Button 
                                 variant="ghost" 
                                 size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                className="h-8 w-8 hover:text-primary"
                                 onClick={() => setSelectedPosition(position)}
                               >
                                 <Search className="h-4 w-4" />
@@ -339,19 +337,19 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                 <div className="space-y-4">
                                   <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                      <p className="text-sm text-muted-foreground">Asset Name</p>
+                                      <p className="text-sm">Asset Name</p>
                                       <p className="font-medium">{position.assetName}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm text-muted-foreground">Quantity</p>
+                                      <p className="text-sm">Quantity</p>
                                       <p className="font-medium">{position.quantity}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm text-muted-foreground">Entry Price</p>
+                                      <p className="text-sm">Entry Price</p>
                                       <p className="font-medium">{formatCurrency(position.averageEntryPrice)}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm text-muted-foreground">Cost Basis</p>
+                                      <p className="text-sm">Cost Basis</p>
                                       <p className="font-medium">{formatCurrency(position.costBasis)}</p>
                                     </div>
                                     
@@ -361,25 +359,25 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                       <>
                                         {position.exitPrice !== undefined && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Exit Price</p>
+                                            <p className="text-sm">Exit Price</p>
                                             <p className="font-medium">{formatCurrency(position.exitPrice)}</p>
                                           </div>
                                         )}
                                         {position.exitDate && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Exit Date</p>
+                                            <p className="text-sm">Exit Date</p>
                                             <p className="font-medium">{new Date(position.exitDate).toLocaleDateString()}</p>
                                           </div>
                                         )}
                                         {position.entryDate && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Entry Date</p>
+                                            <p className="text-sm">Entry Date</p>
                                             <p className="font-medium">{new Date(position.entryDate).toLocaleDateString()}</p>
                                           </div>
                                         )}
                                         {position.realizedPnL !== undefined && position.realizedPnLPercent !== undefined && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Realized P&L</p>
+                                            <p className="text-sm">Realized P&L</p>
                                             <p className={`font-medium ${position.realizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
                                               {formatCurrency(position.realizedPnL)} ({formatPercentage(position.realizedPnLPercent)})
                                             </p>
@@ -391,19 +389,19 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                                       <>
                                         {position.currentPrice !== undefined && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Current Price</p>
+                                            <p className="text-sm">Current Price</p>
                                             <p className="font-medium">{formatCurrency(position.currentPrice)}</p>
                                           </div>
                                         )}
                                         {position.marketValue !== undefined && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Market Value</p>
+                                            <p className="text-sm">Market Value</p>
                                             <p className="font-medium">{formatCurrency(position.marketValue)}</p>
                                           </div>
                                         )}
                                         {position.unrealizedPnL !== undefined && position.unrealizedPnLPercent !== undefined && (
                                           <div>
-                                            <p className="text-sm text-muted-foreground">Unrealized P&L</p>
+                                            <p className="text-sm">Unrealized P&L</p>
                                             <p className={`font-medium ${position.unrealizedPnL >= 0 ? "text-green-500" : "text-negative"}`}>
                                               {formatCurrency(position.unrealizedPnL)} ({formatPercentage(position.unrealizedPnLPercent)})
                                             </p>
