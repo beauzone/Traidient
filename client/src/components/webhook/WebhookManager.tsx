@@ -86,7 +86,7 @@ export function WebhookManager() {
 
   // Create a new webhook
   const createWebhookMutation = useMutation({
-    mutationFn: (webhook: WebhookFormValues) => apiRequest("POST", "/api/webhooks", webhook),
+    mutationFn: (webhook: WebhookFormValues) => apiRequest("/api/webhooks", { method: "POST" }, webhook),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
       toast({
@@ -107,7 +107,7 @@ export function WebhookManager() {
 
   // Update webhook
   const updateWebhookMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PUT", `/api/webhooks/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest(`/api/webhooks/${id}`, { method: "PUT" }, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
       toast({
