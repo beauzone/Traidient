@@ -2071,6 +2071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Portfolio history endpoint
   app.get('/api/trading/portfolio/history', authMiddleware, async (req: AuthRequest, res: Response) => {
+    console.log('DEBUG: Portfolio history endpoint hit with query:', req.query);
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -2296,6 +2297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // TRADING ROUTES
   app.get('/api/trading/orders', authMiddleware, async (req: AuthRequest, res: Response) => {
+    console.log('DEBUG: Orders endpoint hit with query:', req.query);
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -2467,6 +2469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.get('/api/trading/positions', authMiddleware, async (req: AuthRequest, res: Response) => {
+    console.log('DEBUG: Positions endpoint hit with query:', req.query);
     try {
       if (!req.user) {
         return res.status(401).json({ message: 'Unauthorized' });
