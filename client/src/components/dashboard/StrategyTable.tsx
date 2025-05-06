@@ -70,7 +70,7 @@ const StrategyTable = ({
       case 'Paused':
         return <Badge variant="outline" className="bg-yellow-500 bg-opacity-20 text-yellow-500 border-none">Paused</Badge>;
       case 'Inactive':
-        return <Badge variant="outline" className="bg-muted bg-opacity-20 text-muted-foreground border-none">Inactive</Badge>;
+        return <Badge variant="outline" className="bg-muted bg-opacity-20 border-none">Inactive</Badge>;
       case 'Error':
         return <Badge variant="outline" className="bg-destructive bg-opacity-20 text-destructive border-none">Error</Badge>;
       default:
@@ -176,7 +176,7 @@ const StrategyTable = ({
                   </TableCell>
                   <TableCell>
                     {strategy.status ? getStatusBadge(strategy.status) : (
-                      <Badge variant="outline" className="bg-muted bg-opacity-20 text-muted-foreground border-none">Unknown</Badge>
+                      <Badge variant="outline" className="bg-muted bg-opacity-20 border-none">Unknown</Badge>
                     )}
                   </TableCell>
                   <TableCell>
