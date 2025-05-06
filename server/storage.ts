@@ -48,6 +48,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
+  verifyAuthToken(token: string): Promise<{ userId: number }>; // Added for webhook auth
 
   // API Integrations
   getApiIntegration(id: number): Promise<ApiIntegration | undefined>;
@@ -173,6 +174,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updatedUser;
+  }
+
+  // JWT Token verification
+  async verifyAuthToken(token: string): Promise<{ userId: number }> {
+    // Import and use the JWT library to verify the token
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
+    
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+      return decoded;
+    } catch (error) {
+      console.error('JWT verification error:', error);
+      throw new Error('Invalid or expired token');
+    }
   }
 
   // API Integration methods
