@@ -284,9 +284,7 @@ const OrdersTable = () => {
         <div className="flex justify-between items-center">
           <div>
             <CardTitle>Orders</CardTitle>
-            <CardDescription>
-              Manage your trading orders
-            </CardDescription>
+
             {isReadOnly && (
               <div className="flex items-center p-2 mt-2 text-blue-800 border border-blue-200 rounded-lg bg-blue-50 text-xs">
                 <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -305,9 +303,7 @@ const OrdersTable = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Place New Order</DialogTitle>
-                <DialogDescription>
-                  Enter the details for your new order
-                </DialogDescription>
+
               </DialogHeader>
               
               <Form {...form}>
@@ -321,9 +317,7 @@ const OrdersTable = () => {
                         <FormControl>
                           <Input placeholder="AAPL" {...field} />
                         </FormControl>
-                        <FormDescription>
-                          Enter the stock symbol
-                        </FormDescription>
+
                         <FormMessage />
                       </FormItem>
                     )}
@@ -460,9 +454,7 @@ const OrdersTable = () => {
                                 onChange={(e) => field.onChange(Number(e.target.value))}
                               />
                             </FormControl>
-                            <FormDescription>
-                              The price at which you want to enter the position
-                            </FormDescription>
+
                             <FormMessage />
                           </FormItem>
                         )}
@@ -484,11 +476,7 @@ const OrdersTable = () => {
                                   onChange={(e) => field.onChange(Number(e.target.value))}
                                 />
                               </FormControl>
-                              <FormDescription>
-                                {form.watch("side") === "buy" 
-                                  ? "Price to sell for profit (above entry)" 
-                                  : "Price to buy for profit (below entry)"}
-                              </FormDescription>
+
                               <FormMessage />
                             </FormItem>
                           )}
@@ -509,11 +497,7 @@ const OrdersTable = () => {
                                   onChange={(e) => field.onChange(Number(e.target.value))}
                                 />
                               </FormControl>
-                              <FormDescription>
-                                {form.watch("side") === "buy" 
-                                  ? "Price to sell to limit loss (below entry)" 
-                                  : "Price to buy to limit loss (above entry)"}
-                              </FormDescription>
+
                               <FormMessage />
                             </FormItem>
                           )}
@@ -608,10 +592,7 @@ const OrdersTable = () => {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-8">
-            <p className="">No orders found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {orderTab === "open" ? "Place an order to start trading" : "No matching orders for the selected filter"}
-            </p>
+            <p>No orders found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
