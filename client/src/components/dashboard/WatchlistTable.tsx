@@ -145,9 +145,6 @@ const WatchlistTable = () => {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add to Watchlist</DialogTitle>
-                  <DialogDescription>
-                    Add a new symbol to your watchlist to track its performance.
-                  </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddSymbol}>
                   <div className="grid gap-4 py-4">

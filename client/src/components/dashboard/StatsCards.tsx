@@ -26,7 +26,7 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-muted-foreground truncate">Active Strategies</dt>
+                  <dt className="text-sm font-medium truncate">Active Strategies</dt>
                   <dd>
                     <div className="text-lg font-semibold">{activeStrategies}</div>
                   </dd>
