@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccountContext } from "@/context/AccountContext";
 import UserAvatar from "@/components/common/UserAvatar";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from "@/components/ui/dropdown-menu";
 
 import {
   LineChart,
@@ -22,12 +32,14 @@ import {
   Webhook,
   Binoculars,
   LucideIcon,
-  MonitorPlay
+  MonitorPlay,
+  ChevronDown
 } from "lucide-react";
 
 const Sidebar = () => {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { accounts, selectedAccount, setSelectedAccount } = useAccountContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -85,9 +97,104 @@ const Sidebar = () => {
 
       <div className={sidebarClasses}>
         <div className="flex items-center justify-between p-4 border-b border-border">
-          {/* Mobile close button only */}
+          {/* Account Selector Dropdown styled to match Alpaca */}
+          <div className="w-full">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="flex items-center justify-between gap-2 w-full px-3 py-2 h-9 rounded bg-primary text-white hover:bg-primary/90">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                    </svg>
+                    <span className="font-medium">
+                      {selectedAccount === "all" 
+                        ? "All Accounts" 
+                        : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
+                    </span>
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[300px]">
+                <DropdownMenuItem 
+                  className="flex justify-between py-2 px-4 cursor-pointer"
+                  onClick={() => setSelectedAccount("all")}
+                >
+                  <div className="font-semibold">All Accounts</div>
+                  <div>${accounts.reduce((sum, account) => sum + (account.portfolioValue || account.equity || account.balance || 0), 0).toLocaleString()}</div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>PAPER ACCOUNTS</DropdownMenuLabel>
+                
+                {accounts
+                  .filter(account => account.accountType === 'paper')
+                  .map(account => (
+                    <DropdownMenuItem
+                      key={account.id}
+                      className="flex justify-between py-2 px-4 cursor-pointer"
+                      onClick={() => setSelectedAccount(account.id.toString())}
+                    >
+                      <div>
+                        <div className="font-medium">{account.name}</div>
+                        <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <div>${(account.portfolioValue || account.equity || account.balance || 0).toLocaleString()}</div>
+                        {account.performance !== undefined && (
+                          <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
+                            {account.performance >= 0 ? '+' : ''}{account.performance.toFixed(2)}%
+                          </div>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                
+                {accounts.some(account => account.accountType === 'live') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>LIVE ACCOUNTS</DropdownMenuLabel>
+                    
+                    {accounts
+                      .filter(account => account.accountType === 'live')
+                      .map(account => (
+                        <DropdownMenuItem
+                          key={account.id}
+                          className="flex justify-between py-2 px-4 cursor-pointer"
+                          onClick={() => setSelectedAccount(account.id.toString())}
+                        >
+                          <div>
+                            <div className="font-medium">{account.name}</div>
+                            <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <div>${(account.portfolioValue || account.equity || account.balance || 0).toLocaleString()}</div>
+                            {account.performance !== undefined && (
+                              <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
+                                {account.performance >= 0 ? '+' : ''}{account.performance.toFixed(2)}%
+                              </div>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    }
+                  </>
+                )}
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>ACCOUNT MANAGEMENT</DropdownMenuLabel>
+                <DropdownMenuItem>
+                  <Link href="/settings" className="w-full">
+                    Account Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          
+          {/* Mobile close button */}
           <button 
-            className="lg:hidden text-gray-400 hover:text-white"
+            className="lg:hidden text-gray-400 hover:text-white ml-2"
             onClick={closeMobileMenu}
             aria-label="Close menu"
           >
