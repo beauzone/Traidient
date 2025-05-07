@@ -66,8 +66,8 @@ const Sidebar = () => {
     { path: "/bots", name: "Bots", icon: <Bot className="mr-3 flex-shrink-0 h-5 w-5" /> },
     // Backtesting - Where users validate and optimize strategies
     { path: "/backtest", name: "Backtesting", icon: <History className="mr-3 flex-shrink-0 h-5 w-5" /> },
-    // TradingView Webhooks as the last item
-    { path: "/webhooks", name: "TradingView Webhooks", icon: <Webhook className="mr-3 flex-shrink-0 h-5 w-5" /> },
+    // Webhooks as the last item
+    { path: "/webhooks", name: "Webhooks", icon: <Webhook className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
   // Account and configuration items

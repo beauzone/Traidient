@@ -5,13 +5,13 @@ import MainLayout from "@/components/layout/MainLayout";
 
 export default function WebhooksPage() {
   return (
-    <MainLayout title="TradingView Webhooks">
+    <MainLayout title="Webhooks">
       <div className="flex flex-col space-y-6">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">TradingView Webhooks</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
             <p className="text-muted-foreground">
-              Configure webhooks to execute trades from TradingView alerts
+              Configure webhooks to execute trades from external signals
             </p>
           </div>
         </div>

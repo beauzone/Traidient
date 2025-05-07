@@ -1051,7 +1051,7 @@ export function WebhookManager() {
                               </Button>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Use this URL in your TradingView alerts
+                              Use this URL in your external platform's webhook settings
                             </p>
                           </div>
                         </CardContent>
@@ -1392,15 +1392,15 @@ export function WebhookManager() {
                   <CardHeader>
                     <CardTitle>Example Usage</CardTitle>
                     <CardDescription>
-                      Examples for using this webhook with TradingView
+                      Examples for using webhooks with external platforms
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-medium mb-2">TradingView Alert Setup</h3>
+                        <h3 className="text-lg font-medium mb-2">Webhook Setup Guide</h3>
                         <p className="text-sm text-muted-foreground mb-4">
-                          Configure your TradingView alert with the following settings:
+                          Configure webhooks from external platforms with the following settings:
                         </p>
                         
                         <div className="space-y-4">
