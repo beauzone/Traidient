@@ -316,7 +316,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     {getExchange()}
                   </Badge>
                 </div>
-                <p className="text-lg text-muted-foreground">{getName()}</p>
+                <p className="text-lg">{getName()}</p>
               </div>
               <div className="flex space-x-2">
                 <Button variant="outline" size="sm">
@@ -345,7 +345,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
               )}
             </div>
             
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm">
               As of {new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' })} EDT. Market {(getChange() || 0) >= 0 ? 'Open' : 'Closed'}.
               {quoteData.dataSource && (
                 <span className="ml-2 flex items-center inline-block">
@@ -678,7 +678,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Previous Close</p>
+                    <p className="text-sm">Previous Close</p>
                     <p className="font-medium">
                       {quoteData.previousClose !== undefined && quoteData.previousClose !== null 
                         ? formatCurrency(quoteData.previousClose) 
@@ -688,7 +688,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Day Range</p>
+                    <p className="text-sm">Day Range</p>
                     <p className="font-medium">
                       {quoteData.dayRange || (
                         (quoteData.low !== undefined && quoteData.low !== null && 
@@ -699,19 +699,19 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">52 Week Range</p>
+                    <p className="text-sm">52 Week Range</p>
                     <p className="font-medium">{quoteData.weekRange52 || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Market Cap</p>
+                    <p className="text-sm">Market Cap</p>
                     <p className="font-medium">{formatLargeNumber(quoteData.marketCap)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Volume</p>
+                    <p className="text-sm">Volume</p>
                     <p className="font-medium">{formatLargeNumber(quoteData.volume)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Average Volume</p>
+                    <p className="text-sm">Average Volume</p>
                     <p className="font-medium">
                       {quoteData.averageVolume !== undefined && quoteData.averageVolume !== null
                         ? formatLargeNumber(quoteData.averageVolume)
@@ -723,7 +723,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">P/E Ratio</p>
+                    <p className="text-sm">P/E Ratio</p>
                     <p className="font-medium">
                       {quoteData.peRatio !== undefined && quoteData.peRatio !== null
                         ? Number(quoteData.peRatio).toFixed(2)
@@ -731,7 +731,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Forward P/E</p>
+                    <p className="text-sm">Forward P/E</p>
                     <p className="font-medium">
                       {quoteData.forwardPE !== undefined && quoteData.forwardPE !== null
                         ? Number(quoteData.forwardPE).toFixed(2)
