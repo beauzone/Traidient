@@ -1,8 +1,5 @@
 def screen_stocks(data_dict):
-    """
-    Super simple test screener with absolute minimal code
-    """
-    # Just return a hardcoded match
+    # No docstring at all, just return a hardcoded match 
     return {
         'matches': ['AAPL', 'MSFT'],
         'details': {
