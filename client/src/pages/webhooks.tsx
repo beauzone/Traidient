@@ -10,9 +10,6 @@ export default function WebhooksPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
-            <p className="text-muted-foreground">
-              Configure webhooks to execute trades from external signals
-            </p>
           </div>
         </div>
         <WebhookManager />

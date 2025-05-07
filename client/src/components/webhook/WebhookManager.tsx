@@ -387,7 +387,6 @@ export function WebhookManager() {
     <div className="container mx-auto py-6">
       <Heading 
         title="Webhook Management" 
-        description="Create and manage webhooks for trading based on external signals"
         actions={
           <Button onClick={handleNewWebhook}>New Webhook</Button>
         }
@@ -501,9 +500,6 @@ export function WebhookManager() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Basic Information</CardTitle>
-                    <CardDescription>
-                      Configure the basic details of your webhook
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <FormField
@@ -625,9 +621,6 @@ export function WebhookManager() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Trading Configuration</CardTitle>
-                    <CardDescription>
-                      Configure how trades will be executed
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <FormField
@@ -746,9 +739,6 @@ export function WebhookManager() {
                 <Card className="md:col-span-2">
                   <CardHeader>
                     <CardTitle>Security Settings</CardTitle>
-                    <CardDescription>
-                      Configure security settings for your webhook
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <FormField
@@ -913,9 +903,6 @@ export function WebhookManager() {
                       <Card>
                         <CardHeader>
                           <CardTitle>Basic Information</CardTitle>
-                          <CardDescription>
-                            Configure the basic details of your webhook
-                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <FormField
