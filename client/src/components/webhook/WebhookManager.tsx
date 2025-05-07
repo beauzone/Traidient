@@ -1246,9 +1246,9 @@ export function WebhookManager() {
                             
                             <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mb-4">
                               <div className="space-y-0.5">
-                                <Label>Use TradingView IPs</Label>
+                                <Label>Use Platform IPs</Label>
                                 <p className="text-sm text-muted-foreground">
-                                  Add TradingView's server IP addresses to the whitelist
+                                  Add your external platform's server IP addresses to the whitelist
                                 </p>
                               </div>
                               <Switch
@@ -1405,14 +1405,14 @@ export function WebhookManager() {
                         
                         <div className="space-y-4">
                           <div>
-                            <Label>1. In TradingView, create a new alert</Label>
+                            <Label>1. Create a webhook in your external platform</Label>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Use any condition that matches your trading strategy
+                              Configure based on your platform's specific settings
                             </p>
                           </div>
                           
                           <div>
-                            <Label>2. In the "Alert actions" section, select "Webhook URL"</Label>
+                            <Label>2. Enter the webhook URL in your platform's settings</Label>
                             <Input 
                               readOnly 
                               value={`${window.location.origin}/api/webhook-triggers/${currentWebhook.token}`}
@@ -1455,7 +1455,7 @@ export function WebhookManager() {
                               className="mt-1 font-mono text-xs h-44"
                             />
                             <p className="text-sm text-muted-foreground mt-1">
-                              Replace placeholders with appropriate TradingView variables
+                              Replace placeholders with appropriate variables from your platform
                             </p>
                           </div>
                         </div>
