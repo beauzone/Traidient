@@ -171,6 +171,37 @@ export function WebhookManager() {
 
   // Handle form submit
   const onSubmit = (values: WebhookFormValues) => {
+    // If HMAC signature is enabled but no secret key is provided, generate one
+    if (values.configuration.securitySettings.useSignature && 
+        (!values.configuration.securitySettings.signatureSecret || 
+         values.configuration.securitySettings.signatureSecret.trim() === '')) {
+      
+      // Generate a random secret key
+      const randomKey = Array.from(
+        crypto.getRandomValues(new Uint8Array(32))
+      ).map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Update the values with the generated key
+      values = {
+        ...values,
+        configuration: {
+          ...values.configuration,
+          securitySettings: {
+            ...values.configuration.securitySettings,
+            signatureSecret: randomKey
+          }
+        }
+      };
+      
+      // Also update the form so it's reflected in the UI
+      form.setValue("configuration.securitySettings.signatureSecret", randomKey);
+      
+      toast({
+        title: "Secret key generated",
+        description: "A secret key has been automatically generated for HMAC verification.",
+      });
+    }
+    
     if (currentWebhook?.id) {
       updateWebhookMutation.mutate({ id: currentWebhook.id, data: values });
     } else {
