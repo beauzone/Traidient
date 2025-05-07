@@ -1403,8 +1403,39 @@ async function runPythonScript(scriptPath: string): Promise<any> {
       
       if (code === 0) {
         try {
+          // First look for our special markers "RESULT_JSON_START" and "RESULT_JSON_END"
+          const resultStartMarker = "RESULT_JSON_START";
+          const resultEndMarker = "RESULT_JSON_END";
+          
+          const startIndex = outputData.indexOf(resultStartMarker);
+          const endIndex = outputData.indexOf(resultEndMarker);
+          
+          // Check if both markers exist and are in the correct order
+          if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+            console.log("Found result markers in output, extracting JSON between them");
+            
+            // Extract the JSON between the markers (add newline length to skip to next line)
+            const jsonContent = outputData.substring(
+              startIndex + resultStartMarker.length, 
+              endIndex
+            ).trim();
+            
+            try {
+              const result = JSON.parse(jsonContent);
+              console.log(`Successfully parsed JSON from markers with ${result.matches ? result.matches.length : 0} matches`);
+              resolve(result);
+              return; // Exit early if marker method works
+            } catch (e) {
+              console.error('Error parsing JSON between markers:', e);
+              console.error('JSON string tried to parse:', jsonContent.substring(0, 200));
+              // Fall through to legacy approaches if marker parsing fails
+            }
+          } else {
+            console.log("No result markers found, falling back to legacy parsing");
+          }
+          
+          // Legacy approach as fallback
           // Try to find the last valid JSON object in the output
-          // This allows print statements to appear before the final JSON
           
           // First, try to identify a clean JSON object that's on its own line
           const lines = outputData.split('\n');
