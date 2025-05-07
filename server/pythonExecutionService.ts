@@ -1250,8 +1250,51 @@ if __name__ == "__main__":
         sys.exit(1)
 `;
 
+  // Add data validation function
+  const dataValidation = `
+# Validation function to ensure data is properly received
+def validate_data(data_dict):
+    """Test if data_dict is valid and contains expected data"""
+    if data_dict is None:
+        print("Error: data_dict is None!", file=sys.stderr)
+        return False
+        
+    if not data_dict:
+        print("Error: data_dict is empty!", file=sys.stderr)
+        return False
+    
+    symbols = list(data_dict.keys())
+    print(f"Found {len(symbols)} symbols in data_dict")
+    
+    if not symbols:
+        print("Error: No symbols in data_dict!", file=sys.stderr)
+        return False
+        
+    # Check first symbol
+    first_symbol = symbols[0]
+    df = data_dict[first_symbol]
+    
+    if df is None:
+        print(f"Error: DataFrame for {first_symbol} is None!", file=sys.stderr)
+        return False
+        
+    if df.empty:
+        print(f"Error: DataFrame for {first_symbol} is empty!", file=sys.stderr)
+        return False
+        
+    # Check for required columns
+    required_cols = ['Close']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    
+    if missing_cols:
+        print(f"Error: Missing required columns: {missing_cols}", file=sys.stderr)
+        return False
+        
+    return True
+`;
+
   // Combine all parts
-  const fullScript = imports + helperFunctions + screenCode + mainExecution;
+  const fullScript = imports + helperFunctions + dataValidation + screenCode + mainExecution;
   
   // Write the script to a file
   await fs.writeFile(filename, fullScript);
