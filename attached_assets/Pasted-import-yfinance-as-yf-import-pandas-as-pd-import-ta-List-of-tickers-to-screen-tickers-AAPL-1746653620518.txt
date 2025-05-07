@@ -1,0 +1,91 @@
+import yfinance as yf
+import pandas as pd
+import ta
+
+# 🔍 List of tickers to screen
+tickers = ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "AMZN", "META"]  # Add your universe here
+
+def get_screener_data(ticker):
+    df = yf.download(ticker, period="1y", interval="1d")
+    df.dropna(inplace=True)
+
+    # ➕ Technical indicators using `ta`
+    df["ema_200"] = ta.trend.ema_indicator(df["Close"], window=200).ema_indicator()
+    df["ema_50"] = ta.trend.ema_indicator(df["Close"], window=50).ema_indicator()
+    df["roc_125"] = ta.momentum.roc(df["Close"], window=125)
+    df["roc_20"] = ta.momentum.roc(df["Close"], window=20)
+    df["rsi_14"] = ta.momentum.rsi(df["Close"], window=14)
+    
+    # PPO Histogram slope (Short-Term SCTR component)
+    ppo = ta.trend.ppo(df["Close"])
+    df["ppo_hist"] = ppo.ppo_hist()
+    df["ppo_slope_3d"] = df["ppo_hist"].diff().rolling(3).mean()
+
+    # ADX and +DI/-DI
+    adx = ta.trend.adx(df["High"], df["Low"], df["Close"], window=14)
+    df["adx"] = adx.adx()
+    df["+DI"] = adx.adx_pos()
+    df["-DI"] = adx.adx_neg()
+
+    # SMA for trend filter
+    df["sma_18"] = ta.trend.sma_indicator(df["Close"], window=18).sma_indicator()
+    df["volume_sma_20"] = df["Volume"].rolling(window=20).mean()
+
+    return df
+
+def calculate_sctr_score(row):
+    score = 0
+    # Long-term: 60%
+    if row["Close"] > row["ema_200"]: score += 30
+    score += min(max(row["roc_125"], 0), 30)
+
+    # Medium-term: 30%
+    if row["Close"] > row["ema_50"]: score += 15
+    score += min(max(row["roc_20"], 0), 15)
+
+    # Short-term: 10%
+    if row["ppo_slope_3d"] > 0: score += 5
+    score += min(max(row["rsi_14"] / 100 * 5, 0), 5)
+
+    return min(score, 99.9)
+
+# 🧠 Apply logic
+results = []
+
+for ticker in tickers:
+    df = get_screener_data(ticker)
+    latest = df.iloc[-1]
+
+    sctr = calculate_sctr_score(latest)
+    close = latest["Close"]
+    max_12mo = df["Close"].rolling(253).max().iloc[-2]  # yesterday's high
+    min_12mo = df["Close"].rolling(253).min().iloc[-2]
+    sma_18_yesterday = df["sma_18"].iloc[-2]
+
+    # 📈 Breakout criteria
+    conditions = [
+        df["volume_sma_20"].iloc[-1] > 500000,
+        close > 8,
+        latest["rsi_14"] >= 50,
+        latest["adx"] <= 35,
+        latest["+DI"] >= latest["-DI"],
+        latest["+DI"] < 40,
+        latest["sma_18"] >= sma_18_yesterday,
+        -10 <= ((close - max_12mo) / close) * 100 <= 5,
+        (((2 * max_12mo) - min_12mo) / max_12mo) >= 1.39,
+        sctr >= 60  # you can raise to 75 or 90
+    ]
+
+    if all(conditions):
+        results.append({
+            "Ticker": ticker,
+            "Price": close,
+            "SCTR Score": round(sctr, 2),
+            "RSI": round(latest["rsi_14"], 1),
+            "+DI": round(latest["+DI"], 1),
+            "ADX": round(latest["adx"], 1)
+        })
+
+# 📋 Display final results
+screener_df = pd.DataFrame(results).sort_values(by="SCTR Score", ascending=False)
+print(screener_df)
