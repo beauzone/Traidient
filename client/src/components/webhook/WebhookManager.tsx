@@ -734,7 +734,23 @@ export function WebhookManager() {
                           <FormControl>
                             <Switch
                               checked={field.value}
-                              onCheckedChange={field.onChange}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                
+                                // If user is enabling the signature verification and there's no key yet,
+                                // generate a random secret key
+                                if (checked && !form.getValues("configuration.securitySettings.signatureSecret")) {
+                                  const randomKey = Array.from(
+                                    crypto.getRandomValues(new Uint8Array(32))
+                                  ).map(b => b.toString(16).padStart(2, '0')).join('');
+                                  
+                                  form.setValue("configuration.securitySettings.signatureSecret", randomKey);
+                                  toast({
+                                    title: "Secret key generated",
+                                    description: "A secret key has been automatically generated for HMAC verification.",
+                                  });
+                                }
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
