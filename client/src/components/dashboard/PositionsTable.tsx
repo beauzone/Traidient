@@ -40,6 +40,10 @@ interface Position {
   costBasis: number;
   positionStatus?: 'open' | 'closed';
   
+  // Asset classification
+  assetType?: 'US Equity' | 'Crypto' | 'Options' | string;
+  side?: 'Long' | 'Short';
+  
   // Fields for open positions
   currentPrice?: number;
   marketValue?: number;
@@ -64,6 +68,8 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [positionStatus, setPositionStatus] = useState<"open" | "closed" | "all">("open");
+  const [assetClassFilter, setAssetClassFilter] = useState<string>("all");
+  const [sideFilter, setSideFilter] = useState<string>("all");
   const { toast } = useToast();
   
   // Use passed loading state or query loading state
@@ -104,24 +110,38 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
     isLoading = isLoading !== undefined ? isLoading : queryIsLoading;
   }
 
-  // Filter positions based on search and position status
+  // Filter positions based on search, position status, asset class, and side
   const filteredPositions = positions.filter((position) => {
     // First apply the search filter
     const matchesSearch = position.symbol.toLowerCase().includes(searchFilter.toLowerCase()) ||
                           position.assetName.toLowerCase().includes(searchFilter.toLowerCase());
     
-    // Then filter by position status (for now we only have open positions from the API)
-    // When the API supports closed positions, this will filter them properly
+    // Filter by position status
+    let matchesStatus = true;
     if (positionStatus === "open") {
-      return matchesSearch; // For open positions, return all that match search
+      matchesStatus = position.positionStatus !== 'closed';
     } else if (positionStatus === "closed") {
-      // The API doesn't currently return closed positions
-      // This space is reserved for when the API supports closed positions
-      return false; // For now, there are no closed positions to show
-    } else {
-      // "all" status - show both open and closed
-      return matchesSearch; // Currently identical to "open" since we don't have closed positions
+      matchesStatus = position.positionStatus === 'closed';
     }
+    
+    // Filter by asset class
+    let matchesAssetClass = true;
+    if (assetClassFilter !== "all") {
+      // Default to "US Equity" if assetType isn't specified
+      const positionAssetType = position.assetType || "US Equity";
+      matchesAssetClass = positionAssetType === assetClassFilter;
+    }
+    
+    // Filter by side (long/short)
+    let matchesSide = true;
+    if (sideFilter !== "all") {
+      // Default to "Long" if side isn't specified
+      const positionSide = position.side || "Long";
+      matchesSide = positionSide === sideFilter;
+    }
+    
+    // Return true only if all filters match
+    return matchesSearch && matchesStatus && matchesAssetClass && matchesSide;
   });
 
   // Format currency
@@ -168,6 +188,44 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                   <SelectItem value="all">All</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+          
+          {/* New Filter Options */}
+          <div className="flex items-center mt-4 space-x-3">
+            <div className="flex items-center bg-muted rounded-md p-2">
+              <span className="text-sm mr-3 pl-1">Asset Class</span>
+              <Select value={assetClassFilter} onValueChange={setAssetClassFilter}>
+                <SelectTrigger className="border-0 bg-transparent h-8 w-28 p-0 pl-2 focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="Crypto">Crypto</SelectItem>
+                  <SelectItem value="US Equity">US Equity</SelectItem>
+                  <SelectItem value="Options">Options</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center bg-muted rounded-md p-2">
+              <span className="text-sm mr-3 pl-1">Side</span>
+              <Select value={sideFilter} onValueChange={setSideFilter}>
+                <SelectTrigger className="border-0 bg-transparent h-8 w-28 p-0 pl-2 focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="Long">Long</SelectItem>
+                  <SelectItem value="Short">Short</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="ml-auto">
+              <Button variant="link" onClick={() => window.location.href = "/dashboard"}>
+                View All
+              </Button>
             </div>
           </div>
         </CardHeader>
