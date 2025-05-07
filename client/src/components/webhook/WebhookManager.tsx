@@ -1048,9 +1048,6 @@ export function WebhookManager() {
                         <Card>
                           <CardHeader>
                             <CardTitle>Trading Configuration</CardTitle>
-                            <CardDescription>
-                              Configure how trades will be executed
-                            </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <FormField
@@ -1169,9 +1166,6 @@ export function WebhookManager() {
                         <Card>
                           <CardHeader>
                             <CardTitle>Security Settings</CardTitle>
-                            <CardDescription>
-                              Configure security settings for your webhook
-                            </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <FormField
@@ -1310,9 +1304,6 @@ export function WebhookManager() {
                   <CardHeader className="flex flex-row items-start justify-between">
                     <div>
                       <CardTitle>Activity Logs</CardTitle>
-                      <CardDescription>
-                        Recent activity for this webhook
-                      </CardDescription>
                     </div>
                     <Button variant="outline" size="sm" className="h-8">
                       <RefreshCw className="h-4 w-4 mr-2" />
@@ -1378,9 +1369,6 @@ export function WebhookManager() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Example Usage</CardTitle>
-                    <CardDescription>
-                      Examples for using webhooks with external platforms
-                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
