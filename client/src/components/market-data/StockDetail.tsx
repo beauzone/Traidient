@@ -739,7 +739,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">EPS (TTM)</p>
+                    <p className="text-sm">EPS (TTM)</p>
                     <p className="font-medium">
                       {quoteData.eps !== undefined && quoteData.eps !== null
                         ? formatCurrency(quoteData.eps)
@@ -747,7 +747,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Dividend & Yield</p>
+                    <p className="text-sm">Dividend & Yield</p>
                     <p className="font-medium">
                       {quoteData.dividend !== undefined && quoteData.dividend !== null 
                         ? `${formatCurrency(quoteData.dividend)}${
@@ -759,7 +759,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Beta</p>
+                    <p className="text-sm">Beta</p>
                     <p className="font-medium">
                       {quoteData.beta !== undefined && quoteData.beta !== null
                         ? Number(quoteData.beta).toFixed(2)
@@ -767,7 +767,7 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Exchange</p>
+                    <p className="text-sm">Exchange</p>
                     <p className="font-medium">{quoteData.exchange || 'N/A'}</p>
                   </div>
                 </div>
@@ -792,11 +792,11 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                     >
                       <h4 className="font-medium group-hover:text-primary transition-colors">{news.title}</h4>
                       <div className="flex items-center gap-2 mt-1 mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">{news.source}</span>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <span className="text-xs text-muted-foreground">{news.publishedAt}</span>
+                        <span className="text-xs font-medium">{news.source}</span>
+                        <span className="text-xs">•</span>
+                        <span className="text-xs">{news.publishedAt}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{news.summary}</p>
+                      <p className="text-sm line-clamp-2">{news.summary}</p>
                     </a>
                   </div>
                 ))}
