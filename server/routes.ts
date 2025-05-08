@@ -4246,14 +4246,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fs = await import('fs/promises');
       const path = await import('path');
       
-      const screenerCodePath = path.default.join(process.cwd(), 'docs', 'examples', 'super_simple_test_screener.py');
+      const screenerCodePath = path.default.join(process.cwd(), 'docs', 'examples', 'advanced_test_screener.py');
       const screenerCode = await fs.default.readFile(screenerCodePath, 'utf8');
       
       // Create a test screener object - using a loose type to match what executeScreener expects
       const testScreener = {
         id: 999,
-        name: 'Super Simple Test Screener',
-        description: 'A super simple test screener to verify Python execution',
+        name: 'Advanced Test Screener',
+        description: 'An advanced test screener with simulated technical indicator calculations',
         source: {
           type: 'code' as const,
           content: screenerCode,

@@ -256,11 +256,15 @@ import json
 # The user code - directly pasted without using multi-line string to preserve indentation
 ${userCode}
 
-# Create a minimal test data dictionary
+# Create a test data dictionary with common stocks
 data_dict = {
     "AAPL": {},
     "MSFT": {},
-    "GOOGL": {}
+    "GOOGL": {},
+    "AMZN": {},
+    "META": {},
+    "TSLA": {},
+    "NVDA": {}
 }
 
 # Execute the user code in a try-except block to catch any errors
