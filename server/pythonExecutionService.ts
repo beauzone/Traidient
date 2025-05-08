@@ -146,7 +146,8 @@ async function getInstalledPackages(): Promise<Array<{ name: string, version: st
  */
 async function installLibraries(libraries: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', ['-m', 'pip', 'install', '--user', ...libraries]);
+    // Removed the --user flag which isn't compatible with Replit's virtualenv setup
+    const pythonProcess = spawn('python3', ['-m', 'pip', 'install', ...libraries]);
     
     pythonProcess.stdout.on('data', (data) => {
       console.log(`[pip install] ${data.toString().trim()}`);
