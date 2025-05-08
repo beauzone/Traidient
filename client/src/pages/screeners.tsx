@@ -142,6 +142,57 @@ const ResultsDialog = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [savedResults, setSavedResults] = useState<Array<{date: string, matches: string[]}>>([]);
   const [selectedChartField, setSelectedChartField] = useState<string>("");
+
+  // Filter and sort the matches based on search query and sort settings
+  const filteredMatches = React.useMemo(() => {
+    if (!screener.results?.matches) return [];
+    
+    // Ensure matches are strings - convert if needed
+    const stringMatches = screener.results.matches.map(symbol => 
+      typeof symbol === 'string' ? symbol : String(symbol)
+    );
+    
+    // Filter by search query
+    let filtered = stringMatches.filter(symbol => 
+      symbol.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    // Sort results
+    if (sortField === "symbol") {
+      filtered.sort((a, b) => {
+        return sortDirection === "asc" ? a.localeCompare(b) : b.localeCompare(a);
+      });
+    } else if (sortField === "price") {
+      filtered.sort((a, b) => {
+        const priceA = screener.results?.details?.[a]?.close || screener.results?.details?.[a]?.price || 0;
+        const priceB = screener.results?.details?.[b]?.close || screener.results?.details?.[b]?.price || 0;
+        return sortDirection === "asc" ? priceA - priceB : priceB - priceA;
+      });
+    } else if (screener.results?.details) {
+      filtered.sort((a, b) => {
+        const valueA = screener.results?.details?.[a]?.[sortField];
+        const valueB = screener.results?.details?.[b]?.[sortField];
+        
+        // Handle different data types
+        if (typeof valueA === 'boolean' && typeof valueB === 'boolean') {
+          return sortDirection === "asc" 
+            ? (valueA === valueB ? 0 : valueA ? -1 : 1)
+            : (valueA === valueB ? 0 : valueA ? 1 : -1);
+        }
+        
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+          return sortDirection === "asc" ? valueA - valueB : valueB - valueA;
+        }
+        
+        // Default string comparison
+        const strA = String(valueA || '');
+        const strB = String(valueB || '');
+        return sortDirection === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+    }
+    
+    return filtered;
+  }, [screener.results, searchQuery, sortField, sortDirection]);
   
   // Get available numerical fields for charts - memoized value
   const numericalFields = React.useMemo(() => {
@@ -343,62 +394,16 @@ const ResultsDialog = ({
     return ["symbol", "price", ...Object.keys(details).filter(key => key !== "close" && key !== "price")];
   };
   
-  // Filter and sort the matches based on search query and sort settings
-  const getFilteredAndSortedMatches = () => {
-    if (!screener.results?.matches) return [];
-    
-    // Filter by search query
-    let filteredMatches = screener.results.matches.filter(symbol => 
-      symbol.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    
-    // Sort results
-    if (sortField === "symbol") {
-      filteredMatches.sort((a, b) => {
-        return sortDirection === "asc" ? a.localeCompare(b) : b.localeCompare(a);
-      });
-    } else if (sortField === "price") {
-      filteredMatches.sort((a, b) => {
-        const priceA = screener.results?.details?.[a]?.close || screener.results?.details?.[a]?.price || 0;
-        const priceB = screener.results?.details?.[b]?.close || screener.results?.details?.[b]?.price || 0;
-        return sortDirection === "asc" ? priceA - priceB : priceB - priceA;
-      });
-    } else if (screener.results?.details) {
-      filteredMatches.sort((a, b) => {
-        const valueA = screener.results?.details?.[a]?.[sortField];
-        const valueB = screener.results?.details?.[b]?.[sortField];
-        
-        // Handle different data types
-        if (typeof valueA === 'boolean' && typeof valueB === 'boolean') {
-          return sortDirection === "asc" 
-            ? (valueA === valueB ? 0 : valueA ? -1 : 1)
-            : (valueA === valueB ? 0 : valueA ? 1 : -1);
-        }
-        
-        if (typeof valueA === 'number' && typeof valueB === 'number') {
-          return sortDirection === "asc" ? valueA - valueB : valueB - valueA;
-        }
-        
-        // Default string comparison
-        const strA = String(valueA || '');
-        const strB = String(valueB || '');
-        return sortDirection === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
-      });
-    }
-    
-    return filteredMatches;
-  };
+  // NOTE: We've moved this functionality to the memoized filteredMatches above
   
   // Export results to CSV
   const exportToCSV = () => {
     if (!screener.results?.matches || screener.results.matches.length === 0) return;
     
-    const filteredMatches = getFilteredAndSortedMatches();
-    
     // Get all possible headers
     const headers = ["Symbol", "Price"];
-    if (screener.results.details && filteredMatches.length > 0) {
-      const firstSymbol = filteredMatches[0];
+    if (screener.results.details && screener.results.matches.length > 0) {
+      const firstSymbol = screener.results.matches[0];
       const details = screener.results.details[firstSymbol] || {};
       
       Object.keys(details)
@@ -411,7 +416,8 @@ const ResultsDialog = ({
     // Create CSV content
     let csvContent = headers.join(",") + "\n";
     
-    filteredMatches.forEach(symbol => {
+    // Use the memoized filteredMatches
+    filteredMatches.forEach((symbol: string) => {
       const price = screener.results?.details?.[symbol]?.close || 
                   screener.results?.details?.[symbol]?.price || 'N/A';
       
@@ -461,7 +467,6 @@ const ResultsDialog = ({
     setSavedResults(prev => [...prev, newSavedResult]);
   };
   
-  const filteredMatches = getFilteredAndSortedMatches();
   const sortFields = getSortFields();
   
   return (
