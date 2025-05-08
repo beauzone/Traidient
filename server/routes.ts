@@ -41,6 +41,7 @@ import {
 import { processWebhook, generateWebhookToken } from "./webhookService";
 import { evaluateAlertThreshold, createNotificationFromThreshold, processUserAlerts, type EvaluationContext } from "./notificationService";
 import { sendVerificationCode, verifyPhoneNumber, isPhoneNumberVerified, sendAlertSMS } from "./twilio";
+import { executeScreener, initPythonEnvironment } from "./pythonExecutionService";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-jwt-secret-key-should-be-in-env-var";
@@ -4233,6 +4234,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error processing webhook:', error);
       res.status(500).json({ message: 'Error processing webhook', error: (error as Error).message });
+    }
+  });
+
+  // Test endpoint for Python screener execution (development-only)
+  app.get('/api/test/python-screener', async (req: Request, res: Response) => {
+    try {
+      console.log("Testing Python screener execution...");
+      
+      // Read the test screener file
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      const screenerCodePath = path.default.join(process.cwd(), 'docs', 'examples', 'test_screener.py');
+      const screenerCode = await fs.default.readFile(screenerCodePath, 'utf8');
+      
+      // Create a test screener object
+      const testScreener = {
+        id: 'test-screener-1',
+        name: 'Test Screener',
+        description: 'A test screener to verify Python execution',
+        source: {
+          type: 'code',
+          content: screenerCode
+        },
+        results: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        userId: 1,
+        parameters: {}
+      };
+      
+      console.log("Running Python screener...");
+      const result = await executeScreener(testScreener);
+      
+      console.log("Python screener execution result:", result);
+      res.json({
+        success: true,
+        screener: testScreener,
+        result: result
+      });
+    } catch (error) {
+      console.error("Error testing Python screener:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
