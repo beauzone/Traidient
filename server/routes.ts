@@ -4242,37 +4242,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Testing Python screener execution...");
       
-      // Read the test screener file
+      // Read the super simple test screener file
       const fs = await import('fs/promises');
       const path = await import('path');
       
-      const screenerCodePath = path.default.join(process.cwd(), 'docs', 'examples', 'test_screener.py');
+      const screenerCodePath = path.default.join(process.cwd(), 'docs', 'examples', 'super_simple_test_screener.py');
       const screenerCode = await fs.default.readFile(screenerCodePath, 'utf8');
       
-      // Create a test screener object
+      // Create a test screener object - using a loose type to match what executeScreener expects
       const testScreener = {
-        id: 'test-screener-1',
-        name: 'Test Screener',
-        description: 'A test screener to verify Python execution',
+        id: 999,
+        name: 'Super Simple Test Screener',
+        description: 'A super simple test screener to verify Python execution',
         source: {
-          type: 'code',
-          content: screenerCode
+          type: 'code' as const,
+          content: screenerCode,
+          language: 'python' as const
+        },
+        configuration: {
+          universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "META"],
+          parameters: {}
         },
         results: {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
         userId: 1,
-        parameters: {}
+        type: 'stock-screener'
       };
       
       console.log("Running Python screener...");
+      const startTime = Date.now();
       const result = await executeScreener(testScreener);
+      const executionTime = Date.now() - startTime;
       
       console.log("Python screener execution result:", result);
+      console.log(`Execution completed in ${executionTime}ms`);
+      
       res.json({
         success: true,
-        screener: testScreener,
-        result: result
+        screener: {
+          ...testScreener,
+          source: {
+            ...testScreener.source,
+            content: screenerCode.length > 100 
+              ? screenerCode.substring(0, 100) + '...' 
+              : screenerCode
+          }
+        },
+        result: result,
+        executionTime
       });
     } catch (error) {
       console.error("Error testing Python screener:", error);

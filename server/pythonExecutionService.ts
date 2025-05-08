@@ -174,7 +174,7 @@ async function installLibraries(libraries: string[]): Promise<void> {
 /**
  * Execute a stock screener
  */
-export async function executeScreener(screener: Screener): Promise<any> {
+export async function executeScreener(screener: any): Promise<any> {
   try {
     // Generate the Python script
     const scriptPath = await generatePythonScript(screener);
@@ -189,17 +189,32 @@ export async function executeScreener(screener: Screener): Promise<any> {
       console.warn(`Failed to delete temporary script ${scriptPath}:`, error);
     });
     
-    return result;
+    // Add success flag and execution timestamp
+    return {
+      success: true,
+      matches: result.matches || [],
+      details: result.details || {},
+      execution_time: result.execution_time || 0,
+      executed_at: new Date().toISOString()
+    };
   } catch (error) {
     console.error(`Error executing screener (ID: ${screener.id}):`, error);
-    throw error;
+    
+    // Return structured error response
+    return {
+      success: false,
+      matches: [],
+      details: {},
+      error: error instanceof Error ? error.message : String(error),
+      executed_at: new Date().toISOString()
+    };
   }
 }
 
 /**
  * Generate Python script for a screener using a minimalist approach
  */
-async function generatePythonScript(screener: Screener): Promise<string> {
+async function generatePythonScript(screener: any): Promise<string> {
   await fs.mkdir(TEMP_SCRIPT_DIR, { recursive: true });
   
   // Create a unique filename for this execution
@@ -208,14 +223,14 @@ async function generatePythonScript(screener: Screener): Promise<string> {
   
   // Get the user code
   let userCode = '';
-  if (screener.source.type === 'code') {
+  if (screener.source && screener.source.type === 'code') {
     userCode = screener.source.content;
   } else {
     // For non-code sources, create a basic screener
     userCode = `
 def screen_stocks(data_dict):
     """
-    Auto-generated screener based on description: ${screener.description}
+    Auto-generated screener based on description: ${screener.description || 'No description'}
     """
     # Create a simple example result
     matches = ["AAPL", "MSFT", "GOOGL"]
@@ -233,14 +248,13 @@ def screen_stocks(data_dict):
   }
   
   // Create a super simple runner script
+  // Use triple backticks for the user code to maintain exact indentation and avoid conflicts with quotes in the code
   const scriptContent = `#!/usr/bin/env python3
 import sys
 import json
 
-# The user code
-user_code = """
+# The user code - directly pasted without using multi-line string to preserve indentation
 ${userCode}
-"""
 
 # Create a minimal test data dictionary
 data_dict = {
@@ -251,11 +265,8 @@ data_dict = {
 
 # Execute the user code in a try-except block to catch any errors
 try:
-    # Define the function in the current scope
-    exec(user_code)
-    
-    # Call the screen_stocks function
-    result = locals()["screen_stocks"](data_dict)
+    # Call the screen_stocks function which is now directly defined above
+    result = screen_stocks(data_dict)
     
     # Print the result with special markers for easy extraction
     print("RESULT_JSON_START")

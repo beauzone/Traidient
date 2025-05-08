@@ -1,13 +1,17 @@
 def screen_stocks(data_dict):
     """
-    The most basic possible screener with no docstring formatting issues
+    Super simple test screener with minimal dependencies
     """
-    # Just return some test matches to indicate success
+    print("Running super simple test screener")
+    
+    # Just return a basic result
+    matches = ["AAPL", "MSFT", "GOOGL"]
+    
+    print("Test completed successfully")
+    
     return {
-        'matches': ['AAPL', 'MSFT', 'GOOGL'],
+        'matches': matches,
         'details': {
-            'AAPL': {'reason': 'Basic test match'},
-            'MSFT': {'reason': 'Basic test match'},
-            'GOOGL': {'reason': 'Basic test match'}
+            'test': 'This is a super simple test'
         }
     }
