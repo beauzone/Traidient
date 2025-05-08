@@ -90,7 +90,8 @@ async function checkAndInstallLibraries(): Promise<void> {
     'plotly',
     'matplotlib',
     'scikit-learn',
-    'scipy'
+    'scipy',
+    'ta'  // Added the technical analysis library needed for your screener
   ];
   
   // Check if any required packages are missing
