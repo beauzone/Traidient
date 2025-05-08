@@ -14,7 +14,15 @@ Every screener must:
 - Handle input parameters and errors gracefully
 - Return results in the specified JSON format with a 'matches' key
 
-**IMPORTANT:** The platform specifically looks for a global function named `screen_stocks` that accepts a dictionary of dataframes. This is the function that will be called by the system, not `run_screener`.
+**IMPORTANT:** The platform specifically looks for a global function named `screen_stocks` that accepts a dictionary of symbols. This is the function that will be called by the system, not `run_screener`.
+
+### 1.1 New Execution System
+
+Our updated Python execution system now uses special markers to reliably extract results:
+- Results are extracted from the output using `RESULT_JSON_START` and `RESULT_JSON_END` markers
+- Any print statements or logging will be captured but won't interfere with result extraction
+- The system properly handles errors and exceptions, wrapping them in the response
+- All print statements are captured in the execution logs for debugging
 
 ### 2. Data Source
 
@@ -29,23 +37,32 @@ The `screen_stocks` function must return a dictionary with this structure:
 ```python
 {
     'matches': [  # CRITICAL: The key must be 'matches', not 'results'
-        {
-            "symbol": "AAPL",             # Required: Stock ticker symbol
-            "price": 175.45,              # Required: Current price as float
-            "score": 85.7,                # Required: Numerical score for ranking (higher is better)
-            "details": "RSI: 65, P/E: 28" # Required: Human-readable summary for display
-            # Optional: Any additional metrics specific to your screener 
-        },
-        # Additional stocks...
+        "AAPL",              # List of matching stock ticker symbols
+        "MSFT",
+        "GOOGL"
     ],
-    'details': {  # Optional metadata about the screener
-        'screener_name': "RSI Divergence",
-        'total': 10
+    'details': {  # Dictionary with details for each matched stock
+        "AAPL": {
+            "price": 175.45,              # Optional: Current price as float
+            "score": 85.7,                # Optional: Numerical score for ranking (higher is better)
+            "rsi": 65.2,                  # Optional: Specific metrics relevant to your screener
+            "details": "RSI: 65, P/E: 28" # Optional: Human-readable summary for display
+        },
+        "MSFT": {
+            # Similar details structure
+        }
     }
 }
 ```
 
-When using the `run_screener` function for testing (outside of the platform), return this format:
+**IMPORTANT:** The new execution system will automatically wrap the return value in the special markers:
+```
+RESULT_JSON_START
+{"matches": ["AAPL", "MSFT"], "details": {"AAPL": {"score": 85.7, "details": "RSI: 65"}}}
+RESULT_JSON_END
+```
+
+For backward compatibility when testing outside the platform, you can still use the `run_screener` function which may return:
 ```python
 {
     "results": [  # For standalone testing use 'results', but platform uses 'matches'
