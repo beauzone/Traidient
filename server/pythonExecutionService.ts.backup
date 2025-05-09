@@ -352,43 +352,22 @@ async function runPythonScript(scriptPath: string): Promise<any> {
           const resultStartMarker = "RESULT_JSON_START";
           const resultEndMarker = "RESULT_JSON_END";
           
-          // Try improved marker extraction using regex (more robust to newlines and variations)
-          console.log("Trying regex extraction for markers");
-          const resultMarkerRegex = /RESULT_JSON_START\s*([\s\S]*?)\s*RESULT_JSON_END/;
-          const regexMatch = outputData.match(resultMarkerRegex);
-          
-          if (regexMatch && regexMatch[1]) {
-            try {
-              const jsonStr = regexMatch[1].trim();
-              console.log(`Regex found content (first 50 chars): ${jsonStr.substring(0, 50)}...`);
-              
-              const result = JSON.parse(jsonStr);
-              console.log(`Successfully parsed JSON from regex with ${result.matches ? result.matches.length : 0} matches`);
-              console.log(`Matches: ${JSON.stringify(result.matches)}`);
-              resolve(result);
-              return; // Exit early if regex method works
-            } catch (e) {
-              console.error('Error parsing JSON from regex:', e);
-              // Fall through to other methods
-            }
-          }
-          
-          // Fallback to traditional indexOf approach
           const startIndex = outputData.indexOf(resultStartMarker);
-          // Need to find end marker AFTER the start marker to avoid earlier instances
-          const contentStartIndex = startIndex + resultStartMarker.length;
-          const endIndex = outputData.indexOf(resultEndMarker, contentStartIndex);
+          const endIndex = outputData.indexOf(resultEndMarker);
           
-          console.log(`Marker indices: start=${startIndex}, contentStart=${contentStartIndex}, end=${endIndex}`);
+          console.log(`Marker indices: start=${startIndex}, end=${endIndex}`);
           
           // Check if both markers exist and are in the correct order
           if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
             console.log("Found result markers in output, extracting JSON between them");
             
-            // Extract the JSON between the markers (excluding the markers themselves)
-            const jsonContent = outputData.substring(contentStartIndex, endIndex).trim();
+            // Extract the JSON between the markers (add marker length plus newline to skip to next line)
+            const markerLength = resultStartMarker.length;
+            const jsonContent = outputData.substring(
+              startIndex + markerLength, 
+              endIndex
+            ).trim();
             
-            console.log(`Extracted content length: ${jsonContent.length}`);
             console.log(`Extracted JSON content (first 100 chars): ${jsonContent.substring(0, 100)}`);
             
             try {

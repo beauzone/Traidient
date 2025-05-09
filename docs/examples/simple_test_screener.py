@@ -1,47 +1,86 @@
-import pandas as pd
+import json
+import yfinance as yf
 
 def screen_stocks(data_dict):
     """
-    Very simple test screener that returns all stocks with price > $10
-    The platform will call this function with a dictionary of dataframes.
-    Must return a dictionary with 'matches' key containing the results.
+    Extremely simple test screener to diagnose marker extraction
     """
-    print(f"Running simple test screener on {len(data_dict)} stocks")
-    
-    # Process each stock
-    matches = []
-    for symbol, df in data_dict.items():
-        # Skip empty dataframes
-        if df is None or df.empty:
-            print(f"No data for {symbol}")
-            continue
-            
-        try:
-            # Get the latest price
-            latest_price = df['Close'].iloc[-1]
-            print(f"Processing {symbol} - Latest price: ${latest_price:.2f}")
-            
-            # Very simple check - just stocks over $10
-            if latest_price > 10:
-                print(f"✓ MATCH: {symbol} at ${latest_price:.2f}")
-                
-                # Add to matches in the expected format
-                matches.append({
-                    "symbol": symbol,
-                    "price": float(latest_price),
-                    "details": f"Price: ${latest_price:.2f}"
-                })
-        except Exception as e:
-            print(f"Error processing {symbol}: {str(e)}")
-    
-    print(f"Found {len(matches)} matching stocks")
-    
-    # Return in the format expected by the system
-    return {
-        'matches': matches,
-        'details': {
-            'screener_name': 'Simple Test Screener',
-            'description': 'Finds stocks with price > $10',
-            'total': len(matches)
+    try:
+        # Initialize results
+        matches = []
+        details = {}
+        errors = []
+        
+        # Get Apple stock data
+        stock = yf.Ticker("AAPL")
+        current_price = stock.history(period="1d")['Close'].iloc[-1]
+        
+        print(f"Got AAPL price: ${current_price:.2f}")
+        
+        # Just add AAPL to matches
+        matches.append("AAPL")
+        details["AAPL"] = {
+            "price": float(current_price),
+            "reason": "Test match"
         }
-    }
+        
+        # Prepare the result dictionary
+        result = {
+            'matches': matches,
+            'details': details,
+            'errors': errors if errors else None
+        }
+        
+        # Print the result with markers in six different ways to see which ones work
+        
+        # Method 1: Basic markers with newlines (most common)
+        print("\nMETHOD 1: Basic markers with newlines")
+        print("RESULT_JSON_START")
+        print(json.dumps(result))
+        print("RESULT_JSON_END")
+        
+        # Method 2: Markers on same line as JSON
+        print("\nMETHOD 2: Markers on same line as JSON")
+        print("RESULT_JSON_START " + json.dumps(result) + " RESULT_JSON_END")
+        
+        # Method 3: Using triple quotes for everything
+        print("\nMETHOD 3: Using triple quotes for everything")
+        print(f"""RESULT_JSON_START
+{json.dumps(result)}
+RESULT_JSON_END""")
+        
+        # Method 4: With extra whitespace
+        print("\nMETHOD 4: With extra whitespace")
+        print("  RESULT_JSON_START  ")
+        print(json.dumps(result))
+        print("  RESULT_JSON_END  ")
+        
+        # Method 5: Using .write() directly
+        print("\nMETHOD 5: Using sys.stdout.write()")
+        import sys
+        sys.stdout.write("RESULT_JSON_START\n")
+        sys.stdout.write(json.dumps(result) + "\n")
+        sys.stdout.write("RESULT_JSON_END\n")
+        
+        # Method 6: Print without newlines
+        print("\nMETHOD 6: Print without newlines")
+        print("RESULT_JSON_START", end="")
+        print(json.dumps(result), end="")
+        print("RESULT_JSON_END")
+        
+        # Return the result dictionary (this will be ignored by the Node.js service)
+        return result
+    except Exception as e:
+        print(f"Error in screener: {str(e)}")
+        # Even on error, make sure to print with markers
+        error_result = {
+            'matches': [],
+            'details': {},
+            'errors': [f"Error in screener: {str(e)}"]
+        }
+        print("RESULT_JSON_START")
+        print(json.dumps(error_result))
+        print("RESULT_JSON_END")
+        
+        # Return the error result (this will be ignored by the Node.js service)
+        return error_result
