@@ -1,126 +1,207 @@
 # Best Practices for Stock Screeners
 
-This guide outlines the best practices for creating reliable stock screeners that work with our platform's Python execution service.
+This guide outlines best practices for creating reliable stock screeners using Alpaca API.
 
-## Key Requirements for All Screeners
+## Core Principles
 
-1. **Entry Point Function**
-   - All screeners must define a `screen_stocks(data_dict)` function that accepts a dictionary of stock data.
-   - This function must return a dictionary with `matches` and `details` keys.
+1. **No Default Fallbacks**: Never add default stocks to your results if no matches are found.
+2. **Use Special Markers**: Always use `RESULT_JSON_START` and `RESULT_JSON_END` to mark your results.
+3. **Handle Errors Gracefully**: Catch and report errors instead of crashing.
+4. **Test API Connection**: Verify API connectivity before making other API calls.
+5. **Document Your Logic**: Include clear comments explaining your screening criteria.
 
-2. **Result Format**
-   - Your screener must return a dictionary with two keys:
-     - `matches`: A list of symbol strings (e.g., `["AAPL", "MSFT"]`)
-     - `details`: A dictionary with symbols as keys and details as values
+## Screener Structure
 
-3. **Special Results Markers**
-   - Include the special markers to ensure reliable result extraction:
+### 1. Basic Template
+
+```python
+import os
+import requests
+import pandas as pd
+import json
+from datetime import datetime, timedelta
+
+def screen_stocks(data_dict):
+    # Initialize result containers
+    matches = []
+    details = {}
+    errors = []
+    
+    # API setup code
+    
+    # Test API connection
+    
+    # Processing logic
+    
+    # Final result preparation
+    result = {
+        'matches': matches,
+        'details': details,
+        'errors': errors if errors else None
+    }
+    
+    # Special markers for extraction
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    
+    return result
+```
+
+### 2. API Setup
+
+```python
+# Configure Alpaca API access
+API_KEY = os.environ.get('ALPACA_API_KEY')
+API_SECRET = os.environ.get('ALPACA_API_SECRET')
+
+# Verify we have API credentials
+if not API_KEY or not API_SECRET:
+    print("ERROR: Alpaca API credentials not found")
+    result = {
+        'matches': [],
+        'details': {},
+        'errors': ["Alpaca API credentials not found"]
+    }
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    return result
+
+# Headers for API requests
+headers = {
+    'APCA-API-KEY-ID': API_KEY,
+    'APCA-API-SECRET-KEY': API_SECRET,
+    'Accept': 'application/json'
+}
+```
+
+### 3. Connection Testing
+
+```python
+# Test API connection before making other calls
+try:
+    account_url = f"{BASE_URL}/v2/account"
+    account_response = requests.get(account_url, headers=headers)
+    
+    if account_response.status_code != 200:
+        # Handle connection error
+        return error_result
+except Exception as e:
+    # Handle exception
+    return error_result
+```
+
+### 4. Error Handling
+
+```python
+try:
+    # API call or data processing code
+except Exception as e:
+    print(f"Error: {str(e)}")
+    errors.append(f"Error: {str(e)}")
+    # Continue with next item or return error result
+```
+
+## Specific Scenarios
+
+### 1. Getting Historical Data
+
+```python
+# Get last 30 days of daily bars
+end_date = datetime.now()
+start_date = end_date - timedelta(days=30)
+
+# Format dates as ISO strings
+start_str = start_date.strftime('%Y-%m-%d')
+end_str = end_date.strftime('%Y-%m-%d')
+
+# API request
+bars_url = f"{BASE_URL}/v2/stocks/{symbol}/bars"
+params = {
+    'start': start_str,
+    'end': end_str,
+    'timeframe': '1D',
+    'limit': 30
+}
+response = requests.get(bars_url, headers=headers, params=params)
+
+# Check if enough data points
+if not bars_data.get('bars') or len(bars_data['bars']) < 14:
+    print(f"Not enough data for {symbol}")
+    continue
+```
+
+### 2. Getting Latest Quotes
+
+```python
+# Get latest quote
+quote_url = f"{BASE_URL}/v2/stocks/{symbol}/quotes/latest"
+response = requests.get(quote_url, headers=headers)
+
+# Extract price data
+ask_price = quote_data.get('quote', {}).get('ap')
+bid_price = quote_data.get('quote', {}).get('bp')
+
+# Use midpoint or whatever is available
+if ask_price and bid_price:
+    current_price = (ask_price + bid_price) / 2
+elif ask_price:
+    current_price = ask_price
+elif bid_price:
+    current_price = bid_price
+else:
+    print(f"No price data available for {symbol}")
+    continue
+```
+
+### 3. Technical Indicators
+
+```python
+# Calculate RSI
+delta = df['c'].diff()
+gain = delta.clip(lower=0)
+loss = -delta.clip(upper=0)
+
+avg_gain = gain.rolling(window=14).mean()
+avg_loss = loss.rolling(window=14).mean()
+
+rs = avg_gain / avg_loss
+rsi = 100 - (100 / (1 + rs))
+
+# Calculate MACD
+ema12 = df['c'].ewm(span=12, adjust=False).mean()
+ema26 = df['c'].ewm(span=26, adjust=False).mean()
+
+macd_line = ema12 - ema26
+signal_line = macd_line.ewm(span=9, adjust=False).mean()
+```
+
+## Common Pitfalls
+
+1. **Not Checking Data Completeness**: Always verify you have enough data points before calculating indicators.
+
+2. **Default Fallbacks**: NEVER add default stocks to results when no matches are found. It creates confusion about whether the screener is working properly.
+
+3. **Missing Error Handling**: Wrap API calls in try/except blocks and include the error info in results.
+
+4. **Not Using Result Markers**: Always include the special markers for proper result extraction:
    ```python
    print("RESULT_JSON_START")
-   print(json.dumps(result))  # result is your dictionary with matches and details
+   print(json.dumps(result))
    print("RESULT_JSON_END")
    ```
 
-4. **Error Handling**
-   - Always include try-except blocks around API calls and data processing
-   - Return empty matches with an error detail on failure:
+5. **Forgetting Type Conversion**: Convert NumPy/Pandas types to Python native types for JSON serialization:
    ```python
-   return {
-       'matches': [],
-       'details': {"error": str(error_message)}
-   }
+   "price": float(latest['c']),
+   "volume": int(latest['v']),
    ```
 
-## Self-Contained Screeners
+## Example Screeners
 
-For screeners that fetch their own data (recommended for complex technical indicators):
+For complete working examples, see:
 
-1. **API Access**
-   - Use environment variables for API keys
-   ```python
-   API_KEY = os.environ.get('ALPACA_API_KEY')
-   API_SECRET = os.environ.get('ALPACA_API_SECRET')
-   ```
-
-2. **Verify API Keys**
-   - Always check that API keys exist and provide a meaningful error if missing
-   ```python
-   if not API_KEY or not API_SECRET:
-       print("ERROR: API credentials not found in environment")
-       return {'matches': [], 'details': {"error": "API credentials not found"}}
-   ```
-
-3. **Data Fetching**
-   - Clearly handle API request errors with try-except blocks
-   - Verify you have enough data points before calculating indicators
-
-4. **Logging**
-   - Use print statements for debugging important steps
-   - Log API responses for troubleshooting
-
-## Example: Minimal Working Screener
-
-```python
-import json
-import os
-
-def screen_stocks(data_dict):
-    """
-    A minimal working screener example
-    """
-    # Initialize results
-    matches = []
-    details = {}
-    
-    try:
-        # Your screening logic here
-        # For example, a simple price screener:
-        for symbol, data in data_dict.items():
-            if "price" in data and data["price"] > 100:
-                matches.append(symbol)
-                details[symbol] = {
-                    "price": data["price"],
-                    "reason": "Price above $100"
-                }
-        
-        # Print result with special markers
-        result = {'matches': matches, 'details': details}
-        print("RESULT_JSON_START")
-        print(json.dumps(result))
-        print("RESULT_JSON_END")
-        
-        return result
-    
-    except Exception as e:
-        error_result = {
-            'matches': [],
-            'details': {"error": str(e)}
-        }
-        print("RESULT_JSON_START")
-        print(json.dumps(error_result))
-        print("RESULT_JSON_END")
-        
-        return error_result
-```
-
-## Troubleshooting Common Issues
-
-1. **Empty Results**
-   - Check if your data_dict contains the expected data
-   - Verify that your filtering criteria aren't too strict
-   - Add more debug print statements to trace data flow
-
-2. **API Errors**
-   - Verify API credentials exist as environment variables
-   - Check API response status codes
-   - Handle rate limiting with retries if necessary
-
-3. **Execution Errors**
-   - Include try-except blocks around all code that might fail
-   - Log intermediate calculation results for technical indicators
-   - Check for division by zero or NaN values
-
-4. **Result Parsing Issues**
-   - Always include the special result markers
-   - Ensure your result can be serialized to JSON (no custom objects)
-   - Keep your return format consistent
+1. `docs/examples/price_threshold_screener.py` - Simple price-based screener
+2. `docs/examples/clean_simple_screener.py` - Moving average screener
+3. `docs/examples/alpaca_rsi_macd_improved.py` - RSI-MACD momentum screener

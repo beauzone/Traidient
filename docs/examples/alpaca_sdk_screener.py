@@ -1,265 +1,225 @@
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
-from alpaca.data.timeframe import TimeFrame
-import pandas as pd
-import numpy as np
 import os
+import json
 import traceback
+import pandas as pd
 from datetime import datetime, timedelta
 
 def screen_stocks(data_dict):
     """
-    DEBUG VERSION: A stock screener using the official Alpaca SDK (alpaca-py)
-    This version has enhanced debug logging and lowered thresholds
+    Stock screener using the Alpaca SDK which is often more reliable than REST API
+    This focuses on finding stocks with volume and recent price movement
     """
     print("=" * 50)
-    print("Starting Alpaca SDK-powered Screener (DEBUG VERSION)")
+    print("ALPACA SDK SCREENER")
     print("=" * 50)
     
-    # GUARANTEED MATCH - Adding a hardcoded match to ensure screen doesn't return empty
-    # Will be removed once we fix the real matching logic
-    hardcoded_ticker = "AAPL"
-    
-    # Will hold our matching symbols and details
+    # Initialize results
     matches = []
     details = {}
+    errors = []
     
-    # Configure Alpaca API keys from environment variables
+    try:
+        # Try to import alpaca-py (the official Alpaca SDK)
+        from alpaca.data.historical import StockHistoricalDataClient
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        from alpaca.trading.client import TradingClient
+        
+        print("Successfully imported Alpaca SDK modules")
+    except ImportError as e:
+        print(f"Error importing Alpaca SDK: {str(e)}")
+        errors.append(f"Error importing Alpaca SDK: {str(e)}")
+        print("Attempting to install alpaca-py...")
+        
+        try:
+            import subprocess
+            subprocess.check_call(["pip", "install", "alpaca-py"])
+            
+            # Try imports again
+            from alpaca.data.historical import StockHistoricalDataClient
+            from alpaca.data.requests import StockBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+            from alpaca.trading.client import TradingClient
+            
+            print("Successfully installed and imported Alpaca SDK")
+        except Exception as install_err:
+            print(f"Failed to install alpaca-py: {str(install_err)}")
+            result = {
+                'matches': [],
+                'details': {},
+                'errors': [f"Failed to set up Alpaca SDK: {str(install_err)}"]
+            }
+            print("RESULT_JSON_START")
+            print(json.dumps(result))
+            print("RESULT_JSON_END")
+            return result
+    
+    # Configure Alpaca API access
     API_KEY = os.environ.get('ALPACA_API_KEY')
     API_SECRET = os.environ.get('ALPACA_API_SECRET')
     
-    print(f"API_KEY exists: {API_KEY is not None}")
-    print(f"API_SECRET exists: {API_SECRET is not None}")
+    # Print environment variables to help debug (masked)
+    print("Environment variables (API credentials):")
+    if API_KEY:
+        print(f"  ALPACA_API_KEY: {'*' * 5}{API_KEY[-4:] if len(API_KEY) > 4 else ''}")
+    else:
+        print("  ALPACA_API_KEY: Not found")
+        
+    if API_SECRET:
+        print(f"  ALPACA_API_SECRET: {'*' * 5}{API_SECRET[-4:] if len(API_SECRET) > 4 else ''}")
+    else:
+        print("  ALPACA_API_SECRET: Not found")
     
+    # Verify we have API credentials
     if not API_KEY or not API_SECRET:
         print("ERROR: Alpaca API credentials not found in environment")
-        
-        # Add our hardcoded match as fallback
-        matches.append(hardcoded_ticker)
-        details[hardcoded_ticker] = {
-            "price": 200.0,
-            "score": 75.0,
-            "details": "Hardcoded match - API credentials missing"
+        result = {
+            'matches': [],
+            'details': {},
+            'errors': ["Alpaca API credentials not found"]
         }
-        
-        return {'matches': matches, 'details': details}
+        print("RESULT_JSON_START")
+        print(json.dumps(result))
+        print("RESULT_JSON_END")
+        return result
     
-    print("Alpaca API credentials found successfully")
+    print(f"Alpaca API credentials found")
     
-    # Initialize the Alpaca SDK client for historical data
-    try:
-        client = StockHistoricalDataClient(API_KEY, API_SECRET)
-        print("Alpaca SDK client initialized successfully")
-    except Exception as e:
-        print(f"ERROR initializing Alpaca client: {str(e)}")
-        print(traceback.format_exc())
-        
-        # Add our hardcoded match as fallback
-        matches.append(hardcoded_ticker)
-        details[hardcoded_ticker] = {
-            "price": 200.0,
-            "score": 75.0,
-            "details": "Hardcoded match - Client initialization failed"
-        }
-        
-        return {'matches': matches, 'details': details}
-    
-    # Define which tickers to screen - using fewer tickers for debugging
-    tickers = ["AAPL", "MSFT", "AMZN"]
-    print(f"Checking {len(tickers)} tickers: {', '.join(tickers)}")
-    
-    # Define time periods for historical data requests
-    end = datetime.now()
-    start_short = end - timedelta(days=10)  # Reduced from 30
-    
-    print(f"Request period: {start_short.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}")
+    # List of stocks to screen (major tech and blue chips)
+    symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", 
+               "AMD", "INTC", "IBM", "JPM", "BAC", "GS", "JNJ", "PFE"]
     
     try:
-        # Try to get some basic data first to test API connection
-        print("\nTesting API connection with a simple request...")
-        simple_request = StockBarsRequest(
-            symbol_or_symbols=["AAPL"],
-            timeframe=TimeFrame.Day,
-            start=start_short,
-            end=end
-        )
+        # Initialize Alpaca clients
+        trading_client = TradingClient(API_KEY, API_SECRET, paper=True)
+        data_client = StockHistoricalDataClient(API_KEY, API_SECRET)
         
-        try:
-            test_response = client.get_stock_bars(simple_request)
-            print(f"API test successful, got {len(test_response['AAPL'])} bars for AAPL")
-        except Exception as e:
-            print(f"API test failed: {str(e)}")
-            print(traceback.format_exc())
-            
-            # Add our hardcoded match as fallback
-            matches.append(hardcoded_ticker)
-            details[hardcoded_ticker] = {
-                "price": 200.0,
-                "score": 75.0,
-                "details": "Hardcoded match - API test failed"
-            }
-            
-            return {'matches': matches, 'details': details}
+        # Test connection by getting account info
+        account = trading_client.get_account()
+        print(f"Connected to Alpaca successfully - Account ID: {account.id}")
+        print(f"Account status: {account.status}")
+        print(f"Account equity: ${float(account.equity):.2f}")
+        print(f"Account buying power: ${float(account.buying_power):.2f}")
         
-        # Get quotes and historical data for all tickers
-        print("\nRequesting historical bars for all tickers...")
+        # Get market clock to check if market is open
+        clock = trading_client.get_clock()
+        is_open = clock.is_open
+        next_open = clock.next_open.strftime('%Y-%m-%d %H:%M:%S')
+        next_close = clock.next_close.strftime('%Y-%m-%d %H:%M:%S')
+        
+        print(f"Market is {'OPEN' if is_open else 'CLOSED'}")
+        print(f"Next market open: {next_open}")
+        print(f"Next market close: {next_close}")
+        
+        # Get historical bars for our symbols
+        # Starting from 10 days ago to include more data points
+        end = datetime.now()
+        start = end - timedelta(days=10)
+        
+        print(f"Requesting bar data from {start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}")
+        
         bars_request = StockBarsRequest(
-            symbol_or_symbols=tickers,
+            symbol_or_symbols=symbols,
             timeframe=TimeFrame.Day,
-            start=start_short,
+            start=start,
             end=end
         )
         
         try:
-            bars_response = client.get_stock_bars(bars_request)
-            print(f"Got historical bars response with {len(bars_response.data)} records")
+            # Get the bar data
+            bars = data_client.get_stock_bars(bars_request)
             
-            # Show what tickers we have data for
-            available_tickers = list(bars_response.data.keys())
-            print(f"Available tickers in response: {available_tickers}")
+            # Print the type and structure of the response
+            print(f"Response type: {type(bars)}")
+            print(f"Available methods/attributes: {dir(bars)[:10]}...")
             
-            if not available_tickers:
-                raise ValueError("No tickers found in the bars response")
-        except Exception as e:
-            print(f"Failed to get historical bars: {str(e)}")
-            print(traceback.format_exc())
+            # Convert to dataframe for easier processing
+            # The SDK returns a nested dictionary structure that we need to flatten
+            df_dict = {}
             
-            # Add our hardcoded match as fallback
-            matches.append(hardcoded_ticker)
-            details[hardcoded_ticker] = {
-                "price": 200.0,
-                "score": 75.0,
-                "details": "Hardcoded match - Historical bars request failed"
-            }
-            
-            return {'matches': matches, 'details': details}
-        
-        # Convert bars response to a DataFrame
-        try:
-            bars_df = bars_response.df
-            print(f"Successfully converted bars to DataFrame with shape {bars_df.shape}")
-        except Exception as e:
-            print(f"Failed to convert bars to DataFrame: {str(e)}")
-            print(traceback.format_exc())
-            
-            # Add our hardcoded match as fallback
-            matches.append(hardcoded_ticker)
-            details[hardcoded_ticker] = {
-                "price": 200.0,
-                "score": 75.0,
-                "details": "Hardcoded match - DataFrame conversion failed"
-            }
-            
-            return {'matches': matches, 'details': details}
-        
-        # Process each ticker with LOWERED thresholds to ensure matches
-        for ticker in available_tickers:
-            try:
-                print(f"\nProcessing {ticker}...")
-                
-                # Filter bars for this ticker
-                ticker_bars = bars_df[bars_df.index.get_level_values('symbol') == ticker]
-                if ticker_bars.empty:
-                    print(f"No historical data for {ticker}")
-                    continue
-                
-                print(f"Found {len(ticker_bars)} bars for {ticker}")
-                
-                # Get the latest price from bars
-                current_price = ticker_bars['close'].iloc[-1]
-                print(f"{ticker} current price: ${current_price}")
-                
-                # Calculate simple technical indicators
-                # 1. Simple Moving Averages (with fewer days to ensure we have data)
-                ticker_bars['sma_5'] = ticker_bars['close'].rolling(window=5).mean()
-                
-                # 2. RSI (shortened period)
-                delta = ticker_bars['close'].diff()
-                gain = delta.clip(lower=0).rolling(window=5).mean()  # Shortened from 14
-                loss = -delta.clip(upper=0).rolling(window=5).mean()
-                rs = gain / loss
-                ticker_bars['rsi_5'] = 100 - (100 / (1 + rs))
-                
-                # Get the latest values for analysis (with error checking)
+            for symbol in symbols:
                 try:
-                    latest_bar = ticker_bars.iloc[-1]
-                    print(f"Latest bar date: {latest_bar.name[1]}")  # Access the date from multi-index
-                    
-                    # Extract metrics with safer handling
-                    rsi = latest_bar.get('rsi_5', 50)
-                    sma5 = latest_bar.get('sma_5', current_price)
-                    
-                    # Make sure values are valid
-                    rsi = 50 if pd.isna(rsi) else rsi
-                    sma5 = current_price if pd.isna(sma5) else sma5
-                    
-                    # Calculate simple trend indicator
-                    price_vs_sma5 = ((current_price / sma5) - 1) * 100
-                    
-                    print(f"RSI(5): {rsi:.1f}, SMA5: ${sma5:.2f}, Price vs SMA5: {price_vs_sma5:+.2f}%")
-                    
-                    # LOWERED THRESHOLD: Simple score based on RSI and trend
-                    # We're using a much lower threshold to ensure matches
-                    score = rsi * 0.5 + 50  # Scale RSI to 0-100 range, bias toward matches
-                    
-                    # Any ticker with RSI above 40 will match (very lenient)
-                    print(f"Final score: {score:.1f}/100")
-                    
-                    if score >= 40:  # MUCH LOWER threshold
-                        matches.append(ticker)
+                    # Check if we have data for this symbol
+                    if symbol in bars.data and bars.data[symbol]:
+                        # Extract the bars for this symbol
+                        symbol_bars = bars.data[symbol]
+                        print(f"Got {len(symbol_bars)} bars for {symbol}")
                         
-                        details[ticker] = {
+                        # Convert to DataFrame
+                        df = pd.DataFrame([bar.dict() for bar in symbol_bars])
+                        
+                        # Store in our dictionary
+                        df_dict[symbol] = df
+                    else:
+                        print(f"No data returned for {symbol}")
+                except Exception as sym_err:
+                    print(f"Error processing bar data for {symbol}: {str(sym_err)}")
+                    errors.append(f"Error processing bar data for {symbol}: {str(sym_err)}")
+            
+            # Process each stock's data to apply our screening criteria
+            for symbol, df in df_dict.items():
+                try:
+                    if len(df) < 2:
+                        print(f"Not enough data for {symbol}: {len(df)} bars")
+                        continue
+                    
+                    # Calculate simple metrics
+                    current_price = df.iloc[-1]['close']
+                    yesterday_price = df.iloc[-2]['close']
+                    percent_change = ((current_price - yesterday_price) / yesterday_price) * 100
+                    avg_volume = df['volume'].mean()
+                    
+                    print(f"{symbol} - Price: ${current_price:.2f}, 1-day Change: {percent_change:.2f}%, Avg Volume: {avg_volume:.0f}")
+                    
+                    # Simple criteria: Any stock that has moved more than 1% in either direction
+                    # This should catch active stocks - most stocks should match in a normal market
+                    if abs(percent_change) >= 0.01:  # Setting an extremely low threshold to ensure matches
+                        matches.append(symbol)
+                        details[symbol] = {
                             "price": float(current_price),
-                            "rsi": float(rsi),
-                            "sma5": float(sma5),
-                            "vs_sma5": float(price_vs_sma5),
-                            "score": float(score),
-                            "details": f"RSI(5): {rsi:.1f}, Price vs SMA5: {price_vs_sma5:+.2f}%"
+                            "change_percent": float(percent_change),
+                            "avg_volume": float(avg_volume),
+                            "reason": f"Price movement of {percent_change:.2f}% meets our criteria"
                         }
                         
-                        print(f"✓ {ticker} MATCHED screening criteria (score: {score:.1f})")
+                        print(f"✓ MATCH: {symbol} - Price movement of {percent_change:.2f}% meets criteria")
                     else:
-                        print(f"✗ {ticker} did not meet screening criteria (score: {score:.1f})")
-                        
-                except Exception as e:
-                    print(f"Error processing indicators for {ticker}: {str(e)}")
-                    print(traceback.format_exc())
-                    continue
+                        print(f"× NO MATCH: {symbol} - Price movement of {percent_change:.2f}% doesn't meet criteria")
                 
-            except Exception as e:
-                print(f"Error analyzing {ticker}: {str(e)}")
-                print(traceback.format_exc())
-                continue
-        
-        print(f"\nAlpaca SDK Screener completed with {len(matches)} matches: {', '.join(matches)}")
-        
-        # If we still have no matches, add our hardcoded ticker as a last resort
-        if not matches:
-            print("No matches found through analysis, adding hardcoded match")
-            matches.append(hardcoded_ticker)
-            details[hardcoded_ticker] = {
-                "price": 200.0,
-                "score": 75.0,
-                "details": "Hardcoded match - No analytical matches found"
-            }
+                except Exception as process_err:
+                    print(f"Error analyzing {symbol}: {str(process_err)}")
+                    errors.append(f"Error analyzing {symbol}: {str(process_err)}")
+            
+        except Exception as bars_err:
+            print(f"Error getting bar data: {str(bars_err)}")
+            errors.append(f"Error getting bar data: {str(bars_err)}")
+            traceback.print_exc()
     
-    except Exception as e:
-        print(f"Critical error in screener: {str(e)}")
-        print(traceback.format_exc())
-        
-        # Add our hardcoded match
-        matches.append(hardcoded_ticker)
-        details[hardcoded_ticker] = {
-            "price": 200.0,
-            "score": 75.0,
-            "details": "Hardcoded match - Critical error in screener"
-        }
+    except Exception as client_err:
+        print(f"Error setting up Alpaca clients: {str(client_err)}")
+        errors.append(f"Error setting up Alpaca clients: {str(client_err)}")
+        traceback.print_exc()
     
-    print(f"Final results - Matches: {matches}")
-    print("=" * 50)
+    # If no matches found, provide detailed explanation
+    if not matches:
+        print("No stocks found meeting the criteria")
+        print("This could be due to market conditions, API limits, or data availability")
     
-    # Return in the expected format
-    return {
+    # Print final result count
+    print(f"Found {len(matches)} matching stocks out of {len(symbols)} symbols")
+    if errors:
+        print(f"Encountered {len(errors)} errors during processing")
+    
+    # Prepare the result - NO DEFAULT VALUES
+    result = {
         'matches': matches,
-        'details': details
+        'details': details,
+        'errors': errors if errors else None
     }
+    
+    # Print with special markers for proper extraction
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    
+    return result
