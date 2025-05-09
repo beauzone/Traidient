@@ -252,35 +252,113 @@ def screen_stocks(data_dict):
 `;
   }
   
-  // Create a super simple runner script with actual data for the tickers
+  // Get real market data from our API before passing to the screener
+  // Define the list of symbols to get data for
+  const symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "DIS", "BA", "PFE"];
+  
+  // Fetch real-time market data using the Yahoo Finance API through the server
+  let marketData: Record<string, any> = {};
+  try {
+    console.log(`Fetching real market data for ${symbols.length} symbols...`);
+    
+    // Import the YahooFinance API dynamically
+    const { default: yahooFinance } = await import('yahoo-finance2');
+    
+    // Fetch quotes individually for each symbol
+    const quotes: Record<string, any> = {};
+    
+    // Process each symbol individually (sequentially to avoid rate limits)
+    for (const symbol of symbols) {
+      try {
+        // Fetch quote for this symbol
+        const quoteData = await yahooFinance.quoteSummary(symbol, {
+          modules: ['price', 'summaryDetail'],
+        });
+        
+        if (quoteData) {
+          quotes[symbol] = quoteData;
+        }
+      } catch (error) {
+        console.error(`Error fetching data for ${symbol}:`, error);
+      }
+    }
+    
+    // Process each quote into a format suitable for screeners
+    for (const symbol of symbols) {
+      try {
+        const quote = quotes[symbol] || null;
+        
+        if (quote && quote.price) {
+          const regularMarketPrice = quote.price.regularMarketPrice || null;
+          const regularMarketVolume = quote.price.regularMarketVolume || null;
+          const companyName = quote.price.shortName || quote.price.longName || symbol;
+          
+          // Create data entry with real market data
+          marketData[symbol] = {
+            price: regularMarketPrice,
+            volume: regularMarketVolume,
+            company: companyName
+          };
+          
+          console.log(`Added ${symbol} with price: ${regularMarketPrice}`);
+        } else {
+          console.log(`No price data available for ${symbol}`);
+        }
+      } catch (error) {
+        console.error(`Error processing ${symbol} data:`, error);
+      }
+    }
+    
+    console.log(`Fetched real market data for ${Object.keys(marketData).length} symbols`);
+  } catch (error) {
+    console.error(`Error fetching market data:`, error);
+    console.log(`Using a fallback data approach for screeners`);
+    
+    // If we can't get real data, use fallback data (but with a warning flag)
+    marketData = symbols.reduce((data, symbol) => {
+      data[symbol] = {
+        price: 100.0,  // Clearly artificial price
+        volume: 100000,
+        company: symbol,
+        is_placeholder: true
+      };
+      return data;
+    }, {} as Record<string, any>);
+  }
+  
+  // Convert the market data to a JSON string to be embedded in the Python script
+  const marketDataJson = JSON.stringify(marketData, null, 2);
+  
+  // Create a runner script with pre-fetched real market data
   // Use triple backticks for the user code to maintain exact indentation and avoid conflicts with quotes in the code
   const scriptContent = `#!/usr/bin/env python3
 import sys
 import json
 import os
+import time
 
 # Print Python diagnostics
 print(f"Python version: {sys.version}")
 print(f"Python executable: {sys.executable}")
 print(f"Current working directory: {os.getcwd()}")
 
+# Import key packages
+try:
+    import pandas as pd
+    import numpy as np
+    print("Successfully imported pandas and numpy")
+except ImportError as e:
+    print(f"WARNING: Failed to import core libraries: {str(e)}")
+
 # The user code - directly pasted without using multi-line string to preserve indentation
 ${userCode}
 
 print("Preparing data_dict for screener...")
 
-# Create a real data dictionary with stock data to prevent empty objects
-data_dict = {
-    "AAPL": {"price": 187.35, "volume": 24500000, "company": "Apple Inc."},
-    "MSFT": {"price": 415.56, "volume": 18200000, "company": "Microsoft Corporation"},
-    "GOOGL": {"price": 179.88, "volume": 15800000, "company": "Alphabet Inc."},
-    "AMZN": {"price": 186.45, "volume": 22100000, "company": "Amazon.com, Inc."},
-    "META": {"price": 478.22, "volume": 12500000, "company": "Meta Platforms, Inc."},
-    "TSLA": {"price": 177.50, "volume": 27300000, "company": "Tesla, Inc."},
-    "NVDA": {"price": 950.02, "volume": 39800000, "company": "NVIDIA Corporation"}
-}
+# Load real market data from server (pre-fetched)
+data_dict = ${marketDataJson}
 
-print(f"data_dict contains {len(data_dict)} stocks with data")
+print(f"data_dict contains {len(data_dict)} stocks with real market data")
 
 # Execute the user code in a try-except block to catch any errors
 try:

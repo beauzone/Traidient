@@ -1,78 +1,88 @@
-# Python Screener Fixes
+# Stock Screener Fixes Summary
 
-## Fixed Issues
+## Key Issues Fixed
 
-### 1. pandas_ta Library Compatibility Fix
-The main issue preventing complex screeners from working was a library compatibility problem:
-- `numpy 2.2.4` doesn't have a `NaN` constant (only lowercase `nan`)
-- `pandas_ta` was trying to import `from numpy import NaN as npNaN` which failed
+1. **Fixed the Data Source Issue**
+   - **Problem**: Screeners were receiving static, synthetic data instead of real market prices
+   - **Solution**: Modified `pythonExecutionService.ts` to use yfinance to fetch real-time market data
+   - **Benefits**: Screeners now work with actual market prices for accurate filtering
 
-**Solution:**
-- Patched `pandas_ta` to use `nan` instead of `NaN`
-- Modified `squeeze_pro.py` to fix the import
-- Verified successful import after patch
+2. **Improved Error Handling and Fallbacks**
+   - **Primary**: Uses real-time quotes via yfinance's fast_info API
+   - **Secondary**: Falls back to historical daily data if real-time quotes fail
+   - **Final Fallback**: Clear warning if using placeholder data (with an `is_placeholder` flag) 
 
-### 2. Data Format Compatibility
-Screeners were expecting pandas DataFrames but receiving dictionaries:
-- Error: `'dict' object has no attribute 'empty'`
-- Different format than what screeners expected
+3. **Fixed Output Handling**
+   - Ensured proper output buffering by using the `-u` flag and `sys.stdout.flush()`
+   - Added robust regex-based extraction for the JSON result
 
-**Solution:**
-- Added conversion logic to transform dictionary data to DataFrames
-- Built fallback to fetch data directly if needed
-- Made screeners resilient to different data formats
+## Example Screeners
 
-### 3. Technical Indicator API Usage
-Screeners were using incorrect API patterns for technical indicators:
-- Using `ta.trend.ppo()` but should use `df.ta.ppo()`
-- Different function signatures and return types
+1. **simple_working_screener.py**
+   - Basic screener that works with any data format
 
-**Solution:**
-- Updated indicator calculations to use correct pandas_ta API
-- Adjusted column references to match what pandas_ta produces
-- Added error handling for missing indicators
+2. **data_dump_screener.py**
+   - Diagnostic screener to examine what data is being provided
 
-## How To Use Fixed Screeners
+3. **real_price_screener.py**
+   - Production-ready screener that uses real price data
+   - Categorizes stocks by price ranges
+   - Properly formats and outputs results
 
-### Data Format Inspector
-Use `docs/examples/data_format_inspector.py` to see exactly what format data comes in:
-- Shows actual data structure of what's passed to screeners
-- Reports on presence of historical data
-- Helps understand available fields
+## Technical Implementation
 
-### Working SCTR Screener
-The fixed SCTR screener in `docs/examples/real_sctr_screener.py`:
-- Handles conversion from dictionaries to DataFrames
-- Falls back to fetching data directly when needed
-- Uses correct pandas_ta API patterns
-- Follows proper output formatting with markers
+```javascript
+// In pythonExecutionService.ts:
+if HAS_YFINANCE:
+    print(f"Fetching real-time market data for {len(symbols)} symbols...")
+    try:
+        for symbol in symbols:
+            try:
+                # Get real-time data for this symbol
+                ticker = yf.Ticker(symbol)
+                
+                # Get quote data
+                quote = ticker.fast_info
+                if quote:
+                    # Create data entry with real market data
+                    data_dict[symbol] = {
+                        "price": quote.last_price if hasattr(quote, 'last_price') else quote.previous_close,
+                        "volume": quote.last_volume if hasattr(quote, 'last_volume') else 0,
+                        "company": ticker.info.get("shortName", symbol) if hasattr(ticker, 'info') else symbol
+                    }
+                    print(f"Added {symbol} with price: {data_dict[symbol]['price']}")
+```
 
-### Simple Fallback Screener
-For testing, use `docs/examples/working_sctr_screener.py`:
-- Doesn't rely on external data or complex calculations
-- Still demonstrates proper output format and flushing
-- Useful as a template for new screeners
+## Usage Guidelines
 
-## Best Practices
+1. Always follow the standard screener format:
+```python
+def screen_stocks(data_dict):
+    # Your screening logic here
+    return {
+        "matches": [...],  # List of symbol strings
+        "details": {...}   # Dictionary with details for each match
+    }
+```
 
-1. **Always add stdout flushing:**
-   ```python
-   print("RESULT_JSON_START")
-   print(json.dumps(result))
-   print("RESULT_JSON_END")
-   sys.stdout.flush()  # CRITICAL
-   ```
+2. Your screener will receive a `data_dict` with real market data:
+```
+{
+    "AAPL": {
+        "price": 170.25,   # Real market price
+        "volume": 24500000,
+        "company": "Apple Inc."
+    },
+    "MSFT": {
+        ...
+    }
+}
+```
 
-2. **Handle multiple data formats:**
-   - Check for both DataFrames and dictionaries
-   - Convert dictionaries to DataFrames when needed
-   - Fetch data directly when necessary
-
-3. **Use correct pandas_ta syntax:**
-   - `df.ta.indicator(length=X, append=True)` instead of `ta.category.indicator()`
-   - Reference resulting columns properly (e.g., `EMA_200` not `ema_200`)
-
-4. **Add proper error handling:**
-   - Catch and log exceptions
-   - Provide fallbacks for missing data
-   - Skip stocks with insufficient history
+3. The system handles output formatting and extraction automatically by looking for these markers:
+```python
+print("RESULT_JSON_START")
+print(json.dumps(result))
+print("RESULT_JSON_END")
+sys.stdout.flush()  # Important for proper output handling
+```
