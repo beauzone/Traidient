@@ -3,14 +3,14 @@
 ## Key Issues Fixed
 
 1. **Fixed the Data Source Issue**
-   - **Problem**: Screeners were receiving static, synthetic data instead of real market prices
-   - **Solution**: Modified `pythonExecutionService.ts` to use yfinance to fetch real-time market data
+   - **Problem**: Screeners were receiving static, synthetic data ($100 placeholder prices) instead of real market prices
+   - **Solution**: Created a dedicated screenerDataService that fetches real market data directly from Yahoo Finance
    - **Benefits**: Screeners now work with actual market prices for accurate filtering
 
 2. **Improved Error Handling and Fallbacks**
-   - **Primary**: Uses real-time quotes via yfinance's fast_info API
-   - **Secondary**: Falls back to historical daily data if real-time quotes fail
-   - **Final Fallback**: Clear warning if using placeholder data (with an `is_placeholder` flag) 
+   - **Primary**: Uses a specialized screenerDataService that fetches real-time market data reliably
+   - **Secondary**: Handles batching requests to avoid rate limits
+   - **Final Fallback**: Provides clear warning flag (`is_placeholder: true`) if authentic data cannot be retrieved
 
 3. **Fixed Output Handling**
    - Ensured proper output buffering by using the `-u` flag and `sys.stdout.flush()`
@@ -21,36 +21,56 @@
 1. **simple_working_screener.py**
    - Basic screener that works with any data format
 
-2. **data_dump_screener.py**
-   - Diagnostic screener to examine what data is being provided
-
-3. **real_price_screener.py**
+2. **real_price_screener.py**
    - Production-ready screener that uses real price data
    - Categorizes stocks by price ranges
-   - Properly formats and outputs results
+
+3. **advanced_real_price_screener.py**
+   - Showcases working with both price and volume data
+   - Creates multiple categorizations of stocks
+   - Includes detailed formatting and metadata
+
+4. **debug_yfinance_screener.py**
+   - Diagnostic tool to investigate data source issues
+   - Performs network connectivity tests
+   - Reports detailed information about the execution environment
 
 ## Technical Implementation
 
-```javascript
-// In pythonExecutionService.ts:
-if HAS_YFINANCE:
-    print(f"Fetching real-time market data for {len(symbols)} symbols...")
-    try:
-        for symbol in symbols:
-            try:
-                # Get real-time data for this symbol
-                ticker = yf.Ticker(symbol)
-                
-                # Get quote data
-                quote = ticker.fast_info
-                if quote:
-                    # Create data entry with real market data
-                    data_dict[symbol] = {
-                        "price": quote.last_price if hasattr(quote, 'last_price') else quote.previous_close,
-                        "volume": quote.last_volume if hasattr(quote, 'last_volume') else 0,
-                        "company": ticker.info.get("shortName", symbol) if hasattr(ticker, 'info') else symbol
-                    }
-                    print(f"Added {symbol} with price: {data_dict[symbol]['price']}")
+```typescript
+// In screenerDataService.ts:
+export async function getScreenerData(symbols: string[]): Promise<Record<string, any>> {
+  console.log(`ScreenerDataService: Fetching data for ${symbols.length} symbols`);
+  
+  // Process in small batches to avoid rate limits
+  const batchSize = 5;
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batchSymbols = symbols.slice(i, i + batchSize);
+    
+    // Process each symbol in the batch
+    for (const symbol of batchSymbols) {
+      try {
+        // Get quote from Yahoo Finance
+        const quote = await yahooFinance.quote(symbol);
+        
+        if (quote) {
+          // Create a data record with essential fields for screeners
+          result[symbol] = {
+            price: quote.regularMarketPrice,
+            volume: quote.regularMarketVolume,
+            company: quote.shortName || quote.longName || symbol,
+            // Additional data fields
+            ...
+          };
+        }
+      } catch (error) {
+        console.error(`Error fetching data for ${symbol}:`, error);
+      }
+    }
+  }
+  
+  return result;
+}
 ```
 
 ## Usage Guidelines
@@ -69,9 +89,15 @@ def screen_stocks(data_dict):
 ```
 {
     "AAPL": {
-        "price": 170.25,   # Real market price
+        "price": 170.25,       # Real market price
         "volume": 24500000,
-        "company": "Apple Inc."
+        "company": "Apple Inc.",
+        "open": 168.99,
+        "high": 171.35,
+        "low": 168.80,
+        "previousClose": 169.50,
+        "marketCap": 2800000000000,
+        "is_placeholder": false  # Indicates this is real data
     },
     "MSFT": {
         ...
@@ -79,7 +105,16 @@ def screen_stocks(data_dict):
 }
 ```
 
-3. The system handles output formatting and extraction automatically by looking for these markers:
+3. Always check for placeholder data using the is_placeholder flag:
+```python
+using_placeholder = False
+for symbol, data in data_dict.items():
+    if data.get('is_placeholder', False):
+        using_placeholder = True
+        break
+```
+
+4. The system handles output formatting and extraction automatically by looking for these markers:
 ```python
 print("RESULT_JSON_START")
 print(json.dumps(result))

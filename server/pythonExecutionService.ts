@@ -252,31 +252,31 @@ def screen_stocks(data_dict):
 `;
   }
   
-  // Get real market data from our API before passing to the screener
-  // Define the list of symbols to get data for 
-  const symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "DIS", "BA", "PFE"];
+  // Get real market data from our dedicated screener data service
+  // Import the screener data service
+  const { getScreenerData, getDefaultScreenerSymbols } = await import('./screenerDataService');
   
-  // Import our market data service
-  const marketDataService = await import('./marketDataService');
+  // Get the default symbols for screeners
+  const symbols = getDefaultScreenerSymbols();
   
-  // Fetch real-time market data using the market data service
+  // Fetch real-time market data
   let marketData: Record<string, any> = {};
   try {
     console.log(`Fetching real market data for ${symbols.length} symbols...`);
     
-    // Get quotes and format them for screeners
-    const quotes = await marketDataService.getQuotes(symbols);
-    marketData = marketDataService.formatMarketDataForScreeners(quotes);
+    // Get market data directly using our specialized service
+    marketData = await getScreenerData(symbols);
     
-    // Log the data fetched
-    for (const symbol of Object.keys(marketData)) {
-      console.log(`Added ${symbol} with price: ${marketData[symbol].price}`);
+    // Log a sample of the data fetched
+    const sampleSymbols = Object.keys(marketData).slice(0, 3);
+    for (const symbol of sampleSymbols) {
+      console.log(`Sample data - ${symbol}: price=${marketData[symbol].price}, company=${marketData[symbol].company}`);
     }
     
     console.log(`Fetched real market data for ${Object.keys(marketData).length} symbols`);
   } catch (error) {
-    console.error(`Error fetching market data:`, error);
-    console.log(`Using a fallback data approach for screeners`);
+    console.error(`Failed to fetch market data:`, error);
+    console.log(`Using a fallback data approach for screeners WITH WARNING FLAG`);
     
     // If we can't get real data, use fallback data (but with a warning flag)
     marketData = symbols.reduce((data, symbol) => {
@@ -284,7 +284,7 @@ def screen_stocks(data_dict):
         price: 100.0,  // Clearly artificial price
         volume: 100000,
         company: symbol,
-        is_placeholder: true
+        is_placeholder: "True",  // Using string for Python compatibility - indicates not real data
       };
       return data;
     }, {} as Record<string, any>);
