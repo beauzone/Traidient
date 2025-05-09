@@ -291,19 +291,27 @@ try:
     print(f"screen_stocks function returned result of type: {type(result)}")
     
     # Print the result with special markers for easy extraction
+    # Added crucial flush step to ensure output is captured before process exits
+    import sys
     print("RESULT_JSON_START")
     print(json.dumps(result))
     print("RESULT_JSON_END")
+    sys.stdout.flush()
 except Exception as e:
     # Print the error with the special markers
     error_msg = str(e)
     print(f"Error executing screener: {error_msg}")
+    
+    # Make sure to include stdout flush in error case too
+    import sys
     print("RESULT_JSON_START")
     print(json.dumps({
         "matches": [],
-        "details": {"error": error_msg}
+        "details": {},
+        "errors": error_msg
     }))
     print("RESULT_JSON_END")
+    sys.stdout.flush()
 `;
 
   // Write the script to a file
@@ -317,7 +325,15 @@ except Exception as e:
  */
 async function runPythonScript(scriptPath: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', [scriptPath]);
+    // Run Python in unbuffered mode (-u) to ensure proper stdout capture
+    // Also set environment variables to prevent buffering
+    const pythonProcess = spawn('python3', ['-u', scriptPath], {
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',  // Disable Python output buffering
+        PYTHONIOENCODING: 'utf-8' // Ensure consistent encoding
+      }
+    });
     
     let outputData = '';
     let errorData = '';

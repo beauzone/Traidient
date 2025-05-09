@@ -1,88 +1,121 @@
+"""
+Universal screener wrapper for handling output formatting and error handling.
+This module can be imported to simplify screener development.
+"""
+
 import json
 import sys
 import traceback
-from typing import Dict, Any, Optional
+from typing import Dict, List, Any, Callable, Optional, Union
 
-def run_screener_with_markers(screener_func, params: Dict[str, Any] = {}) -> None:
-    """
-    Universal wrapper for any screener function to ensure proper stdout markers
-    
-    Args:
-        screener_func: The screening function to call
-        params: Parameters to pass to the screening function
-    """
-    try:
-        # Call the actual screener function
-        result = screener_func(params)
-        
-        # Ensure result is printed with the proper markers
-        # This is critical for the Node.js backend to extract the result
-        print("\nRESULT_JSON_START")
-        print(json.dumps(result))
-        print("RESULT_JSON_END\n")
-    except Exception as e:
-        # Capture any errors and format them properly
-        error_info = {
-            'matches': [],
-            'details': {},
-            'errors': [f"Critical error: {str(e)}"]
-        }
-        
-        print(f"Critical error in screener: {str(e)}")
-        traceback.print_exc()
-        
-        # Even on error, print with proper markers so Node.js can receive the error
-        print("\nRESULT_JSON_START")
-        print(json.dumps(error_info))
-        print("RESULT_JSON_END\n")
 
-if __name__ == "__main__":
+def screener_wrapper(screen_func: Callable) -> Callable:
     """
-    Main entry point for command-line usage
+    Decorator that wraps any screener function to handle output formatting and errors.
     
-    Format: python universal_screener_wrapper.py <screener_module> <params_file>
+    Example usage:
     
-    - screener_module: Python module name containing a screen_stocks function
-    - params_file: Path to JSON file with parameters (optional)
+    from universal_screener_wrapper import screener_wrapper
+    
+    @screener_wrapper
+    def screen_stocks(data_dict):
+        # Your screening logic here
+        matches = []
+        details = {}
+        for symbol, data in data_dict.items():
+            if meets_criteria(data):
+                matches.append(symbol)
+                details[symbol] = {"reason": "Your reasoning here"}
+        
+        return matches, details
     """
-    # Default empty parameters
-    params = {}
-    
-    # Validate arguments
-    if len(sys.argv) < 2:
-        print("Usage: python universal_screener_wrapper.py <screener_module> <params_file>")
-        sys.exit(1)
-        
-    # Load the screener module
-    try:
-        screener_module_name = sys.argv[1]
-        module = __import__(screener_module_name)
-        
-        if not hasattr(module, 'screen_stocks'):
-            raise ImportError(f"Module '{screener_module_name}' does not have a screen_stocks function")
-            
-        screener_func = module.screen_stocks
-    except Exception as e:
-        print(f"Error loading screener module: {str(e)}")
-        error_info = {
-            'matches': [],
-            'details': {},
-            'errors': [f"Failed to load screener module: {str(e)}"]
-        }
-        
-        print("\nRESULT_JSON_START")
-        print(json.dumps(error_info))
-        print("RESULT_JSON_END\n")
-        sys.exit(1)
-    
-    # Load parameters if provided
-    if len(sys.argv) > 2:
-        param_file = sys.argv[2]
+    def wrapper(data_dict: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         try:
-            with open(param_file, 'r') as f:
-                params = json.load(f)
+            # Call the screener function
+            result = screen_func(data_dict)
+            
+            # Handle different return formats
+            if isinstance(result, tuple) and len(result) >= 2:
+                # Screener returned (matches, details)
+                matches, details = result[0], result[1]
+                errors = None if len(result) < 3 else result[2]
+            elif isinstance(result, dict) and "matches" in result:
+                # Screener returned full result dict
+                return format_output(result)
+            elif isinstance(result, list):
+                # Screener returned just a list of matches
+                matches, details = result, {}
+                errors = None
+            else:
+                raise ValueError(f"Unexpected return format from screener: {type(result)}")
+            
+            # Format the result
+            formatted_result = {
+                "matches": matches,
+                "details": details,
+                "errors": errors
+            }
+            
+            return format_output(formatted_result)
+            
         except Exception as e:
-            print(f"Error loading parameters file: {e}")
+            # Capture the full exception info
+            error_msg = str(e)
+            stack_trace = traceback.format_exc()
+            
+            print(f"Error in screener: {error_msg}")
+            print(f"Stack trace: {stack_trace}")
+            
+            # Return error result
+            error_result = {
+                "matches": [],
+                "details": {},
+                "errors": error_msg
+            }
+            
+            return format_output(error_result)
     
-    # Run the screener with proper result extraction
-    run_screener_with_markers(screener_func, params)
+    return wrapper
+
+
+def format_output(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Format and print the result with markers and flush stdout.
+    """
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    sys.stdout.flush()  # CRUCIAL: ensures output is captured
+    
+    return result
+
+
+# Example of usage
+if __name__ == "__main__":
+    # Create a simple test screener
+    @screener_wrapper
+    def example_screener(data_dict):
+        matches = []
+        details = {}
+        
+        for symbol, data in data_dict.items():
+            if data.get("price", 0) > 100:
+                matches.append(symbol)
+                details[symbol] = {
+                    "price": data["price"],
+                    "reason": "Price greater than $100"
+                }
+        
+        return matches, details
+    
+    # Test data
+    test_data = {
+        "AAPL": {"price": 175.50, "volume": 35000000},
+        "MSFT": {"price": 310.25, "volume": 20000000},
+        "GOOG": {"price": 140.50, "volume": 15000000},
+        "XYZ": {"price": 50.75, "volume": 5000000}
+    }
+    
+    # Run the screener
+    result = example_screener(test_data)
+    print("Screener returned:", result)

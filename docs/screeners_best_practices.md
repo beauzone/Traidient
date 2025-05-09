@@ -1,126 +1,182 @@
 # Stock Screener Best Practices
 
-## Critical Requirements for All Screeners
+## Structure & Output Format
 
-The most important rule for all screeners in this system is that **they must explicitly print the results to stdout with special markers**. This is how the Node.js backend extracts the results from the Python execution.
-
-### Required Result Format
-
-Every screener must include this code just before returning:
+Every screener should implement a `screen_stocks(data_dict)` function that returns results in the following format:
 
 ```python
-# Prepare result
-result = {
-    'matches': matches,  # List of symbol strings that match criteria
-    'details': details,  # Dictionary with details for each matching symbol
-    'errors': errors if errors else None  # List of error messages or None
+{
+    "matches": ["AAPL", "MSFT", ...],  # List of ticker symbols that match criteria
+    "details": {                        # Optional detailed information about matches
+        "AAPL": {
+            "price": 175.50,            # Current price
+            "score": 95,                # Optional score or ranking
+            "reason": "Description of why this matched"  # Optional explanation
+        },
+        ...
+    },
+    "errors": None  # Or error message if something went wrong
 }
-
-# CRITICAL: Print with special markers for proper extraction
-print("RESULT_JSON_START")
-print(json.dumps(result))
-print("RESULT_JSON_END")
-
-return result
 ```
 
-The Node.js backend looks for the text between `RESULT_JSON_START` and `RESULT_JSON_END` in the stdout stream, not the actual return value from the Python function.
+## Critical Implementation Details
 
-### Screener Function Signature
-
-Every screener must have a `screen_stocks` function that accepts a `data_dict` parameter:
+### 1. Always include stdout flushing
 
 ```python
+import json
+import sys
+
 def screen_stocks(data_dict):
-    """
-    Function documentation here
-    """
-    # Screening logic
+    # Your screening logic here...
     
-    # ...
-    
-    # Return and print results with markers
     result = {
-        'matches': matches,
-        'details': details,
-        'errors': errors if errors else None
+        "matches": [...],
+        "details": {...}
     }
     
+    # ALWAYS include these lines, exactly as shown:
     print("RESULT_JSON_START")
     print(json.dumps(result))
     print("RESULT_JSON_END")
+    sys.stdout.flush()  # CRUCIAL: ensures output is captured before process exits
     
     return result
 ```
 
-## Using the Universal Screener Wrapper
+**Important**: The `sys.stdout.flush()` line is critical for reliable operation. Without it, the screener might appear to work in testing but fail in production.
 
-For more robust error handling, you can use the `universal_screener_wrapper.py` to wrap any screener function:
+### 2. Error Handling
+
+Always wrap your core logic in try/except blocks:
 
 ```python
-from universal_screener_wrapper import run_screener_with_markers
-
-def my_screen_function(params):
-    # Your screening logic here
-    # ...
-    
-    return {
-        'matches': matches,
-        'details': details,
-        'errors': errors if errors else None
-    }
-
-if __name__ == "__main__":
-    import sys
-    
-    # Default empty parameters
-    params = {}
-    
-    # If parameters file path is provided as argument
-    if len(sys.argv) > 1:
-        param_file = sys.argv[1]
-        try:
-            with open(param_file, 'r') as f:
-                params = json.load(f)
-        except Exception as e:
-            print(f"Error loading parameters file: {e}")
-    
-    # Run the screener with proper markers
-    run_screener_with_markers(my_screen_function, params)
+def screen_stocks(data_dict):
+    try:
+        # Your screening logic here...
+        
+        # Format result properly
+        result = {
+            "matches": matched_symbols,
+            "details": details_dict
+        }
+        
+        # Proper output with markers and flush
+        print("RESULT_JSON_START")
+        print(json.dumps(result))
+        print("RESULT_JSON_END")
+        sys.stdout.flush()
+        
+        return result
+        
+    except Exception as e:
+        error_msg = str(e)
+        result = {
+            "matches": [],
+            "details": {},
+            "errors": error_msg
+        }
+        
+        # Still properly output even with errors
+        print("RESULT_JSON_START")
+        print(json.dumps(result))
+        print("RESULT_JSON_END")
+        sys.stdout.flush()
+        
+        return result
 ```
 
-## Required Result Structure
+### 3. Data Dictionary Format
 
-The result object must have this structure:
+The `data_dict` parameter will contain stock data in this format:
 
 ```python
 {
-    'matches': [
-        'AAPL',
-        'MSFT',
-        # ... other symbol strings
-    ],
-    'details': {
-        'AAPL': {
-            # Any details you want to include
-            'price': 190.5,
-            'reason': 'Price above threshold'
-        },
-        'MSFT': {
-            # ... details for other symbols
-        }
+    "AAPL": {
+        "price": 175.50,
+        "volume": 35000000,
+        "company": "Apple Inc."
+        # ... other properties
     },
-    'errors': [
-        # Any error messages, or None if no errors
-        'Error processing GOOG: API rate limit exceeded'
-    ]
+    "MSFT": {
+        # ...
+    }
 }
 ```
 
-## Debugging Tips
+Use this data for screening rather than making your own API calls when possible.
 
-1. Add extensive print statements to see what's happening during execution
-2. Make sure to handle all exceptions to avoid silent failures
-3. Print parameter values to verify they're being received correctly
-4. Test your screener directly with Python before running it through the app
-5. Always verify that the result JSON is properly formatted
+## Example Screener Template
+
+```python
+import json
+import sys
+
+def screen_stocks(data_dict):
+    """
+    Screen stocks based on price and volume criteria
+    """
+    try:
+        # Your screening logic
+        matches = []
+        details = {}
+        
+        for symbol, data in data_dict.items():
+            # Example criteria
+            if data["price"] > 100 and data["volume"] > 1000000:
+                matches.append(symbol)
+                details[symbol] = {
+                    "price": data["price"],
+                    "volume": data["volume"],
+                    "reason": "High price and volume"
+                }
+        
+        # Prepare result
+        result = {
+            "matches": matches,
+            "details": details,
+            "errors": None
+        }
+        
+        # Output with markers AND flush stdout
+        print("RESULT_JSON_START")
+        print(json.dumps(result))
+        print("RESULT_JSON_END")
+        sys.stdout.flush()  # CRUCIAL
+        
+        return result
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error in screener: {error_msg}")
+        
+        # Return error result
+        result = {
+            "matches": [],
+            "details": {},
+            "errors": error_msg
+        }
+        
+        print("RESULT_JSON_START")
+        print(json.dumps(result))
+        print("RESULT_JSON_END")
+        sys.stdout.flush()
+        
+        return result
+```
+
+## Testing Your Screener
+
+You can add this at the end of your file to allow local testing:
+
+```python
+# Optional local test - runs when script is executed directly
+if __name__ == "__main__":
+    test_data = {
+        "AAPL": {"price": 175.50, "volume": 35000000},
+        "MSFT": {"price": 310.25, "volume": 20000000},
+        "GOOG": {"price": 140.50, "volume": 15000000}
+    }
+    result = screen_stocks(test_data)
+    print("Test result:", result)
+```
