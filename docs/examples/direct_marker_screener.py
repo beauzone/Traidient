@@ -29,21 +29,7 @@ def screen_stocks(data_dict):
     }))
     print("RESULT_JSON_END")
     
-    # Also return the result normally
     return {
         'matches': matches,
         'details': details
     }
-
-# Allow direct execution for testing
-if __name__ == "__main__":
-    # Create a test data dictionary
-    test_data = {
-        "AAPL": {"price": 187.35},
-        "MSFT": {"price": 415.56},
-        "GOOGL": {"price": 179.88}
-    }
-    
-    # Run the screener
-    result = screen_stocks(test_data)
-    print("Direct execution result:", result)

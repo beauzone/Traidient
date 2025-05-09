@@ -1,147 +1,233 @@
+import os
 import pandas as pd
 import numpy as np
-import ta
-import yfinance as yf
+import json
+import requests
+from datetime import datetime, timedelta
 
-class PotentialBreakoutScreener:
+def screen_stocks(data_dict):
     """
-    Scans for stocks showing potential breakout patterns with StockCharts SCTR
-    scoring methodology and technical filters. Looks for strong stocks trading
-    near their 52-week highs with bullish momentum and favorable trend conditions.
+    A more sophisticated screener that identifies potential stock breakouts
+    using price, volume and Bollinger Bands
     """
+    print("=" * 50)
+    print("Starting Potential Breakout Screener")
+    print("=" * 50)
     
-    # Configuration parameters with default values
-    default_params = {
-        "min_volume": 500000,
-        "min_price": 8,
-        "min_rsi": 50,
-        "max_adx": 35,
-        "max_plus_di": 40,
-        "min_sctr_score": 60,
-        "max_distance_from_high": 10,
-        "min_distance_from_low": 30
+    # Initialize results
+    matches = []
+    details = {}
+    
+    # Configure Alpaca API access
+    API_KEY = os.environ.get('ALPACA_API_KEY')
+    API_SECRET = os.environ.get('ALPACA_API_SECRET')
+    
+    # Verify we have API credentials
+    if not API_KEY or not API_SECRET:
+        print("ERROR: Alpaca API credentials not found in environment")
+        print("RESULT_JSON_START")
+        print(json.dumps({
+            'matches': [],
+            'details': {"error": "Alpaca API credentials not found"}
+        }))
+        print("RESULT_JSON_END")
+        return {'matches': [], 'details': {"error": "Alpaca API credentials not found"}}
+    
+    print(f"API credentials validated successfully")
+    
+    # Alpaca API endpoints
+    BASE_URL = "https://paper-api.alpaca.markets"
+    
+    # First test API connection
+    try:
+        account_url = f"{BASE_URL}/v2/account"
+        headers = {
+            'APCA-API-KEY-ID': API_KEY,
+            'APCA-API-SECRET-KEY': API_SECRET,
+            'Accept': 'application/json'
+        }
+        
+        account_response = requests.get(account_url, headers=headers)
+        
+        if account_response.status_code != 200:
+            print(f"API connection test failed: {account_response.status_code}")
+            print("RESULT_JSON_START")
+            print(json.dumps({
+                'matches': [],
+                'details': {"error": f"API connection failed: {account_response.text}"}
+            }))
+            print("RESULT_JSON_END")
+            return {'matches': [], 'details': {"error": f"API connection failed"}}
+        
+        print("API connection successful")
+    except Exception as e:
+        print(f"API connection test error: {str(e)}")
+        print("RESULT_JSON_START")
+        print(json.dumps({
+            'matches': [],
+            'details': {"error": f"API connection error: {str(e)}"}
+        }))
+        print("RESULT_JSON_END")
+        return {'matches': [], 'details': {"error": f"API connection error: {str(e)}"}}
+    
+    # List of stocks to screen (tech, finance, consumer, etc.)
+    symbols = [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "JPM", 
+        "BAC", "WFC", "GS", "MS", "C", "V", "MA", "PYPL", "SQ", "WMT", "TGT", "COST",
+        "HD", "LOW", "NKE", "SBUX", "MCD", "PEP", "KO", "PG", "JNJ", "UNH", "PFE", "MRK",
+        "CVX", "XOM", "COP", "EOG", "NEE", "DUK", "SO", "D"
+    ]
+    
+    # Market data endpoint with parameters
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=40)  # Need more data for Bollinger Bands
+    
+    # Format dates as ISO strings
+    start_str = start_date.strftime('%Y-%m-%d')
+    end_str = end_date.strftime('%Y-%m-%d')
+    
+    # Headers for API requests
+    headers = {
+        'APCA-API-KEY-ID': API_KEY,
+        'APCA-API-SECRET-KEY': API_SECRET,
+        'Accept': 'application/json'
     }
     
-    def __init__(self, symbols=None, params=None):
-        """Initialize the screener with optional custom parameters."""
-        self.params = self.default_params.copy()
-        if params:
-            self.params.update(params)
-            
-        # Default symbols if none provided
-        self.symbols = symbols or ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "AMZN", "META"]
+    print(f"Fetching data from {start_str} to {end_str} for {len(symbols)} symbols")
     
-    def run(self, symbols=None):
-        """Run the screener with provided or default symbols."""
-        if symbols:
-            self.symbols = symbols
-        
-        results = []
-        for ticker in self.symbols:
-            try:
-                df = self.get_screener_data(ticker)
-                if df is not None and not df.empty:
-                    latest = df.iloc[-1]
-                    
-                    sctr = self.calculate_sctr_score(latest)
-                    close = latest["Close"]
-                    max_12mo = df["Close"].rolling(253).max().iloc[-2]  # yesterday's high
-                    min_12mo = df["Close"].rolling(253).min().iloc[-2]
-                    sma_18_yesterday = df["sma_18"].iloc[-2]
-                    
-                    # Breakout criteria
-                    conditions = [
-                        df["volume_sma_20"].iloc[-1] > self.params["min_volume"],
-                        close > self.params["min_price"],
-                        latest["rsi_14"] >= self.params["min_rsi"],
-                        latest["adx"] <= self.params["max_adx"],
-                        latest["+DI"] >= latest["-DI"],
-                        latest["+DI"] < self.params["max_plus_di"],
-                        latest["sma_18"] >= sma_18_yesterday,
-                        -self.params["max_distance_from_high"] <= ((close - max_12mo) / close) * 100 <= 5,
-                        (((2 * max_12mo) - min_12mo) / max_12mo) >= 1.39,
-                        sctr >= self.params["min_sctr_score"]
-                    ]
-                    
-                    if all(conditions):
-                        results.append({
-                            "symbol": ticker,
-                            "price": float(close),
-                            "score": float(round(sctr, 2)),
-                            "rsi": float(round(latest["rsi_14"], 1)),
-                            "di_plus": float(round(latest["+DI"], 1)),
-                            "adx": float(round(latest["adx"], 1)),
-                            "details": f"SCTR: {round(sctr, 1)}, RSI: {round(latest['rsi_14'], 1)}, Price: ${round(close, 2)}"
-                        })
-            except Exception as e:
-                print(f"Error processing {ticker}: {str(e)}")
-                continue
-        
-        # Return in format expected by the system
-        return {
-            "results": results,
-            "metadata": {
-                "total": len(results),
-                "screener_name": "Potential Breakout Stocks",
-                "description": "Stocks showing potential breakout patterns with strong technical metrics"
-            }
-        }
+    # Keep track of API call statistics
+    successful_calls = 0
+    api_errors = 0
     
-    def get_screener_data(self, ticker):
-        """Get and process data for a single ticker."""
+    for symbol in symbols:
         try:
-            df = yf.download(ticker, period="1y", interval="1d", progress=False)
-            if df.empty:
-                return None
+            # Build the URL for fetching daily bars
+            bars_url = f"{BASE_URL}/v2/stocks/{symbol}/bars"
+            params = {
+                'start': start_str,
+                'end': end_str,
+                'timeframe': '1D',
+                'limit': 40
+            }
+            
+            # Make the API request
+            response = requests.get(bars_url, headers=headers, params=params)
+            
+            if response.status_code != 200:
+                print(f"Error fetching data for {symbol}: {response.status_code}")
+                api_errors += 1
+                continue
+            
+            # Parse the JSON response
+            bars_data = response.json()
+            successful_calls += 1
+            
+            # Check if we have enough data (need at least 20 bars for Bollinger Bands)
+            if not bars_data.get('bars') or len(bars_data['bars']) < 20:
+                print(f"Not enough data for {symbol}, skipping")
+                continue
+            
+            # Convert to pandas DataFrame
+            df = pd.DataFrame(bars_data['bars'])
+            
+            # Convert timestamp to datetime
+            df['t'] = pd.to_datetime(df['t'])
+            
+            # Set timestamp as index
+            df.set_index('t', inplace=True)
+            
+            # Calculate 20-day moving average
+            df['sma20'] = df['c'].rolling(window=20).mean()
+            
+            # Calculate 20-day standard deviation
+            df['std20'] = df['c'].rolling(window=20).std()
+            
+            # Calculate Bollinger Bands
+            df['upper_band'] = df['sma20'] + (df['std20'] * 2)
+            df['lower_band'] = df['sma20'] - (df['std20'] * 2)
+            
+            # Calculate volume averages
+            df['vol_sma20'] = df['v'].rolling(window=20).mean()
+            
+            # Calculate % distance from upper band
+            df['upper_band_pct'] = (df['upper_band'] - df['c']) / df['c'] * 100
+            
+            # Get the most recent data point
+            if len(df) < 2:
+                print(f"Not enough data points for {symbol} after calculations")
+                continue
                 
-            df.dropna(inplace=True)
+            latest = df.iloc[-1]
+            previous = df.iloc[-2]
             
-            # Technical indicators using `ta`
-            df["ema_200"] = ta.trend.ema_indicator(df["Close"], window=200)
-            df["ema_50"] = ta.trend.ema_indicator(df["Close"], window=50)
-            df["roc_125"] = ta.momentum.roc(df["Close"], window=125)
-            df["roc_20"] = ta.momentum.roc(df["Close"], window=20)
-            df["rsi_14"] = ta.momentum.rsi(df["Close"], window=14)
+            # Define potential breakout conditions:
+            # 1. Close is within 3% of upper Bollinger Band
+            # 2. Volume is above 20-day average
+            # 3. Price is above 20-day SMA
             
-            # PPO Histogram slope (Short-Term SCTR component)
-            ppo = ta.trend.ppo(df["Close"])
-            df["ppo_hist"] = ppo.ppo_hist()
-            df["ppo_slope_3d"] = df["ppo_hist"].diff().rolling(3).mean()
+            close_near_upper_band = latest['upper_band_pct'] < 3.0
+            volume_above_average = latest['v'] > latest['vol_sma20'] * 1.5
+            price_above_sma = latest['c'] > latest['sma20']
             
-            # ADX and +DI/-DI
-            adx = ta.trend.adx(df["High"], df["Low"], df["Close"], window=14)
-            df["adx"] = adx.adx()
-            df["+DI"] = adx.adx_pos()
-            df["-DI"] = adx.adx_neg()
+            # Compile reasons for match
+            match_reasons = []
             
-            # SMA for trend filter
-            df["sma_18"] = ta.trend.sma_indicator(df["Close"], window=18)
-            df["volume_sma_20"] = df["Volume"].rolling(window=20).mean()
+            if close_near_upper_band:
+                match_reasons.append(f"Price is within {latest['upper_band_pct']:.2f}% of upper Bollinger Band")
             
-            return df
+            if volume_above_average:
+                volume_ratio = latest['v'] / latest['vol_sma20']
+                match_reasons.append(f"Volume is {volume_ratio:.2f}x above 20-day average")
+            
+            if price_above_sma:
+                sma_pct = (latest['c'] - latest['sma20']) / latest['sma20'] * 100
+                match_reasons.append(f"Price is {sma_pct:.2f}% above 20-day moving average")
+            
+            # If a stock meets our criteria, add it to the results
+            is_match = False
+            
+            # Different combination of criteria for a match
+            if close_near_upper_band and volume_above_average and price_above_sma:
+                is_match = True
+            elif close_near_upper_band and price_above_sma and latest['c'] > previous['c']:
+                match_reasons.append("Price is rising")
+                is_match = True
+            
+            if is_match:
+                matches.append(symbol)
+                details[symbol] = {
+                    "price": float(latest['c']),
+                    "upper_band": float(latest['upper_band']),
+                    "lower_band": float(latest['lower_band']),
+                    "sma20": float(latest['sma20']),
+                    "volume": int(latest['v']),
+                    "avg_volume": float(latest['vol_sma20']),
+                    "reasons": match_reasons
+                }
+                
+                print(f"MATCH: {symbol} - {', '.join(match_reasons)}")
+        
         except Exception as e:
-            print(f"Error fetching data for {ticker}: {str(e)}")
-            return None
+            print(f"Error processing {symbol}: {str(e)}")
     
-    def calculate_sctr_score(self, row):
-        """Calculate the StockCharts Technical Rank score."""
-        score = 0
-        # Long-term: 60%
-        if row["Close"] > row["ema_200"]: score += 30
-        score += min(max(row["roc_125"], 0), 30)
-        
-        # Medium-term: 30%
-        if row["Close"] > row["ema_50"]: score += 15
-        score += min(max(row["roc_20"], 0), 15)
-        
-        # Short-term: 10%
-        if row["ppo_slope_3d"] > 0: score += 5
-        score += min(max(row["rsi_14"] / 100 * 5, 0), 5)
-        
-        return min(score, 99.9)
-
-# Required function for the screener module to call
-def run_screener(symbols=None, params=None):
-    """Entry point function that the system will call."""
-    screener = PotentialBreakoutScreener(symbols, params)
-    return screener.run()
+    print(f"API statistics: {successful_calls} successful calls, {api_errors} errors")
+    
+    # If no matches found, explain why
+    if not matches:
+        print("No stocks matched the potential breakout criteria")
+    
+    # Print final result count
+    print(f"Found {len(matches)} potential breakout stocks")
+    
+    # Prepare the result
+    result = {
+        'matches': matches,
+        'details': details
+    }
+    
+    # Print with special markers for proper extraction
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    
+    return result
