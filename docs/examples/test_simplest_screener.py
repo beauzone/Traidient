@@ -1,9 +1,10 @@
 import json
+import sys
 
 def screen_stocks(data_dict):
     """
     The simplest possible screener that just returns a fixed result.
-    Using the proper marker approach.
+    Using the proper marker approach with stdout flushing.
     """
     print("Running absolute minimal test screener")
     
@@ -22,9 +23,15 @@ def screen_stocks(data_dict):
         'errors': None
     }
     
-    # Print result with markers
+    # Print result with markers AND flush stdout
     print("RESULT_JSON_START")
     print(json.dumps(result))
     print("RESULT_JSON_END")
+    sys.stdout.flush()  # CRUCIAL: ensures output is captured before process exits
     
     return result
+
+# For testing directly
+if __name__ == "__main__":
+    result = screen_stocks({})
+    print("Result returned:", result)
