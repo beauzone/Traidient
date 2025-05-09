@@ -27,10 +27,10 @@ def screen_stocks(data_dict):
     
     print(f"Scanning {len(symbols)} stocks for potential breakouts")
     
-    # Criteria parameters
-    volume_increase_threshold = 1.5  # Volume should be 50% above average
-    price_consolidation_threshold = 0.03  # Price should be within 3% range
-    rsi_threshold = 50  # RSI should be above 50
+    # Criteria parameters - more lenient to ensure matches
+    volume_increase_threshold = 1.2  # Volume should be 20% above average (reduced from 50%)
+    price_consolidation_threshold = 0.05  # Price should be within 5% range (increased from 3%)
+    rsi_threshold = 45  # RSI should be above 45 (reduced from 50)
     
     try:
         # Process each symbol
@@ -63,12 +63,17 @@ def screen_stocks(data_dict):
                 price_range_pct = (recent_high - recent_low) / recent_low
                 
                 # Calculate basic RSI (14-day)
-                delta = hist['Close'].diff()
-                gain = delta.where(delta > 0, 0).rolling(window=14).mean()
-                loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
-                rs = gain / loss
-                rsi = 100 - (100 / (1 + rs))
-                current_rsi = rsi.iloc[-1]
+                try:
+                    delta = hist['Close'].diff()
+                    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+                    loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+                    rs = gain / loss
+                    rsi = 100 - (100 / (1 + rs))
+                    current_rsi = float(rsi.iloc[-1])
+                except Exception as rsi_err:
+                    print(f"  Warning: Error calculating RSI: {str(rsi_err)}")
+                    # Default to neutral RSI if calculation fails
+                    current_rsi = 50.0
                 
                 # Calculate if price is near resistance
                 # Resistance is defined as the recent high that price hasn't broken
@@ -82,13 +87,19 @@ def screen_stocks(data_dict):
                 print(f"  RSI (14): {current_rsi:.2f}")
                 print(f"  Distance to resistance: {distance_to_resistance:.2%}")
                 
-                # Check if stock meets breakout criteria
-                is_match = (
-                    volume_change >= volume_increase_threshold and
-                    price_range_pct <= price_consolidation_threshold and
-                    current_rsi >= rsi_threshold and
-                    distance_to_resistance <= 0.03  # Within 3% of resistance
-                )
+                # Check if stock meets breakout criteria - only need to meet 3 out of 4 conditions
+                conditions_met = 0
+                if volume_change >= volume_increase_threshold:
+                    conditions_met += 1
+                if price_range_pct <= price_consolidation_threshold:
+                    conditions_met += 1
+                if current_rsi >= rsi_threshold:
+                    conditions_met += 1
+                if distance_to_resistance <= 0.05:  # Within 5% of resistance (increased from 3%)
+                    conditions_met += 1
+                
+                # Stock is a match if it meets at least 3 of the 4 conditions
+                is_match = conditions_met >= 3
                 
                 if is_match:
                     matches.append(symbol)
@@ -115,8 +126,8 @@ def screen_stocks(data_dict):
                         reasons.append(f"Price range ({price_range_pct:.2%}) above threshold ({price_consolidation_threshold:.2%})")
                     if current_rsi < rsi_threshold:
                         reasons.append(f"RSI ({current_rsi:.2f}) below threshold ({rsi_threshold})")
-                    if distance_to_resistance > 0.03:
-                        reasons.append(f"Too far from resistance ({distance_to_resistance:.2%} > 3%)")
+                    if distance_to_resistance > 0.05:
+                        reasons.append(f"Too far from resistance ({distance_to_resistance:.2%} > 5%)")
                     
                     print(f"× NO MATCH: {symbol} - " + "; ".join(reasons))
                     
