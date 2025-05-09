@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import sys
 
 def screen_stocks(data_dict):
     """
@@ -73,7 +74,30 @@ def screen_stocks(data_dict):
     print("=" * 80)
     
     # Return a manually constructed dictionary (standard format expected by system)
-    return {
+    result = {
         'matches': matches,
         'details': details
     }
+    
+    # Special markers for extraction
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    
+    return result
+
+# If this script is run directly, execute the screen_stocks function with a simple data dictionary
+if __name__ == "__main__":
+    print("Executing script directly")
+    # Create a test data dictionary with common stocks
+    data_dict = {
+        "AAPL": {},
+        "MSFT": {},
+        "GOOGL": {},
+        "AMZN": {},
+        "META": {},
+        "TSLA": {},
+        "NVDA": {}
+    }
+    result = screen_stocks(data_dict)
+    print("Final result:", result)
