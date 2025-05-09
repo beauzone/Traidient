@@ -1,0 +1,73 @@
+import yfinance as yf
+import pandas as pd
+import ta
+import json
+import sys
+
+class SCTRCloneScreener:
+    """
+    Pure SCTR-style scoring screener — ranks stocks based on technical strength.
+    No breakout filters, just momentum + trend quality across timeframes.
+    """
+
+    def calculate_sctr_score(self, row):
+        score = 0
+        score += 30 if row["Close"] > row["ema_200"] else 0
+        score += min(max(row["roc_125"], 0), 30)
+        score += 15 if row["Close"] > row["ema_50"] else 0
+        score += min(max(row["roc_20"], 0), 15)
+        score += 5 if row["ppo_slope_3d"] > 0 else 0
+        score += min(max(row["rsi_14"] / 100 * 5, 0), 5)
+        return min(score, 99.9)
+
+    def process_data(self, data_dict):
+        matches = []
+
+        for symbol, df in data_dict.items():
+            try:
+                if df is None or df.empty or len(df) < 200:
+                    continue
+
+                df["ema_200"] = ta.trend.ema_indicator(df["Close"], 200).ema_indicator()
+                df["ema_50"] = ta.trend.ema_indicator(df["Close"], 50).ema_indicator()
+                df["roc_125"] = ta.momentum.roc(df["Close"], 125)
+                df["roc_20"] = ta.momentum.roc(df["Close"], 20)
+                df["rsi_14"] = ta.momentum.rsi(df["Close"], 14)
+                df["ppo_hist"] = ta.trend.ppo(df["Close"]).ppo_hist()
+                df["ppo_slope_3d"] = df["ppo_hist"].diff().rolling(3).mean()
+
+                latest = df.iloc[-1]
+                score = self.calculate_sctr_score(latest)
+
+                matches.append({
+                    "symbol": symbol,
+                    "price": round(latest["Close"], 2),
+                    "score": round(score, 2),
+                    "rsi": round(latest["rsi_14"], 1),
+                    "details": f"SCTR: {round(score,1)}, RSI: {round(latest['rsi_14'],1)}"
+                })
+
+            except Exception as e:
+                print(f"Error processing {symbol}: {e}")
+                continue
+
+        return matches
+
+def screen_stocks(data_dict):
+    print(f"Running SCTR Clone Screener on {len(data_dict)} stocks...")
+    screener = SCTRCloneScreener()
+    matches = screener.process_data(data_dict)
+
+    match_symbols = [m["symbol"] for m in matches]
+    details = {m["symbol"]: m for m in matches}
+
+    result = {
+        "matches": match_symbols,
+        "details": details
+    }
+
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    sys.stdout.flush()
+    return result
