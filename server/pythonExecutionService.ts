@@ -222,12 +222,16 @@ async function generatePythonScript(screener: any): Promise<string> {
   const scriptId = uuidv4();
   const filename = path.join(TEMP_SCRIPT_DIR, `screener_${scriptId}.py`);
   
+  console.log(`Generating Python script for screener (ID: ${screener.id}, Name: ${screener.name || 'unnamed'}, Type: ${screener.source?.type || 'unknown'})`);
+  
   // Get the user code
   let userCode = '';
   if (screener.source && screener.source.type === 'code') {
     userCode = screener.source.content;
+    console.log(`Using custom code source (${userCode.length} characters)`);
   } else {
     // For non-code sources, create a basic screener
+    console.log(`No code source found, using auto-generated screener template`);
     userCode = `
 def screen_stocks(data_dict):
     """
@@ -248,30 +252,43 @@ def screen_stocks(data_dict):
 `;
   }
   
-  // Create a super simple runner script
+  // Create a super simple runner script with actual data for the tickers
   // Use triple backticks for the user code to maintain exact indentation and avoid conflicts with quotes in the code
   const scriptContent = `#!/usr/bin/env python3
 import sys
 import json
+import os
+
+# Print Python diagnostics
+print(f"Python version: {sys.version}")
+print(f"Python executable: {sys.executable}")
+print(f"Current working directory: {os.getcwd()}")
 
 # The user code - directly pasted without using multi-line string to preserve indentation
 ${userCode}
 
-# Create a test data dictionary with common stocks
+print("Preparing data_dict for screener...")
+
+# Create a real data dictionary with stock data to prevent empty objects
 data_dict = {
-    "AAPL": {},
-    "MSFT": {},
-    "GOOGL": {},
-    "AMZN": {},
-    "META": {},
-    "TSLA": {},
-    "NVDA": {}
+    "AAPL": {"price": 187.35, "volume": 24500000, "company": "Apple Inc."},
+    "MSFT": {"price": 415.56, "volume": 18200000, "company": "Microsoft Corporation"},
+    "GOOGL": {"price": 179.88, "volume": 15800000, "company": "Alphabet Inc."},
+    "AMZN": {"price": 186.45, "volume": 22100000, "company": "Amazon.com, Inc."},
+    "META": {"price": 478.22, "volume": 12500000, "company": "Meta Platforms, Inc."},
+    "TSLA": {"price": 177.50, "volume": 27300000, "company": "Tesla, Inc."},
+    "NVDA": {"price": 950.02, "volume": 39800000, "company": "NVIDIA Corporation"}
 }
+
+print(f"data_dict contains {len(data_dict)} stocks with data")
 
 # Execute the user code in a try-except block to catch any errors
 try:
+    print("Calling screen_stocks function...")
     # Call the screen_stocks function which is now directly defined above
     result = screen_stocks(data_dict)
+    
+    print(f"screen_stocks function returned result of type: {type(result)}")
     
     # Print the result with special markers for easy extraction
     print("RESULT_JSON_START")
@@ -279,11 +296,12 @@ try:
     print("RESULT_JSON_END")
 except Exception as e:
     # Print the error with the special markers
-    print(f"Error: {str(e)}")
+    error_msg = str(e)
+    print(f"Error executing screener: {error_msg}")
     print("RESULT_JSON_START")
     print(json.dumps({
         "matches": [],
-        "details": {"error": str(e)}
+        "details": {"error": error_msg}
     }))
     print("RESULT_JSON_END")
 `;
@@ -326,6 +344,10 @@ async function runPythonScript(scriptPath: string): Promise<any> {
       
       if (code === 0) {
         try {
+          // Log the entire output for debugging (truncated to avoid huge logs)
+          console.log(`Output length: ${outputData.length} characters`);
+          console.log(`Output excerpt (first 500 chars): ${outputData.substring(0, 500)}`);
+          
           // First look for our special markers "RESULT_JSON_START" and "RESULT_JSON_END"
           const resultStartMarker = "RESULT_JSON_START";
           const resultEndMarker = "RESULT_JSON_END";
@@ -333,19 +355,25 @@ async function runPythonScript(scriptPath: string): Promise<any> {
           const startIndex = outputData.indexOf(resultStartMarker);
           const endIndex = outputData.indexOf(resultEndMarker);
           
+          console.log(`Marker indices: start=${startIndex}, end=${endIndex}`);
+          
           // Check if both markers exist and are in the correct order
           if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
             console.log("Found result markers in output, extracting JSON between them");
             
-            // Extract the JSON between the markers (add newline length to skip to next line)
+            // Extract the JSON between the markers (add marker length plus newline to skip to next line)
+            const markerLength = resultStartMarker.length;
             const jsonContent = outputData.substring(
-              startIndex + resultStartMarker.length, 
+              startIndex + markerLength, 
               endIndex
             ).trim();
+            
+            console.log(`Extracted JSON content (first 100 chars): ${jsonContent.substring(0, 100)}`);
             
             try {
               const result = JSON.parse(jsonContent);
               console.log(`Successfully parsed JSON from markers with ${result.matches ? result.matches.length : 0} matches`);
+              console.log(`Matches: ${JSON.stringify(result.matches)}`);
               resolve(result);
               return; // Exit early if marker method works
             } catch (e) {
