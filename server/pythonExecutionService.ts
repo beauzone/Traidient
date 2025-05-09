@@ -253,60 +253,24 @@ def screen_stocks(data_dict):
   }
   
   // Get real market data from our API before passing to the screener
-  // Define the list of symbols to get data for
+  // Define the list of symbols to get data for 
   const symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "DIS", "BA", "PFE"];
   
-  // Fetch real-time market data using the Yahoo Finance API through the server
+  // Import our market data service
+  const marketDataService = await import('./marketDataService');
+  
+  // Fetch real-time market data using the market data service
   let marketData: Record<string, any> = {};
   try {
     console.log(`Fetching real market data for ${symbols.length} symbols...`);
     
-    // Import the YahooFinance API dynamically
-    const { default: yahooFinance } = await import('yahoo-finance2');
+    // Get quotes and format them for screeners
+    const quotes = await marketDataService.getQuotes(symbols);
+    marketData = marketDataService.formatMarketDataForScreeners(quotes);
     
-    // Fetch quotes individually for each symbol
-    const quotes: Record<string, any> = {};
-    
-    // Process each symbol individually (sequentially to avoid rate limits)
-    for (const symbol of symbols) {
-      try {
-        // Fetch quote for this symbol
-        const quoteData = await yahooFinance.quoteSummary(symbol, {
-          modules: ['price', 'summaryDetail'],
-        });
-        
-        if (quoteData) {
-          quotes[symbol] = quoteData;
-        }
-      } catch (error) {
-        console.error(`Error fetching data for ${symbol}:`, error);
-      }
-    }
-    
-    // Process each quote into a format suitable for screeners
-    for (const symbol of symbols) {
-      try {
-        const quote = quotes[symbol] || null;
-        
-        if (quote && quote.price) {
-          const regularMarketPrice = quote.price.regularMarketPrice || null;
-          const regularMarketVolume = quote.price.regularMarketVolume || null;
-          const companyName = quote.price.shortName || quote.price.longName || symbol;
-          
-          // Create data entry with real market data
-          marketData[symbol] = {
-            price: regularMarketPrice,
-            volume: regularMarketVolume,
-            company: companyName
-          };
-          
-          console.log(`Added ${symbol} with price: ${regularMarketPrice}`);
-        } else {
-          console.log(`No price data available for ${symbol}`);
-        }
-      } catch (error) {
-        console.error(`Error processing ${symbol} data:`, error);
-      }
+    // Log the data fetched
+    for (const symbol of Object.keys(marketData)) {
+      console.log(`Added ${symbol} with price: ${marketData[symbol].price}`);
     }
     
     console.log(`Fetched real market data for ${Object.keys(marketData).length} symbols`);
