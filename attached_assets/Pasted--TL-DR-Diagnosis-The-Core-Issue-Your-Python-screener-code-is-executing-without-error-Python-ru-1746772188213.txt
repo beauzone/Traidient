@@ -1,0 +1,90 @@
+🧠 TL;DR Diagnosis (The Core Issue)
+Your Python screener code is executing without error
+✅ Python runs
+✅ yfinance works manually
+✅ Output markers are present
+❌ But: No matches appear in the results
+
+Key suspicion: print(...) output is captured, but screen_stocks(...) return value isn’t parsed unless printed between RESULT_JSON_START and RESULT_JSON_END.
+
+🔍 Root Cause Summary
+Your system depends on parsing stdout output from the Python subprocess, using this regex:
+
+ts
+Copy
+Edit
+const resultMatch = output.match(/RESULT_JSON_START\s*([\s\S]*?)\s*RESULT_JSON_END/);
+But your actual screener only returns a Python dict — it does not always print(...) the result inside the markers! It looks like your screen_stocks() ends with:
+
+python
+Copy
+Edit
+return {
+    'matches': matches,
+    'details': details,
+    'errors': errors if errors else None
+}
+✅ That return value is valid in Python
+❌ But your Node.js backend will never see it, because it is only parsing stdout, not Python's return value.
+
+🔧 Fix: Add print(...) with Result Markers
+You need to explicitly print the results inside screen_stocks() using RESULT_JSON_START and RESULT_JSON_END. Your function should end like this:
+
+python
+Copy
+Edit
+import json
+
+def screen_stocks(data_dict):
+    # ... your matching logic ...
+
+    result = {
+        'matches': matches,
+        'details': details,
+        'errors': errors if errors else None
+    }
+
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+    return result
+✅ This ensures that your Node backend regex can extract the result.
+
+✅ You already use this in your basic_price_screener.py, but the key is to ensure that every screener follows this pattern, especially the final one being tested.
+
+📋 Architecture Check Summary
+✅ Item	Comment
+Python execution via child process	✔️ Correctly set up
+Temporary file writing	✔️ Safe and cleaned up
+Parameter passing	✔️ Done via JSON file
+Environment setup	✔️ Python 3.11, yfinance installed
+JSON result parsing via stdout	✅ But only if you print!
+Regex extraction	✔️ Functional, but requires print
+
+🧪 Next Steps for You
+✅ Ensure every screen_stocks() implementation ends with a print(json.dumps(...)) block using markers.
+
+✅ Double-check your screener code in the DB actually includes this. Even a single missing print(...) would result in a successful run that silently returns nothing.
+
+✅ You may also add a temporary debug print(output) in your Node service to visually inspect what your Python script actually outputs.
+
+🛠 Optional Enhancements (Future-Proofing)
+1. Auto-wrap Return Values in Python Entry Point
+Wrap screen_stocks() with a universal main block:
+
+python
+Copy
+Edit
+if __name__ == "__main__":
+    import sys, json
+    # Load params if needed (from sys.argv[1] or a file)
+    result = screen_stocks({})
+    print("RESULT_JSON_START")
+    print(json.dumps(result))
+    print("RESULT_JSON_END")
+This gives you an option to call screeners directly (e.g., from CLI).
+
+✅ Final Verdict
+You were this close — and the only thing missing was a printed result. The return value of screen_stocks() is not accessible to your backend unless it’s printed to stdout. The execution flow is sound, but the result extraction logic depends entirely on stdout markers.
+
+Would you like a clean working example screener updated with the fixed print(...) block that’s ready to test in your app right now?
