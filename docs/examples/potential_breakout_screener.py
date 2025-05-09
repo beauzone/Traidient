@@ -1,228 +1,151 @@
-import os
+import json
 import pandas as pd
 import numpy as np
-import json
-import requests
+import yfinance as yf
+import traceback
 from datetime import datetime, timedelta
 
 def screen_stocks(data_dict):
     """
-    A more sophisticated screener that identifies potential stock breakouts
-    using price, volume and Bollinger Bands
+    A stock screener that finds potential breakout candidates
+    using Yahoo Finance data
     """
     print("=" * 50)
-    print("Starting Potential Breakout Screener")
+    print("POTENTIAL BREAKOUT SCREENER")
+    print("Finding stocks with tight consolidation and increased volume")
     print("=" * 50)
     
     # Initialize results
     matches = []
     details = {}
+    errors = []
     
-    # Configure Alpaca API access
-    API_KEY = os.environ.get('ALPACA_API_KEY')
-    API_SECRET = os.environ.get('ALPACA_API_SECRET')
+    # List of stocks to scan
+    symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", 
+               "PLTR", "NET", "CRWD", "SNOW", "UBER", "SHOP", "SQ", "PYPL", 
+               "DIS", "NFLX", "COIN", "RBLX", "U", "ROKU", "ZM", "DOCU"]
     
-    # Verify we have API credentials
-    if not API_KEY or not API_SECRET:
-        print("ERROR: Alpaca API credentials not found in environment")
-        print("RESULT_JSON_START")
-        print(json.dumps({
-            'matches': [],
-            'details': {"error": "Alpaca API credentials not found"}
-        }))
-        print("RESULT_JSON_END")
-        return {'matches': [], 'details': {"error": "Alpaca API credentials not found"}}
+    print(f"Scanning {len(symbols)} stocks for potential breakouts")
     
-    print(f"API credentials validated successfully")
+    # Criteria parameters
+    volume_increase_threshold = 1.5  # Volume should be 50% above average
+    price_consolidation_threshold = 0.03  # Price should be within 3% range
+    rsi_threshold = 50  # RSI should be above 50
     
-    # Alpaca API endpoints
-    BASE_URL = "https://paper-api.alpaca.markets"
-    
-    # First test API connection
     try:
-        account_url = f"{BASE_URL}/v2/account"
-        headers = {
-            'APCA-API-KEY-ID': API_KEY,
-            'APCA-API-SECRET-KEY': API_SECRET,
-            'Accept': 'application/json'
-        }
-        
-        account_response = requests.get(account_url, headers=headers)
-        
-        if account_response.status_code != 200:
-            print(f"API connection test failed: {account_response.status_code}")
-            print("RESULT_JSON_START")
-            print(json.dumps({
-                'matches': [],
-                'details': {"error": f"API connection failed: {account_response.text}"}
-            }))
-            print("RESULT_JSON_END")
-            return {'matches': [], 'details': {"error": f"API connection failed"}}
-        
-        print("API connection successful")
+        # Process each symbol
+        for symbol in symbols:
+            try:
+                print(f"Analyzing {symbol}...")
+                
+                # Get data from Yahoo Finance - last 30 days
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period="30d")
+                
+                if hist.empty or len(hist) < 20:
+                    print(f"Insufficient data for {symbol}")
+                    errors.append(f"Insufficient data for {symbol}")
+                    continue
+                
+                # Extract recent data
+                recent_data = hist.tail(5)  # Last 5 days
+                prior_data = hist.iloc[-10:-5]  # Previous 5 days
+                
+                # Calculate key metrics
+                current_price = hist['Close'].iloc[-1]
+                recent_volume_avg = recent_data['Volume'].mean()
+                prior_volume_avg = prior_data['Volume'].mean()
+                volume_change = recent_volume_avg / prior_volume_avg if prior_volume_avg > 0 else 0
+                
+                # Calculate price range for consolidation check
+                recent_high = recent_data['High'].max()
+                recent_low = recent_data['Low'].min()
+                price_range_pct = (recent_high - recent_low) / recent_low
+                
+                # Calculate basic RSI (14-day)
+                delta = hist['Close'].diff()
+                gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+                loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                current_rsi = rsi.iloc[-1]
+                
+                # Calculate if price is near resistance
+                # Resistance is defined as the recent high that price hasn't broken
+                resistance = hist['High'].rolling(window=20).max().iloc[-1]
+                distance_to_resistance = (resistance - current_price) / current_price
+                
+                # Print metrics
+                print(f"  Current price: ${current_price:.2f}")
+                print(f"  Volume change: {volume_change:.2f}x")
+                print(f"  Price range: {price_range_pct:.2%}")
+                print(f"  RSI (14): {current_rsi:.2f}")
+                print(f"  Distance to resistance: {distance_to_resistance:.2%}")
+                
+                # Check if stock meets breakout criteria
+                is_match = (
+                    volume_change >= volume_increase_threshold and
+                    price_range_pct <= price_consolidation_threshold and
+                    current_rsi >= rsi_threshold and
+                    distance_to_resistance <= 0.03  # Within 3% of resistance
+                )
+                
+                if is_match:
+                    matches.append(symbol)
+                    details[symbol] = {
+                        "price": float(current_price),
+                        "volume_change": float(volume_change),
+                        "price_range": float(price_range_pct),
+                        "rsi": float(current_rsi),
+                        "resistance": float(resistance),
+                        "distance_to_resistance": float(distance_to_resistance),
+                        "reason": f"Potential breakout: Increased volume ({volume_change:.2f}x), "
+                                 f"tight price consolidation ({price_range_pct:.2%}), "
+                                 f"bullish momentum (RSI: {current_rsi:.2f}), "
+                                 f"near resistance ({distance_to_resistance:.2%} away)"
+                    }
+                    
+                    print(f"✓ MATCH: {symbol} - Potential breakout candidate")
+                else:
+                    # If no match, explain why
+                    reasons = []
+                    if volume_change < volume_increase_threshold:
+                        reasons.append(f"Volume change ({volume_change:.2f}x) below threshold ({volume_increase_threshold}x)")
+                    if price_range_pct > price_consolidation_threshold:
+                        reasons.append(f"Price range ({price_range_pct:.2%}) above threshold ({price_consolidation_threshold:.2%})")
+                    if current_rsi < rsi_threshold:
+                        reasons.append(f"RSI ({current_rsi:.2f}) below threshold ({rsi_threshold})")
+                    if distance_to_resistance > 0.03:
+                        reasons.append(f"Too far from resistance ({distance_to_resistance:.2%} > 3%)")
+                    
+                    print(f"× NO MATCH: {symbol} - " + "; ".join(reasons))
+                    
+            except Exception as e:
+                print(f"Error processing {symbol}: {str(e)}")
+                traceback.print_exc()
+                errors.append(f"Error processing {symbol}: {str(e)}")
+    
     except Exception as e:
-        print(f"API connection test error: {str(e)}")
-        print("RESULT_JSON_START")
-        print(json.dumps({
-            'matches': [],
-            'details': {"error": f"API connection error: {str(e)}"}
-        }))
-        print("RESULT_JSON_END")
-        return {'matches': [], 'details': {"error": f"API connection error: {str(e)}"}}
+        print(f"Critical error: {str(e)}")
+        traceback.print_exc()
+        errors.append(f"Critical error: {str(e)}")
     
-    # List of stocks to screen (tech, finance, consumer, etc.)
-    symbols = [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "JPM", 
-        "BAC", "WFC", "GS", "MS", "C", "V", "MA", "PYPL", "SQ", "WMT", "TGT", "COST",
-        "HD", "LOW", "NKE", "SBUX", "MCD", "PEP", "KO", "PG", "JNJ", "UNH", "PFE", "MRK",
-        "CVX", "XOM", "COP", "EOG", "NEE", "DUK", "SO", "D"
-    ]
+    # Print summary
+    if matches:
+        print(f"\nFound {len(matches)} potential breakout candidates:")
+        for symbol in matches:
+            print(f"- {symbol}: {details[symbol]['reason']}")
+    else:
+        print("\nNo potential breakout candidates found in this scan")
     
-    # Market data endpoint with parameters
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=40)  # Need more data for Bollinger Bands
+    if errors:
+        print(f"\n{len(errors)} errors encountered during screening")
     
-    # Format dates as ISO strings
-    start_str = start_date.strftime('%Y-%m-%d')
-    end_str = end_date.strftime('%Y-%m-%d')
-    
-    # Headers for API requests
-    headers = {
-        'APCA-API-KEY-ID': API_KEY,
-        'APCA-API-SECRET-KEY': API_SECRET,
-        'Accept': 'application/json'
-    }
-    
-    print(f"Fetching data from {start_str} to {end_str} for {len(symbols)} symbols")
-    
-    # Keep track of API call statistics
-    successful_calls = 0
-    api_errors = 0
-    
-    for symbol in symbols:
-        try:
-            # Build the URL for fetching daily bars
-            bars_url = f"{BASE_URL}/v2/stocks/{symbol}/bars"
-            params = {
-                'start': start_str,
-                'end': end_str,
-                'timeframe': '1D',
-                'limit': 40
-            }
-            
-            # Make the API request
-            response = requests.get(bars_url, headers=headers, params=params)
-            
-            if response.status_code != 200:
-                print(f"Error fetching data for {symbol}: {response.status_code}")
-                api_errors += 1
-                continue
-            
-            # Parse the JSON response
-            bars_data = response.json()
-            successful_calls += 1
-            
-            # Check if we have enough data (need at least 20 bars for Bollinger Bands)
-            if not bars_data.get('bars') or len(bars_data['bars']) < 20:
-                print(f"Not enough data for {symbol}, skipping")
-                continue
-            
-            # Convert to pandas DataFrame
-            df = pd.DataFrame(bars_data['bars'])
-            
-            # Convert timestamp to datetime
-            df['t'] = pd.to_datetime(df['t'])
-            
-            # Set timestamp as index
-            df.set_index('t', inplace=True)
-            
-            # Calculate 20-day moving average
-            df['sma20'] = df['c'].rolling(window=20).mean()
-            
-            # Calculate 20-day standard deviation
-            df['std20'] = df['c'].rolling(window=20).std()
-            
-            # Calculate Bollinger Bands
-            df['upper_band'] = df['sma20'] + (df['std20'] * 2)
-            df['lower_band'] = df['sma20'] - (df['std20'] * 2)
-            
-            # Calculate volume averages
-            df['vol_sma20'] = df['v'].rolling(window=20).mean()
-            
-            # Calculate % distance from upper band
-            df['upper_band_pct'] = (df['upper_band'] - df['c']) / df['c'] * 100
-            
-            # Get the most recent data point
-            if len(df) < 2:
-                print(f"Not enough data points for {symbol} after calculations")
-                continue
-                
-            latest = df.iloc[-1]
-            previous = df.iloc[-2]
-            
-            # Define potential breakout conditions:
-            # 1. Close is within 3% of upper Bollinger Band
-            # 2. Volume is above 20-day average
-            # 3. Price is above 20-day SMA
-            
-            close_near_upper_band = latest['upper_band_pct'] < 3.0
-            volume_above_average = latest['v'] > latest['vol_sma20'] * 1.5
-            price_above_sma = latest['c'] > latest['sma20']
-            
-            # Compile reasons for match
-            match_reasons = []
-            
-            if close_near_upper_band:
-                match_reasons.append(f"Price is within {latest['upper_band_pct']:.2f}% of upper Bollinger Band")
-            
-            if volume_above_average:
-                volume_ratio = latest['v'] / latest['vol_sma20']
-                match_reasons.append(f"Volume is {volume_ratio:.2f}x above 20-day average")
-            
-            if price_above_sma:
-                sma_pct = (latest['c'] - latest['sma20']) / latest['sma20'] * 100
-                match_reasons.append(f"Price is {sma_pct:.2f}% above 20-day moving average")
-            
-            # If a stock meets our criteria, add it to the results
-            is_match = False
-            
-            # Different combination of criteria for a match
-            if close_near_upper_band and volume_above_average and price_above_sma:
-                is_match = True
-            elif close_near_upper_band and price_above_sma and latest['c'] > previous['c']:
-                match_reasons.append("Price is rising")
-                is_match = True
-            
-            if is_match:
-                matches.append(symbol)
-                details[symbol] = {
-                    "price": float(latest['c']),
-                    "upper_band": float(latest['upper_band']),
-                    "lower_band": float(latest['lower_band']),
-                    "sma20": float(latest['sma20']),
-                    "volume": int(latest['v']),
-                    "avg_volume": float(latest['vol_sma20']),
-                    "reasons": match_reasons
-                }
-                
-                print(f"MATCH: {symbol} - {', '.join(match_reasons)}")
-        
-        except Exception as e:
-            print(f"Error processing {symbol}: {str(e)}")
-    
-    print(f"API statistics: {successful_calls} successful calls, {api_errors} errors")
-    
-    # If no matches found, explain why
-    if not matches:
-        print("No stocks matched the potential breakout criteria")
-    
-    # Print final result count
-    print(f"Found {len(matches)} potential breakout stocks")
-    
-    # Prepare the result
+    # Prepare result
     result = {
         'matches': matches,
-        'details': details
+        'details': details,
+        'errors': errors if errors else None
     }
     
     # Print with special markers for proper extraction
