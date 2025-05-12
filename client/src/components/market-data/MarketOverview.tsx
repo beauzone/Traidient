@@ -213,7 +213,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                     <h3 className="font-medium">{index.name}</h3>
                     <p className="text-2xl font-bold mt-1">{formatCurrency(index.price)}</p>
                   </div>
-                  <div className={`flex items-center ${index.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  <div className={`flex items-center ${index.changePercent >= 0 ? 'text-green-500' : 'text-negative'}`}>
                     {index.changePercent >= 0 ? (
                       <TrendingUp className="h-5 w-5 mr-1" />
                     ) : (
@@ -466,8 +466,8 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                             <td className="py-3 px-4 font-medium">{stock.symbol}</td>
                             <td className="py-3 px-4">{stock.name}</td>
                             <td className="py-3 px-4 text-right">{formatCurrency(stock.price)}</td>
-                            <td className="py-3 px-4 text-right text-red-500">{formatCurrency(stock.change)}</td>
-                            <td className="py-3 px-4 text-right text-red-500">{formatPercentage(stock.changePercent)}</td>
+                            <td className="py-3 px-4 text-right text-negative">{formatCurrency(stock.change)}</td>
+                            <td className="py-3 px-4 text-right text-negative">{formatPercentage(stock.changePercent)}</td>
                           </tr>
                         ))}
                       </tbody>

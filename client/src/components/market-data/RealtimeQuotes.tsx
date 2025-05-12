@@ -61,7 +61,7 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
         <CardTitle className="flex justify-between items-center">
           <span>Realtime Market Data</span>
           <Badge 
-            className={connected ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'} 
+            className={connected ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-[#FF3B5C] hover:bg-[#FF3B5C]/90 text-white'} 
             variant="outline"
           >
             {connected ? 'Connected' : 'Disconnected'}

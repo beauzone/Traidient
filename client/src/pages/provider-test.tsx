@@ -196,9 +196,9 @@ export default function ProviderTest() {
       </Card>
 
       {error && (
-        <Card className="w-full max-w-2xl mx-auto mt-6 border-red-500">
-          <CardHeader className="border-b border-red-200">
-            <CardTitle className="text-red-500">Error</CardTitle>
+        <Card className="w-full max-w-2xl mx-auto mt-6 border-[#FF3B5C]">
+          <CardHeader className="border-b border-[#FF3B5C]/20">
+            <CardTitle className="text-negative">Error</CardTitle>
             <CardDescription>
               {error.includes("Invalid or unconfigured data provider")
                 ? `Unable to fetch data from ${provider} - API credentials not configured`

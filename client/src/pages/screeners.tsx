@@ -494,10 +494,10 @@ const ResultsDialog = ({
         </DialogHeader>
         
         {screener.results?.error ? (
-          <div className="bg-red-500/10 p-4 rounded-md flex gap-2 items-start">
-            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+          <div className="bg-[#FF3B5C]/10 p-4 rounded-md flex gap-2 items-start">
+            <AlertCircle className="h-5 w-5 text-negative mt-0.5" />
             <div>
-              <h4 className="font-medium text-red-500">Error running screen</h4>
+              <h4 className="font-medium text-negative">Error running screen</h4>
               <p className="text-sm text-muted-foreground">{screener.results.error}</p>
             </div>
           </div>
