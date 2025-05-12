@@ -302,7 +302,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 </div>
               ) : gainersError ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-destructive mb-2">Unable to fetch top gainers</div>
+                  <div className="text-negative mb-2">Unable to fetch top gainers</div>
                   <div className="text-sm text-muted-foreground">Market data service may be temporarily unavailable</div>
                 </div>
               ) : topGainers.length === 0 ? (
@@ -395,7 +395,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 </div>
               ) : losersError ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-destructive mb-2">Unable to fetch top losers</div>
+                  <div className="text-negative mb-2">Unable to fetch top losers</div>
                   <div className="text-sm text-muted-foreground">Market data service may be temporarily unavailable</div>
                 </div>
               ) : topLosers.length === 0 ? (
