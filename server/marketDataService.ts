@@ -92,6 +92,28 @@ export function formatMarketDataForScreeners(quotes: Record<string, any>): Recor
   return formattedData;
 }
 
+// Helper function to determine if US stock market is open
+// US market hours are 9:30 AM to 4:00 PM Eastern Time, Monday to Friday
+function isMarketOpen(): boolean {
+  const now = new Date();
+  const day = now.getUTCDay();
+  
+  // Convert to ET timezone (UTC-4 for EDT, UTC-5 for EST)
+  // Simplified implementation that assumes EDT (Mar-Nov)
+  const isEDT = true; // Would need more complex logic for actual DST detection
+  const hour = now.getUTCHours() - (isEDT ? 4 : 5);
+  const minute = now.getUTCMinutes();
+  
+  // Convert to minutes since midnight
+  const minutesSinceMidnight = hour * 60 + minute;
+  
+  // Market is closed on weekends (0 = Sunday, 6 = Saturday)
+  if (day === 0 || day === 6) return false;
+  
+  // Market hours 9:30 AM (570 minutes) to 4:00 PM (960 minutes) ET
+  return minutesSinceMidnight >= 570 && minutesSinceMidnight < 960;
+}
+
 // Market data streaming clients
 const clients = new Map<string, WebSocket>();
 let streamInterval: NodeJS.Timeout | null = null;
