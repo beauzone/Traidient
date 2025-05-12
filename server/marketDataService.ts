@@ -165,10 +165,10 @@ export function stopMarketDataStream(): void {
   }
   
   // Close all client connections
-  for (const [clientId, ws] of clients.entries()) {
+  Array.from(clients.entries()).forEach(([clientId, ws]) => {
     ws.close();
     clients.delete(clientId);
-  }
+  });
 }
 
 /**
@@ -207,13 +207,15 @@ async function sendMarketData(ws: WebSocket): Promise<void> {
         return result;
       }, {} as Record<string, any>);
     
+    // Current market status
+    const isOpen = isMarketOpen();
+    
     ws.send(JSON.stringify({
       type: 'marketData',
       data: marketData,
       timestamp: new Date().toISOString(),
       marketStatus: {
-        // Determine if market is open based on time (9:30am-4pm ET on weekdays)
-        isMarketOpen: isMarketOpen(),
+        isMarketOpen: isOpen,
         dataSource: 'yahoo'  // Explicitly set the data source
       }
     }));
@@ -232,7 +234,8 @@ async function broadcastMarketData(): Promise<void> {
   
   console.log(`Broadcasting market data to ${clients.size} clients`);
   
-  for (const [clientId, ws] of clients.entries()) {
+  const entries = Array.from(clients.entries());
+  for (const [clientId, ws] of entries) {
     if (ws.readyState === WebSocket.OPEN) {
       await sendMarketData(ws);
     } else {
@@ -257,7 +260,7 @@ export async function getHistoricalMarketData(
     const yahooProvider = new YahooFinanceAPI();
     
     // Fetch historical data
-    const data = await yahooProvider.getHistoricalMarketData(symbol, {
+    const data = await yahooProvider.getHistoricalData(symbol, {
       interval, 
       range
     });

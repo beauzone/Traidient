@@ -155,8 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             symbols: Array.from(subscribedSymbols)
           }));
           
-          // Start streaming market data using the new market data service
-          startMarketDataStream(userId, ws, subscribedSymbols);
+          // Start streaming market data simulation for this user
+          startMarketDataSimulation(userId, ws, subscribedSymbols);
         }
         // Handle unsubscribing from market data
         else if (data.type === 'unsubscribe') {
