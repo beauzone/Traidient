@@ -188,7 +188,12 @@ async function sendMarketData(ws: WebSocket): Promise<void> {
     ws.send(JSON.stringify({
       type: 'marketData',
       data: marketData,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      marketStatus: {
+        // Determine if market is open based on time (9:30am-4pm ET on weekdays)
+        isMarketOpen: isMarketOpen(),
+        dataSource: 'yahoo'  // Explicitly set the data source
+      }
     }));
   } catch (error) {
     console.error('Error sending market data:', error);
