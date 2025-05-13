@@ -492,12 +492,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dataSource = updates[0].dataSource;
         }
         
+        // Get detailed market status including timing information
+        let marketTimingInfo = {};
+        try {
+          if (userId) {
+            const alpacaIntegration = await storage.getApiIntegrationByProviderAndUser(userId, 'alpaca');
+            const alpacaAPI = new AlpacaAPI(alpacaIntegration);
+            const marketStatus = await alpacaAPI.getMarketStatus();
+            
+            // Format time until open/close
+            const formatTimeRemaining = (ms: number) => {
+              if (!ms) return null;
+              
+              const hours = Math.floor(ms / (1000 * 60 * 60));
+              const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+              
+              return { hours, minutes, milliseconds: ms };
+            };
+            
+            marketTimingInfo = {
+              isOpen: marketStatus.isOpen,
+              timeToOpen: formatTimeRemaining(marketStatus.timeToOpen || 0),
+              timeToClose: formatTimeRemaining(marketStatus.timeToClose || 0),
+              nextOpenTime: marketStatus.nextOpen,
+              nextCloseTime: marketStatus.nextClose
+            };
+          }
+        } catch (error) {
+          console.error('Error getting market timing info:', error);
+        }
+        
         ws.send(JSON.stringify({
           type: 'market_data',
           data: updates,
           marketStatus: {
             isMarketOpen,
-            dataSource: dataSource
+            dataSource: dataSource,
+            timing: marketTimingInfo
           }
         }));
       }

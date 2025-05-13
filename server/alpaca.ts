@@ -400,6 +400,27 @@ export class AlpacaAPI {
    */
   async isMarketOpen(): Promise<boolean> {
     try {
+      const marketStatus = await this.getMarketStatus();
+      return marketStatus.isOpen;
+    } catch (error) {
+      console.warn('Error checking market status via API, falling back to time-based check:', error);
+      return this.isMarketOpenByTime();
+    }
+  }
+  
+  /**
+   * Get detailed market status including next open/close times
+   * @returns Promise with market status details
+   */
+  async getMarketStatus(): Promise<{
+    isOpen: boolean;
+    nextOpen: Date;
+    nextClose: Date;
+    serverTime: Date;
+    timeToOpen?: number; // in milliseconds
+    timeToClose?: number; // in milliseconds
+  }> {
+    try {
       const response = await fetch(`${this.tradingBaseUrl}/clock`, {
         method: 'GET',
         headers: {
@@ -410,14 +431,31 @@ export class AlpacaAPI {
       
       if (!response.ok) {
         console.warn('Error checking market status, falling back to time-based check');
-        return this.isMarketOpenByTime();
+        return this.getMarketStatusByTime();
       }
       
       const data = await response.json();
-      return data.is_open === true;
+      const serverTime = new Date(data.timestamp);
+      const nextOpen = new Date(data.next_open);
+      const nextClose = new Date(data.next_close);
+      const isOpen = data.is_open === true;
+      
+      // Calculate time to next state change
+      const now = new Date();
+      const timeToOpen = isOpen ? undefined : (nextOpen.getTime() - now.getTime());
+      const timeToClose = isOpen ? (nextClose.getTime() - now.getTime()) : undefined;
+      
+      return {
+        isOpen,
+        nextOpen,
+        nextClose,
+        serverTime,
+        timeToOpen,
+        timeToClose
+      };
     } catch (error) {
-      console.warn('Error checking market status via API, falling back to time-based check:', error);
-      return this.isMarketOpenByTime();
+      console.warn('Error getting detailed market status, falling back to time-based calculation:', error);
+      return this.getMarketStatusByTime();
     }
   }
 
@@ -426,26 +464,81 @@ export class AlpacaAPI {
    * @returns Boolean indicating if the market is likely open
    */
   private isMarketOpenByTime(): boolean {
+    const { isOpen } = this.getMarketStatusByTime();
+    return isOpen;
+  }
+  
+  /**
+   * Calculate detailed market status based on time
+   * @returns Market status object with timing information
+   */
+  private getMarketStatusByTime(): {
+    isOpen: boolean;
+    nextOpen: Date;
+    nextClose: Date;
+    serverTime: Date;
+    timeToOpen?: number;
+    timeToClose?: number;
+  } {
     const now = new Date();
     const day = now.getDay();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    
-    // Convert to Eastern Time (ET)
-    // This is a simplified approach - a real implementation would handle time zones properly
     const isDST = this.isDateInDST(now);
     const etOffset = isDST ? -4 : -5; // EST: UTC-5, EDT: UTC-4
     
-    // Current hour in ET
-    const etHour = (hour + 24 + etOffset) % 24;
+    // Create ET date by adjusting for timezone
+    const etNow = new Date(now.getTime());
+    etNow.setHours(etNow.getHours() + etOffset);
     
-    // Markets are closed on weekends
-    if (day === 0 || day === 6) {
-      return false;
+    const etHour = etNow.getHours();
+    const etMinute = etNow.getMinutes();
+    
+    // Check if market is open (9:30 AM - 4:00 PM ET, weekdays)
+    const isOpen = (day >= 1 && day <= 5) && // Monday to Friday
+                 ((etHour > 9 || (etHour === 9 && etMinute >= 30)) && etHour < 16);
+    
+    console.log(`Current date for market status check: ${now.toISOString()}, day of week: ${day}`);
+    console.log(`Current time in Eastern: ${etHour}:${etMinute < 10 ? '0' + etMinute : etMinute} (${isDST ? 'EDT' : 'EST'})`);
+    console.log('Market hours: 9:30 AM - 4:00 PM Eastern Time');
+    console.log(`Market is ${isOpen ? 'OPEN' : 'CLOSED'} based on Eastern Time check`);
+    
+    // Calculate next market open time
+    const nextOpen = new Date(now);
+    nextOpen.setUTCHours(13 + (isDST ? 1 : 0), 30, 0, 0); // 9:30 AM ET
+    
+    // If we're past the open time for today or it's weekend, move to next business day
+    if ((etHour > 9 || (etHour === 9 && etMinute >= 30)) || day === 0 || day === 6) {
+      // Move to next business day
+      let daysToAdd = 1;
+      if (day === 5) daysToAdd = 3; // Friday to Monday
+      else if (day === 6) daysToAdd = 2; // Saturday to Monday
+      nextOpen.setDate(nextOpen.getDate() + daysToAdd);
     }
     
-    // Regular market hours: 9:30 AM - 4:00 PM ET
-    return (etHour > 9 || (etHour === 9 && minute >= 30)) && etHour < 16;
+    // Calculate next market close time
+    const nextClose = new Date(now);
+    nextClose.setUTCHours(20 + (isDST ? 1 : 0), 0, 0, 0); // 4:00 PM ET
+    
+    // If we're past close time for today or it's weekend, move to next business day
+    if (etHour >= 16 || day === 0 || day === 6) {
+      // Move to next business day
+      let daysToAdd = 1;
+      if (day === 5) daysToAdd = 3; // Friday to Monday
+      else if (day === 6) daysToAdd = 2; // Saturday to Monday
+      nextClose.setDate(nextClose.getDate() + daysToAdd);
+    }
+    
+    // Calculate time until next state change
+    const timeToOpen = isOpen ? undefined : nextOpen.getTime() - now.getTime();
+    const timeToClose = isOpen ? nextClose.getTime() - now.getTime() : undefined;
+    
+    return {
+      isOpen,
+      nextOpen,
+      nextClose,
+      serverTime: now,
+      timeToOpen,
+      timeToClose
+    };
   }
 
   /**

@@ -24,6 +24,13 @@ export function useMarketData() {
   const [marketStatus, setMarketStatus] = useState<{
     isMarketOpen: boolean;
     dataSource: string;
+    timing?: {
+      isOpen: boolean;
+      timeToOpen?: { hours: number; minutes: number; milliseconds: number } | null;
+      timeToClose?: { hours: number; minutes: number; milliseconds: number } | null;
+      nextOpenTime?: string;
+      nextCloseTime?: string;
+    };
   }>({ isMarketOpen: false, dataSource: 'unknown' });
   const socketRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
@@ -121,7 +128,8 @@ export function useMarketData() {
             if (message.marketStatus) {
               setMarketStatus({
                 isMarketOpen: message.marketStatus.isMarketOpen,
-                dataSource: message.marketStatus.dataSource
+                dataSource: message.marketStatus.dataSource,
+                timing: message.marketStatus.timing
               });
             }
             break;
