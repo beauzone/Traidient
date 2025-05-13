@@ -78,6 +78,14 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   const { accounts, selectedAccount, setSelectedAccount, isLoadingAccounts } = useAccountContext();
   const { marketStatus } = useMarketData();
   
+  // State for countdown timer
+  const [timeRemaining, setTimeRemaining] = useState<{
+    hours: number;
+    minutes: number;
+    seconds: number;
+    isOpen: boolean;
+  } | null>(null);
+  
   // Query to get notifications
   const { data: notifications, isLoading: isLoadingNotifications } = useQuery({
     queryKey: ['/api/notifications'],
@@ -110,6 +118,43 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   
   // Count unread notifications
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0;
+
+  // Update the countdown timer every second
+  useEffect(() => {
+    if (!marketStatus.timing) return;
+    
+    // Initial calculation of time remaining
+    const calculateTimeRemaining = () => {
+      const now = new Date().getTime();
+      const isOpen = marketStatus.timing?.isOpen || false;
+      
+      // Get milliseconds to next state change
+      const msToChange = isOpen 
+        ? (marketStatus.timing?.timeToClose?.milliseconds || 0)
+        : (marketStatus.timing?.timeToOpen?.milliseconds || 0);
+      
+      // Calculate remaining time (adjust for time passed since data was sent)
+      const adjustedMs = Math.max(0, msToChange - (Date.now() - now));
+      
+      // Convert to hours, minutes, seconds
+      const hours = Math.floor(adjustedMs / (1000 * 60 * 60));
+      const minutes = Math.floor((adjustedMs % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((adjustedMs % (1000 * 60)) / 1000);
+      
+      return { hours, minutes, seconds, isOpen };
+    };
+    
+    // Set initial time
+    setTimeRemaining(calculateTimeRemaining());
+    
+    // Update the time remaining every second
+    const intervalId = setInterval(() => {
+      setTimeRemaining(calculateTimeRemaining());
+    }, 1000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [marketStatus.timing]);
 
   // Apply theme to document
   useEffect(() => {
@@ -177,6 +222,33 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
           <div className="flex items-center">
             {/* Market Status Indicators */}
             <div className="flex items-center mr-4">
+              {/* Market open/close countdown */}
+              {timeRemaining && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center mr-3">
+                        <Clock className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs font-medium">
+                          {timeRemaining.isOpen 
+                            ? `US markets close in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}` 
+                            : `US markets open in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}`
+                          }
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {timeRemaining.isOpen 
+                          ? `Market closes at ${new Date(marketStatus.timing?.nextCloseTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET` 
+                          : `Market opens at ${new Date(marketStatus.timing?.nextOpenTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET`
+                        }
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
