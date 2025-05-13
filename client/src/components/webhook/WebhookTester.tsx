@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Lock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import crypto from 'crypto';
 
 type OrderAction = "BUY" | "SELL" | "SHORT" | "COVER";
 
@@ -26,8 +28,11 @@ export function WebhookTester() {
   const [action, setAction] = useState<OrderAction>("BUY");
   const [quantity, setQuantity] = useState<string>("100");
   const [price, setPrice] = useState<string>("");
+  const [signatureSecret, setSignatureSecret] = useState<string>("");
   const [testResponse, setTestResponse] = useState<WebhookTestResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [webhookDetails, setWebhookDetails] = useState<any>(null);
+  const [useSignature, setUseSignature] = useState<boolean>(false);
   
   // Fetch webhooks
   const { data: webhooks = [], isLoading: isLoadingWebhooks } = useQuery<any[]>({
@@ -43,12 +48,49 @@ export function WebhookTester() {
     "COVER": "BUY"   // COVER is a BUY to close a short position
   };
 
+  // When selected webhook changes, update webhook details
+  useEffect(() => {
+    if (selectedWebhook) {
+      const webhook = webhooks.find(w => w.id.toString() === selectedWebhook);
+      if (webhook) {
+        setWebhookDetails(webhook);
+        // Check if webhook uses signature
+        const usesSignature = webhook.configuration?.securitySettings?.useSignature || false;
+        setUseSignature(usesSignature);
+        
+        // If webhook has a signature secret, set it as default
+        if (usesSignature && webhook.configuration?.securitySettings?.signatureSecret) {
+          setSignatureSecret(webhook.configuration.securitySettings.signatureSecret);
+        } else {
+          setSignatureSecret("");
+        }
+      }
+    } else {
+      setWebhookDetails(null);
+      setUseSignature(false);
+      setSignatureSecret("");
+    }
+  }, [selectedWebhook, webhooks]);
+
+  // Function to generate HMAC signature
+  const generateSignature = (payload: any, secret: string): string => {
+    try {
+      const hmac = crypto.createHmac('sha256', secret);
+      hmac.update(JSON.stringify(payload));
+      return hmac.digest('hex');
+    } catch (error) {
+      console.error('Error generating signature:', error);
+      return '';
+    }
+  };
+
   const resetForm = () => {
     setTestResponse(null);
     setTicker("");
     setPrice("");
     setQuantity("100");
     setAction("BUY");
+    // Don't reset signature secret or useSignature since they depend on webhook config
   };
 
   const handleTest = async () => {
@@ -63,6 +105,15 @@ export function WebhookTester() {
     if (!ticker) {
       toast({
         title: "Please enter a ticker symbol",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (useSignature && !signatureSecret) {
+      toast({
+        title: "Signature secret required",
+        description: "This webhook requires a signature. Please enter the signature secret.",
         variant: "destructive"
       });
       return;
@@ -87,15 +138,22 @@ export function WebhookTester() {
         entry_price: price ? parseFloat(price) : undefined
       };
 
+      // Prepare headers
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+
+      // Add signature if needed
+      if (useSignature && signatureSecret) {
+        const signature = generateSignature(payload, signatureSecret);
+        headers['x-signature'] = signature;
+      }
+
       // Make direct API call to the webhook endpoint
       const response = await axios.post(
         `/api/webhook-triggers/${webhook.token}`,
         payload,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
+        { headers }
       );
 
       setTestResponse({
@@ -215,6 +273,46 @@ export function WebhookTester() {
             Enter a price to create a limit order instead of a market order
           </p>
         </div>
+
+        {webhookDetails && (
+          <div className="space-y-4 pt-2 border-t">
+            <h3 className="text-sm font-medium flex items-center mt-4">
+              <Lock className="h-4 w-4 mr-2" />
+              Security Settings
+            </h3>
+            
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="use-signature">Signature Verification</Label>
+                <p className="text-xs text-muted-foreground">
+                  {useSignature ? "This webhook requires a signature" : "Signature verification is disabled"}
+                </p>
+              </div>
+              <Switch
+                id="use-signature"
+                checked={useSignature}
+                onCheckedChange={setUseSignature}
+                disabled={webhookDetails?.configuration?.securitySettings?.useSignature}
+              />
+            </div>
+            
+            {useSignature && (
+              <div className="space-y-2">
+                <Label htmlFor="signature-secret">Signature Secret</Label>
+                <Input
+                  id="signature-secret"
+                  type="password"
+                  placeholder="Enter webhook signature secret"
+                  value={signatureSecret}
+                  onChange={(e) => setSignatureSecret(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This secret is used to generate a valid HMAC signature that matches the webhook configuration
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {testResponse && (
           <Alert variant={testResponse.success ? "default" : "destructive"}>

@@ -329,6 +329,8 @@ export default function DebugPage() {
               <ol className="list-decimal pl-4 space-y-1 mt-2">
                 <li>Make sure you have created a webhook in the Webhooks section first</li>
                 <li>Ensure the webhook has the correct broker integration selected</li>
+                <li>If your webhook requires signature verification, the secret will be automatically loaded</li>
+                <li>The signature is automatically generated and sent with your test request</li>
                 <li>The test simulates sending a TradingView signal to your webhook endpoint</li>
                 <li>Check the response carefully for any errors or issues with your webhook configuration</li>
               </ol>
