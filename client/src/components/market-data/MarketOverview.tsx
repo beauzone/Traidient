@@ -56,7 +56,7 @@ const CustomizedContent = (props: any) => {
         height={height}
         style={{
           fill: performance !== undefined ? getColorByPerformance(performance) : '#a8e063',
-          stroke: '#1E293B',
+          stroke: '#1e1e1e',
           strokeWidth: 1,
         }}
       />
@@ -64,43 +64,46 @@ const CustomizedContent = (props: any) => {
       {/* Only render text label if there's enough space */}
       {width > 30 && height > 30 && (
         <>
-          {/* Simple black background for text (similar to Finviz style) */}
+          {/* Dark background bar at top of cell for sector name */}
           <rect
-            x={x + width / 2 - width * 0.45}
-            y={y + height / 2 - 23}
-            width={width * 0.9}
-            height={16}
-            fill="#000000"
-            fillOpacity={0.6}
-          />
-          <rect
-            x={x + width / 2 - width * 0.45}
-            y={y + height / 2 + 7}
-            width={width * 0.9}
-            height={16}
-            fill="#000000"
-            fillOpacity={0.6}
+            x={x}
+            y={y}
+            width={width}
+            height={20}
+            fill="#151515"
+            fillOpacity={0.9}
           />
           
-          {/* Plain white text on black background - Finviz style */}
+          {/* Dark background bar at bottom of cell for percentage */}
+          <rect
+            x={x}
+            y={y + height - 20}
+            width={width}
+            height={20}
+            fill="#151515"
+            fillOpacity={0.9}
+          />
+          
+          {/* Sector name text */}
           <text
             x={x + width / 2}
-            y={y + height / 2 - 10}
+            y={y + 11}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={12}
+            fontSize={11}
             fontWeight="bold"
             fill="#FFFFFF"
           >
             {name}
           </text>
           
+          {/* Performance percentage text */}
           <text
             x={x + width / 2}
-            y={y + height / 2 + 20}
+            y={y + height - 9}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={12}
+            fontSize={11}
             fontWeight="bold"
             fill="#FFFFFF"
           >
