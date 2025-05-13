@@ -98,9 +98,9 @@ const CustomizedContent = (props: any) => {
     ? getColorByPerformance(performance) 
     : '#21c44c';
   
-  // Exact Finviz text style with subtle shadow
+  // Pure white text with no shadow
   const textStyle = {
-    textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
+    textShadow: 'none',
     fontFamily: 'Arial, sans-serif',
     fontWeight: 'bold',
   };
