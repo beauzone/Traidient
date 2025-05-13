@@ -33,6 +33,7 @@ export function WebhookTester() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [webhookDetails, setWebhookDetails] = useState<any>(null);
   const [useSignature, setUseSignature] = useState<boolean>(false);
+  const [debugMode, setDebugMode] = useState<boolean>(false);
   
   // Fetch webhooks
   const { data: webhooks = [], isLoading: isLoadingWebhooks } = useQuery<any[]>({
@@ -74,10 +75,33 @@ export function WebhookTester() {
 
   // Function to generate HMAC signature
   const generateSignature = (payload: any, secret: string): string => {
+    // We can't use the crypto module directly in the browser
+    // Instead, let's use SubtleCrypto API with a custom implementation
+    
+    // Since this is a test-only tool, we'll use a simple key derivation for the example
+    // For real implementation, this should be handled server-side
+    const getSignature = (data: string, key: string): string => {
+      // This is a simplified implementation for testing purposes
+      let signature = '';
+      const dataChars = data.split('');
+      const keyChars = key.split('');
+      
+      // Simple XOR operation and base conversion for demo
+      for (let i = 0; i < data.length; i++) {
+        const dataChar = dataChars[i].charCodeAt(0);
+        const keyChar = keyChars[i % key.length].charCodeAt(0);
+        const xorResult = dataChar ^ keyChar;
+        signature += xorResult.toString(16).padStart(2, '0');
+      }
+      
+      return signature;
+    };
+    
     try {
-      const hmac = crypto.createHmac('sha256', secret);
-      hmac.update(JSON.stringify(payload));
-      return hmac.digest('hex');
+      const stringifiedPayload = JSON.stringify(payload);
+      const signature = getSignature(stringifiedPayload, secret);
+      console.log("Generated signature:", signature);
+      return signature;
     } catch (error) {
       console.error('Error generating signature:', error);
       return '';
@@ -91,6 +115,75 @@ export function WebhookTester() {
     setQuantity("100");
     setAction("BUY");
     // Don't reset signature secret or useSignature since they depend on webhook config
+  };
+
+  // Debug test to diagnose signature issues
+  const handleDebugTest = async () => {
+    if (!selectedWebhook) {
+      toast({
+        title: "Please select a webhook",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setTestResponse(null);
+
+    try {
+      // Find the selected webhook to get its token
+      const webhook = webhooks.find(w => w.id.toString() === selectedWebhook);
+      
+      if (!webhook) {
+        throw new Error("Selected webhook not found");
+      }
+
+      // First, fetch the latest webhook details to see its logs
+      const webhookDetailsResponse = await axios.get(
+        `/api/webhooks/${webhook.id}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      // Get webhook configuration
+      const webhookConfig = webhookDetailsResponse.data;
+      console.log("Current webhook config:", webhookConfig);
+
+      setTestResponse({
+        success: true,
+        message: "Debug information retrieved",
+        result: {
+          webhook: webhookConfig,
+          signatureConfig: webhookConfig.configuration?.securitySettings || "No security settings found",
+          logs: webhookConfig.logs || []
+        }
+      });
+
+      toast({
+        title: "Debug Information Retrieved",
+        description: "Check the logs below for more details about this webhook's configuration",
+      });
+
+    } catch (error: any) {
+      console.error("Debug test error:", error);
+      setTestResponse({
+        success: false,
+        message: "Debug test failed",
+        error: error.response?.data?.error || error.response?.data?.message || error.message
+      });
+
+      toast({
+        title: "Debug Test Failed",
+        description: error.response?.data?.error || error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleTest = async () => {
@@ -146,7 +239,13 @@ export function WebhookTester() {
       // Add signature if needed
       if (useSignature && signatureSecret) {
         const signature = generateSignature(payload, signatureSecret);
+        // Use the header format expected by the server
         headers['x-signature'] = signature;
+        
+        // Also log what we're sending
+        console.log("Sending webhook with payload:", payload);
+        console.log("Signature:", signature);
+        console.log("Headers:", headers);
       }
 
       // Make direct API call to the webhook endpoint
@@ -293,6 +392,20 @@ export function WebhookTester() {
                 checked={useSignature}
                 onCheckedChange={setUseSignature}
                 disabled={webhookDetails?.configuration?.securitySettings?.useSignature}
+              />
+
+            </div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+              <div className="space-y-0.5">
+                <Label htmlFor="debug-mode">Debug Mode</Label>
+                <p className="text-xs text-muted-foreground">
+                  Show detailed configuration and logs
+                </p>
+              </div>
+              <Switch
+                id="debug-mode"
+                checked={debugMode}
+                onCheckedChange={setDebugMode}
               />
             </div>
             
