@@ -35,6 +35,7 @@ import {
   Share2,
   Bell
 } from "lucide-react";
+import { createChart, ColorType, LineStyle, UTCTimestamp } from 'lightweight-charts';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
