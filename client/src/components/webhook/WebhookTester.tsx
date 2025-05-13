@@ -73,35 +73,41 @@ export function WebhookTester() {
     }
   }, [selectedWebhook, webhooks]);
 
-  // Function to generate HMAC signature
-  const generateSignature = (payload: any, secret: string): string => {
-    // We can't use the crypto module directly in the browser
-    // Instead, let's use SubtleCrypto API with a custom implementation
-    
-    // Since this is a test-only tool, we'll use a simple key derivation for the example
-    // For real implementation, this should be handled server-side
-    const getSignature = (data: string, key: string): string => {
-      // This is a simplified implementation for testing purposes
-      let signature = '';
-      const dataChars = data.split('');
-      const keyChars = key.split('');
-      
-      // Simple XOR operation and base conversion for demo
-      for (let i = 0; i < data.length; i++) {
-        const dataChar = dataChars[i].charCodeAt(0);
-        const keyChar = keyChars[i % key.length].charCodeAt(0);
-        const xorResult = dataChar ^ keyChar;
-        signature += xorResult.toString(16).padStart(2, '0');
-      }
-      
-      return signature;
-    };
-    
+  // Function to mimic the server's signature generation
+  // The server uses: crypto.createHmac('sha256', secret).update(payload).digest('hex')
+  const generateSignature = async (payload: any, secret: string): Promise<string> => {
     try {
+      // Convert the payload to stringified JSON (exactly as the server does)
       const stringifiedPayload = JSON.stringify(payload);
-      const signature = getSignature(stringifiedPayload, secret);
-      console.log("Generated signature:", signature);
-      return signature;
+      console.log("Payload being signed:", stringifiedPayload);
+      
+      // WebCrypto API implementation of HMAC SHA-256
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(secret);
+      const messageData = encoder.encode(stringifiedPayload);
+      
+      // Import the secret as a crypto key
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      
+      // Generate the signature
+      const signature = await window.crypto.subtle.sign(
+        'HMAC',
+        cryptoKey,
+        messageData
+      );
+      
+      // Convert to hex string
+      const hashArray = Array.from(new Uint8Array(signature));
+      const hexSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      console.log("Generated WebCrypto signature:", hexSignature);
+      return hexSignature;
     } catch (error) {
       console.error('Error generating signature:', error);
       return '';
@@ -238,9 +244,13 @@ export function WebhookTester() {
 
       // Add signature if needed
       if (useSignature && signatureSecret) {
-        const signature = generateSignature(payload, signatureSecret);
-        // Use the header format expected by the server
+        // Generate the signature
+        const signature = await generateSignature(payload, signatureSecret);
+        
+        // Try multiple header formats since we're not sure which one the server expects
         headers['x-signature'] = signature;
+        headers['X-Signature'] = signature;
+        headers['signature'] = signature;
         
         // Also log what we're sending
         console.log("Sending webhook with payload:", payload);
@@ -462,16 +472,37 @@ export function WebhookTester() {
         <Button variant="outline" onClick={resetForm} disabled={isLoading}>
           Reset
         </Button>
-        <Button onClick={handleTest} disabled={isLoading || !selectedWebhook || !ticker}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Testing...
-            </>
-          ) : (
-            <>Test Webhook</>
+        <div className="flex gap-2">
+          {debugMode && (
+            <Button 
+              variant="secondary" 
+              onClick={handleDebugTest} 
+              disabled={isLoading || !selectedWebhook}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>Debug Config</>
+              )}
+            </Button>
           )}
-        </Button>
+          <Button 
+            onClick={handleTest} 
+            disabled={isLoading || !selectedWebhook || (!debugMode && !ticker)}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testing...
+              </>
+            ) : (
+              <>Test Webhook</>
+            )}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );
