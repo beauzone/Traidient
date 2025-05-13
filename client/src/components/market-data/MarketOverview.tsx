@@ -25,13 +25,25 @@ import { useMarketData } from "@/hooks/useMarketData";
 
 // Custom Treemap content component for heatmap view
 const CustomizedContent = (props: any) => {
-  const { x, y, width, height, name, performance } = props;
+  const { x, y, width, height, name, performance, root } = props;
   
-  // Calculate color based on performance
+  // Calculate gradient color based on performance
   const getColorByPerformance = (perf: number) => {
-    // Simple color scheme: green for positive, red for negative
-    if (perf < 0) return '#FF3B5C';
-    return '#4ADE80';
+    if (!root || !root.children) return perf >= 0 ? '#4ADE80' : '#FF3B5C';
+    
+    const allPerformances = root.children.map((child: any) => child.performance);
+    
+    if (perf >= 0) {
+      // For positive values
+      const maxPositive = Math.max(...allPerformances.filter((p: number) => p >= 0), 1);
+      const intensity = Math.max(0.3, Math.min(1, perf / maxPositive));
+      return `rgb(${Math.round(74 * intensity)}, ${Math.round(222 * intensity)}, ${Math.round(128 * intensity)})`;
+    } else {
+      // For negative values
+      const minNegative = Math.min(...allPerformances.filter((p: number) => p < 0), -1);
+      const intensity = Math.max(0.4, Math.min(1, perf / minNegative));
+      return `rgb(${Math.round(255 * intensity)}, ${Math.round(59 * intensity)}, ${Math.round(92 * intensity)})`;
+    }
   };
 
   // Determine text color based on background brightness
@@ -368,12 +380,38 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                             }
                           }}
                         >
-                          {(Array.isArray(sectorPerformance) ? sectorPerformance : []).map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={entry.performance >= 0 ? '#4ADE80' : '#FF3B5C'} 
-                            />
-                          ))}
+                          {(Array.isArray(sectorPerformance) ? sectorPerformance : []).map((entry, index, array) => {
+                            // For positive values (green)
+                            if (entry.performance >= 0) {
+                              // Find the max positive performance to create a gradient scale
+                              const maxPositive = Math.max(...array.filter(item => item.performance >= 0).map(item => item.performance), 1);
+                              // Calculate intensity - higher percentage = more intense color
+                              const intensity = Math.max(0.3, Math.min(1, entry.performance / maxPositive));
+                              // Generate color from light green to vivid green
+                              return (
+                                <Cell 
+                                  key={`cell-${index}`}
+                                  // Use rgb format to easily adjust the intensity
+                                  fill={`rgb(${Math.round(74 * intensity)}, ${Math.round(222 * intensity)}, ${Math.round(128 * intensity)})`} 
+                                />
+                              );
+                            } 
+                            // For negative values (red)
+                            else {
+                              // Find the min negative performance to create a gradient scale
+                              const minNegative = Math.min(...array.filter(item => item.performance < 0).map(item => item.performance), -1);
+                              // Calculate intensity - more negative = more intense color
+                              const intensity = Math.max(0.4, Math.min(1, entry.performance / minNegative));
+                              // Generate color from light red to vivid red
+                              return (
+                                <Cell 
+                                  key={`cell-${index}`}
+                                  // Use rgb format to easily adjust the intensity
+                                  fill={`rgb(${Math.round(255 * intensity)}, ${Math.round(59 * intensity)}, ${Math.round(92 * intensity)})`} 
+                                />
+                              );
+                            }
+                          })}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -419,36 +457,58 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(Array.isArray(sectorPerformance) ? sectorPerformance : [])
-                          .slice() // create a copy of the array
-                          .sort((a, b) => b.performance - a.performance)
-                          .map((sector) => (
-                            <tr 
-                              key={sector.name} 
-                              className="border-b border-border hover:bg-muted/50"
-                            >
-                              <td className="py-3 px-4 font-medium">{sector.name}</td>
-                              <td className={`py-3 px-4 text-right ${
-                                sector.performance >= 0 ? 'text-green-500' : 'text-negative'
-                              }`}>
-                                {sector.performance.toFixed(2)}%
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center">
-                                  <div 
-                                    className="w-3 h-3 rounded-full mr-2" 
-                                    style={{ backgroundColor: sector.performance >= 0 ? '#4ADE80' : '#FF3B5C' }}
-                                  ></div>
-                                  <span>
-                                    {sector.performance >= 3 ? 'Strong Outperform' : 
-                                     sector.performance >= 1 ? 'Outperform' :
-                                     sector.performance >= 0 ? 'Neutral' :
-                                     sector.performance >= -1 ? 'Underperform' : 'Strong Underperform'}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                        {Array.isArray(sectorPerformance) && 
+                          [...sectorPerformance]
+                            .sort((a, b) => b.performance - a.performance)
+                            .map((sector, index, array) => {
+                              // Calculate gradient colors
+                              let textColor = "";
+                              let dotColor = "";
+                              
+                              if (sector.performance >= 0) {
+                                const maxPositive = Math.max(...array.filter(item => item.performance >= 0).map(item => item.performance), 1);
+                                const intensity = Math.max(0.3, Math.min(1, sector.performance / maxPositive));
+                                const textIntensity = Math.max(0.6, Math.min(1, sector.performance / maxPositive));
+                                
+                                dotColor = `rgb(${Math.round(74 * intensity)}, ${Math.round(222 * intensity)}, ${Math.round(128 * intensity)})`;
+                                textColor = `rgb(${Math.round(74 * textIntensity)}, ${Math.round(222 * textIntensity)}, ${Math.round(128 * textIntensity)})`;
+                              } else {
+                                const minNegative = Math.min(...array.filter(item => item.performance < 0).map(item => item.performance), -1);
+                                const intensity = Math.max(0.4, Math.min(1, sector.performance / minNegative));
+                                const textIntensity = Math.max(0.7, Math.min(1, sector.performance / minNegative));
+                                
+                                dotColor = `rgb(${Math.round(255 * intensity)}, ${Math.round(59 * intensity)}, ${Math.round(92 * intensity)})`;
+                                textColor = `rgb(${Math.round(255 * textIntensity)}, ${Math.round(59 * textIntensity)}, ${Math.round(92 * textIntensity)})`;
+                              }
+                              
+                              const status = sector.performance >= 3 ? 'Strong Outperform' : 
+                                         sector.performance >= 1 ? 'Outperform' :
+                                         sector.performance >= 0 ? 'Neutral' :
+                                         sector.performance >= -1 ? 'Underperform' : 
+                                         'Strong Underperform';
+                                         
+                              return (
+                                <tr 
+                                  key={sector.name} 
+                                  className="border-b border-border hover:bg-muted/50"
+                                >
+                                  <td className="py-3 px-4 font-medium">{sector.name}</td>
+                                  <td className="py-3 px-4 text-right" style={{ color: textColor }}>
+                                    {sector.performance.toFixed(2)}%
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center">
+                                      <div 
+                                        className="w-3 h-3 rounded-full mr-2" 
+                                        style={{ backgroundColor: dotColor }}
+                                      ></div>
+                                      <span>{status}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                        }
                       </tbody>
                     </table>
                   </div>
