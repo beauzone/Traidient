@@ -101,7 +101,7 @@ const CustomizedContent = (props: any) => {
     ? getColorByPerformance(performance) 
     : '#21c44c';
   
-  // Pure white text with no shadow
+  // Pure white text with no shadow or outline
   const textStyle = {
     textShadow: 'none',
     fontFamily: 'Arial, sans-serif',
@@ -164,7 +164,7 @@ const CustomizedContent = (props: any) => {
         }}
       />
       
-      {/* Render the sector name - with support for wrapping to 2 lines */}
+      {/* Render the sector name - with support for wrapping to 2 lines - using SVG pure rendering */}
       {nameLines.map((line, index) => (
         <text
           key={`name-line-${index}`}
@@ -174,7 +174,7 @@ const CustomizedContent = (props: any) => {
           dominantBaseline="middle"
           fontSize={nameSize}
           fill="#FFFFFF"
-          style={textStyle}
+          style={{...textStyle, textRendering: 'geometricPrecision'}}
         >
           {line}
         </text>
@@ -188,7 +188,7 @@ const CustomizedContent = (props: any) => {
         dominantBaseline="middle"
         fontSize={perfSize}
         fill="#FFFFFF"
-        style={textStyle}
+        style={{...textStyle, textRendering: 'geometricPrecision'}}
       >
         {formatPerformance(performance)}
       </text>
