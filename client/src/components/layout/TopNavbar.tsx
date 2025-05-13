@@ -119,6 +119,19 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   // Count unread notifications
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0;
 
+  // Provide a fallback countdown value that matches the current market status
+  useEffect(() => {
+    if (!timeRemaining && marketStatus.isMarketOpen !== undefined) {
+      // Create temporary fallback timing data while waiting for real data
+      setTimeRemaining({
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        isOpen: marketStatus.isMarketOpen
+      });
+    }
+  }, [marketStatus.isMarketOpen, timeRemaining]);
+
   // Update the countdown timer every second
   useEffect(() => {
     if (!marketStatus.timing) return;
@@ -147,13 +160,35 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
     // Set initial time
     setTimeRemaining(calculateTimeRemaining());
     
-    // Update the time remaining every second
-    const intervalId = setInterval(() => {
-      setTimeRemaining(calculateTimeRemaining());
-    }, 1000);
+    // For smoother updates, use requestAnimationFrame instead of setInterval
+    let start: number;
+    let frameId: number;
+    let lastSecondUpdate = 0;
     
-    // Clean up interval on unmount
-    return () => clearInterval(intervalId);
+    const updateTimer = (timestamp: number) => {
+      if (!start) start = timestamp;
+      const elapsed = timestamp - start;
+      
+      // Update exactly every second, regardless of frame rate
+      const currentSecond = Math.floor(elapsed / 1000);
+      if (currentSecond !== lastSecondUpdate) {
+        lastSecondUpdate = currentSecond;
+        setTimeRemaining(calculateTimeRemaining());
+      }
+      
+      // Continue animation loop
+      frameId = requestAnimationFrame(updateTimer);
+    };
+    
+    // Start the animation loop
+    frameId = requestAnimationFrame(updateTimer);
+    
+    // Clean up on unmount
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
   }, [marketStatus.timing]);
 
   // Apply theme to document
@@ -223,31 +258,38 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
             {/* Market Status Indicators */}
             <div className="flex items-center mr-4">
               {/* Market open/close countdown */}
-              {timeRemaining && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center mr-3">
-                        <Clock className="h-3.5 w-3.5 mr-1" />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center mr-3">
+                      <Clock className="h-3.5 w-3.5 mr-1" />
+                      {timeRemaining ? (
                         <span className="text-xs font-medium">
                           {timeRemaining.isOpen 
                             ? `US markets close in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}` 
                             : `US markets open in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}`
                           }
                         </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {timeRemaining.isOpen 
-                          ? `Market closes at ${new Date(marketStatus.timing?.nextCloseTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET` 
-                          : `Market opens at ${new Date(marketStatus.timing?.nextOpenTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET`
-                        }
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+                      ) : (
+                        <span className="text-xs font-medium">
+                          US markets {marketStatus.isMarketOpen ? 'close' : 'open'} soon
+                        </span>
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">
+                      {timeRemaining 
+                        ? (timeRemaining.isOpen 
+                            ? `Market closes at ${new Date(marketStatus.timing?.nextCloseTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET` 
+                            : `Market opens at ${new Date(marketStatus.timing?.nextOpenTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET`
+                          )
+                        : `US stock market hours are 9:30 AM - 4:00 PM ET, Monday to Friday`
+                      }
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               
               <TooltipProvider>
                 <Tooltip>
