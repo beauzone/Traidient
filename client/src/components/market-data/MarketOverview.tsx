@@ -29,14 +29,9 @@ const CustomizedContent = (props: any) => {
   
   // Calculate color based on performance
   const getColorByPerformance = (perf: number) => {
-    if (perf <= -3) return '#FF3B5C';
-    if (perf < -2) return '#ff4d6d';
-    if (perf < -1) return '#ff6b87';
-    if (perf < 0) return '#ff8fa2';
-    if (perf < 1) return '#a8e063';
-    if (perf < 2) return '#78c850';
-    if (perf < 3) return '#56ab2f';
-    return '#2E7D32';
+    // Simple color scheme: green for positive, red for negative
+    if (perf < 0) return '#FF3B5C';
+    return '#4ADE80';
   };
 
   // Determine text color based on background brightness
@@ -304,7 +299,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
       <Card className="overflow-hidden">
         <CardContent className="p-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-medium">Sector Performance</h3>
+            <h3 className="font-medium uppercase">1 DAY PERFORMANCE</h3>
             <div className="text-xs text-muted-foreground">
               {sectorsUpdatedAt ? `Last updated: ${new Date(sectorsUpdatedAt).toLocaleTimeString()}` : ''}
             </div>
@@ -328,9 +323,13 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={sectorPerformance}
+                        data={
+                          Array.isArray(sectorPerformance) 
+                            ? [...sectorPerformance].sort((a, b) => b.performance - a.performance) 
+                            : []
+                        }
                         layout="vertical"
-                        margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                        margin={{ top: 5, right: 30, left: 160, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
                         <XAxis 
@@ -360,7 +359,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                           {(Array.isArray(sectorPerformance) ? sectorPerformance : []).map((entry, index) => (
                             <Cell 
                               key={`cell-${index}`} 
-                              fill={entry.performance >= 0 ? entry.color : '#FF3B5C'} 
+                              fill={entry.performance >= 0 ? '#4ADE80' : '#FF3B5C'} 
                             />
                           ))}
                         </Bar>
@@ -384,13 +383,13 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                     </ResponsiveContainer>
                     <div className="flex justify-center mt-2">
                       <div className="w-full max-w-md flex">
-                        <div className="h-2 flex-1 bg-gradient-to-r from-[#FF3B5C] via-red-500 to-yellow-500"></div>
-                        <div className="h-2 flex-1 bg-gradient-to-r from-yellow-500 via-green-500 to-green-600"></div>
+                        <div className="h-2 flex-1 bg-[#FF3B5C]"></div>
+                        <div className="h-2 flex-1 bg-[#4ADE80]"></div>
                       </div>
                       <div className="flex text-xs text-muted-foreground justify-between w-full max-w-md px-2 -mt-1">
-                        <span>-3% or less</span>
+                        <span>Negative</span>
                         <span>0%</span>
-                        <span>+3% or more</span>
+                        <span>Positive</span>
                       </div>
                     </div>
                   </div>
@@ -426,7 +425,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                                 <div className="flex items-center">
                                   <div 
                                     className="w-3 h-3 rounded-full mr-2" 
-                                    style={{ backgroundColor: sector.color }}
+                                    style={{ backgroundColor: sector.performance >= 0 ? '#4ADE80' : '#FF3B5C' }}
                                   ></div>
                                   <span>
                                     {sector.performance >= 3 ? 'Strong Outperform' : 
