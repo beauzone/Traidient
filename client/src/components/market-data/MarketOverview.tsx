@@ -23,7 +23,7 @@ import { Loader2, TrendingUp, TrendingDown, Clock, Database, ArrowUpDown, ArrowU
 import { fetchData } from "@/lib/api";
 import { useMarketData } from "@/hooks/useMarketData";
 
-// Custom Treemap content component for heatmap view - Finviz style
+// Custom Treemap content component for heatmap view - 3D blue text shadow style
 const CustomizedContent = (props: any) => {
   // Make sure we have valid props
   if (!props) return null;
@@ -80,6 +80,18 @@ const CustomizedContent = (props: any) => {
     ? getColorByPerformance(performance) 
     : '#4ADE80';
   
+  // Blue text shadow style for 3D effect - exactly matching screenshot
+  const textShadowStyle = {
+    textShadow: `
+      -1px -1px 0 #000066,
+       1px -1px 0 #000066,
+      -1px  1px 0 #000066,
+       1px  1px 0 #000066,
+       2px  2px 3px rgba(0,0,150,0.5)
+    `,
+    fontFamily: 'Arial, sans-serif'
+  };
+  
   return (
     <g>
       {/* Main colored rectangle */}
@@ -98,30 +110,30 @@ const CustomizedContent = (props: any) => {
       {/* Only render text label if there's enough space */}
       {cellWidth > 40 && cellHeight > 40 && (
         <>
-          {/* Sector name text - large and centered like Finviz */}
+          {/* Sector name text with blue 3D shadow effect */}
           <text
             x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 - 15}
+            y={yPos + cellHeight / 2 - 20}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={20}
+            fontSize={28}
             fontWeight="bold"
             fill="#FFFFFF"
-            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.7)' }}
+            style={textShadowStyle}
           >
             {displayName}
           </text>
           
-          {/* Performance percentage text */}
+          {/* Performance percentage text with blue 3D shadow effect */}
           <text
             x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 + 15}
+            y={yPos + cellHeight / 2 + 30}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={14}
+            fontSize={22}
             fontWeight="bold"
             fill="#FFFFFF"
-            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.7)' }}
+            style={textShadowStyle}
           >
             {formatPerformance(performance)}
           </text>
@@ -136,23 +148,23 @@ const CustomizedContent = (props: any) => {
             y={yPos + cellHeight / 2 - 8}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={10}
+            fontSize={12}
             fontWeight="bold"
             fill="#FFFFFF"
-            style={{ textShadow: '1px 1px 1px rgba(0,0,0,0.7)' }}
+            style={textShadowStyle}
           >
             {displayName}
           </text>
           
           <text
             x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 + 8}
+            y={yPos + cellHeight / 2 + 12}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={8}
+            fontSize={10}
             fontWeight="bold"
             fill="#FFFFFF"
-            style={{ textShadow: '1px 1px 1px rgba(0,0,0,0.7)' }}
+            style={textShadowStyle}
           >
             {formatPerformance(performance)}
           </text>
