@@ -7,7 +7,7 @@ channel = "stable-24_05"
 packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd"]
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "gce"
 run = ["npm", "run", "start"]
 build = ["npm", "run", "build"]
 
