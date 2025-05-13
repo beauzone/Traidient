@@ -25,52 +25,83 @@ import { useMarketData } from "@/hooks/useMarketData";
 
 // Custom Treemap content component for heatmap view - Finviz style
 const CustomizedContent = (props: any) => {
+  // Make sure we have valid props
+  if (!props) return null;
+  
   const { x, y, width, height, name, performance, value, root } = props;
+  
+  // Default values for all required properties to ensure no errors
+  const xPos = x || 0;
+  const yPos = y || 0;
+  const cellWidth = width || 100;
+  const cellHeight = height || 100;
   
   // Calculate gradient color based on performance
   const getColorByPerformance = (perf: number) => {
+    // Fallback if root data is missing
     if (!root || !root.children) return perf >= 0 ? '#4ADE80' : '#FF3B5C';
     
-    const allPerformances = root.children.map((child: any) => child.performance);
+    // Safely get performances
+    const allPerformances = root.children
+      .filter((child: any) => child && typeof child.performance === 'number')
+      .map((child: any) => child.performance);
     
     if (perf >= 0) {
       // For positive values
-      const maxPositive = Math.max(...allPerformances.filter((p: number) => p >= 0), 1);
+      const maxPositive = allPerformances.length > 0
+        ? Math.max(...allPerformances.filter((p: number) => p >= 0), 1)
+        : 1;
       const intensity = Math.max(0.4, Math.min(1, perf / maxPositive));
       return `rgb(${Math.round(74 * intensity)}, ${Math.round(222 * intensity)}, ${Math.round(128 * intensity)})`;
     } else {
       // For negative values
-      const minNegative = Math.min(...allPerformances.filter((p: number) => p < 0), -1);
+      const minNegative = allPerformances.length > 0
+        ? Math.min(...allPerformances.filter((p: number) => p < 0), -1)
+        : -1;
       const intensity = Math.max(0.4, Math.min(1, perf / minNegative));
       return `rgb(${Math.round(255 * intensity)}, ${Math.round(59 * intensity)}, ${Math.round(92 * intensity)})`;
     }
   };
 
+  // Safely format performance value
+  const formatPerformance = (perf: any): string => {
+    if (perf == null || isNaN(parseFloat(perf))) return '0.00%';
+    const perfNum = parseFloat(perf);
+    return `${perfNum > 0 ? '+' : ''}${perfNum.toFixed(2)}%`;
+  };
+  
   // Get category name from top-level header (truncate if too long)
-  const displayName = name.length > 10 ? name.substring(0, 9) + '.' : name;
+  const displayName = typeof name === 'string' && name.length > 10 
+    ? name.substring(0, 9) + '.' 
+    : (name || '');
+  
+  // Color calculation with safety check
+  const fillColor = typeof performance === 'number' 
+    ? getColorByPerformance(performance) 
+    : '#4ADE80';
   
   return (
     <g>
       {/* Main colored rectangle */}
       <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
+        x={xPos}
+        y={yPos}
+        width={cellWidth}
+        height={cellHeight}
         style={{
-          fill: performance !== undefined ? getColorByPerformance(performance) : '#4ADE80',
+          fill: fillColor,
           stroke: '#111111',
           strokeWidth: 0.5,
         }}
       />
       
       {/* Only render text label if there's enough space */}
-      {width > 40 && height > 40 && (
+      {cellWidth > 40 && cellHeight > 40 && (
         <>
           {/* Sector name text - large and centered like Finviz */}
           <text
-            x={x + width / 2}
-            y={y + height / 2 - 15}
+            x={xPos + cellWidth / 2}
+            y={yPos + cellHeight / 2 - 15}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={20}
@@ -83,8 +114,8 @@ const CustomizedContent = (props: any) => {
           
           {/* Performance percentage text */}
           <text
-            x={x + width / 2}
-            y={y + height / 2 + 15}
+            x={xPos + cellWidth / 2}
+            y={yPos + cellHeight / 2 + 15}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={14}
@@ -92,17 +123,17 @@ const CustomizedContent = (props: any) => {
             fill="#FFFFFF"
             style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.7)' }}
           >
-            {performance !== undefined ? `${performance > 0 ? '+' : ''}${performance.toFixed(2)}%` : '0.00%'}
+            {formatPerformance(performance)}
           </text>
         </>
       )}
       
       {/* For smaller cells, use smaller font */}
-      {(width <= 40 || height <= 40) && width > 20 && height > 20 && (
+      {(cellWidth <= 40 || cellHeight <= 40) && cellWidth > 20 && cellHeight > 20 && (
         <>
           <text
-            x={x + width / 2}
-            y={y + height / 2 - 8}
+            x={xPos + cellWidth / 2}
+            y={yPos + cellHeight / 2 - 8}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={10}
@@ -114,8 +145,8 @@ const CustomizedContent = (props: any) => {
           </text>
           
           <text
-            x={x + width / 2}
-            y={y + height / 2 + 8}
+            x={xPos + cellWidth / 2}
+            y={yPos + cellHeight / 2 + 8}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={8}
@@ -123,7 +154,7 @@ const CustomizedContent = (props: any) => {
             fill="#FFFFFF"
             style={{ textShadow: '1px 1px 1px rgba(0,0,0,0.7)' }}
           >
-            {performance !== undefined ? `${performance > 0 ? '+' : ''}${performance.toFixed(2)}%` : '0.00%'}
+            {formatPerformance(performance)}
           </text>
         </>
       )}
