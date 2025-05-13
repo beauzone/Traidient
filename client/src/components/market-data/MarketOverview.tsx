@@ -329,15 +329,16 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                             : []
                         }
                         layout="vertical"
-                        margin={{ top: 5, right: 30, left: 160, bottom: 5 }}
+                        margin={{ top: 5, right: 50, left: 160, bottom: 5 }}
+                        barSize={16}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} horizontal={false} />
                         <XAxis 
                           type="number" 
-                          tickFormatter={(value) => `${value.toFixed(1)}%`} 
+                          tickFormatter={(value) => `${value}%`} 
                           domain={[
                             (dataMin: number) => Math.floor(Math.min(dataMin, -1)), 
-                            (dataMax: number) => Math.ceil(Math.max(dataMax, 1))
+                            (dataMax: number) => Math.ceil(Math.max(dataMax + 1, 5))
                           ]}
                           tick={{ fontSize: 12, fill: '#94a3b8' }}
                         />
@@ -345,7 +346,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                           type="category" 
                           dataKey="name" 
                           tick={{ fontSize: 12, fill: '#94a3b8' }}
-                          width={120}
+                          width={140}
                         />
                         <Tooltip 
                           formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Performance']}
@@ -355,7 +356,26 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                             color: '#E2E8F0'
                           }}
                         />
-                        <Bar dataKey="performance" radius={[0, 4, 4, 0]}>
+                        <Bar 
+                          dataKey="performance" 
+                          radius={[0, 4, 4, 0]}
+                          label={{
+                            position: 'right',
+                            formatter: (value: number) => `+${value.toFixed(2)}`,
+                            fill: '#e2e8f0',
+                            fontSize: 12,
+                            offset: 5,
+                            content: (props: any) => {
+                              const { x, y, width, height, value } = props;
+                              const valueDisplay = value >= 0 ? `+${value.toFixed(2)}` : value.toFixed(2);
+                              return (
+                                <text x={x + width + 5} y={y + height / 2} fill="#e2e8f0" fontSize={12} textAnchor="start" dominantBaseline="middle">
+                                  {valueDisplay}
+                                </text>
+                              );
+                            }
+                          }}
+                        >
                           {(Array.isArray(sectorPerformance) ? sectorPerformance : []).map((entry, index) => (
                             <Cell 
                               key={`cell-${index}`} 
