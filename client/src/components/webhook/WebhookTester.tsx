@@ -34,6 +34,7 @@ export function WebhookTester() {
   const [webhookDetails, setWebhookDetails] = useState<any>(null);
   const [useSignature, setUseSignature] = useState<boolean>(false);
   const [debugMode, setDebugMode] = useState<boolean>(false);
+  const [bypassIpCheck, setBypassIpCheck] = useState<boolean>(true);
   
   // Fetch webhooks
   const { data: webhooks = [], isLoading: isLoadingWebhooks } = useQuery<any[]>({
@@ -257,6 +258,13 @@ export function WebhookTester() {
         console.log("Signature:", signature);
         console.log("Headers:", headers);
       }
+      
+      // Add IP whitelist bypass header for testing
+      if (bypassIpCheck) {
+        headers['x-bypass-ip-check'] = 'true';
+        headers['X-Bypass-IP-Check'] = 'true';
+        console.log("Adding IP whitelist bypass header");
+      }
 
       // Make direct API call to the webhook endpoint
       const response = await axios.post(
@@ -416,6 +424,20 @@ export function WebhookTester() {
                 id="debug-mode"
                 checked={debugMode}
                 onCheckedChange={setDebugMode}
+              />
+            </div>
+            
+            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+              <div className="space-y-0.5">
+                <Label htmlFor="bypass-ip-check">Bypass IP Whitelist</Label>
+                <p className="text-xs text-muted-foreground">
+                  Testing only: Allow requests from any IP address
+                </p>
+              </div>
+              <Switch
+                id="bypass-ip-check"
+                checked={bypassIpCheck}
+                onCheckedChange={setBypassIpCheck}
               />
             </div>
             
