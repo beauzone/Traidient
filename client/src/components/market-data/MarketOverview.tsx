@@ -341,7 +341,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                             : []
                         }
                         layout="vertical"
-                        margin={{ top: 5, right: 50, left: 160, bottom: 5 }}
+                        margin={{ top: 5, right: 50, left: 200, bottom: 5 }}
                         barSize={16}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} horizontal={false} />
@@ -357,8 +357,8 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                         <YAxis 
                           type="category" 
                           dataKey="name" 
-                          tick={{ fontSize: 12, fill: '#94a3b8' }}
-                          width={140}
+                          tick={{ fontSize: 12, fill: '#e2e8f0', fontWeight: 500 }}
+                          width={180}
                         />
                         <Bar 
                           dataKey="performance" 
