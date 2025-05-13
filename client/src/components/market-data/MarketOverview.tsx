@@ -332,7 +332,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
               <>
                 {/* Bar Chart View */}
                 <TabsContent value="bar">
-                  <div className="h-64">
+                  <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={
@@ -341,8 +341,8 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                             : []
                         }
                         layout="vertical"
-                        margin={{ top: 5, right: 50, left: 200, bottom: 5 }}
-                        barSize={16}
+                        margin={{ top: 5, right: 50, left: 240, bottom: 5 }}
+                        barSize={12}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} horizontal={false} />
                         <XAxis 
@@ -358,7 +358,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                           type="category" 
                           dataKey="name" 
                           tick={{ fontSize: 12, fill: '#e2e8f0', fontWeight: 500 }}
-                          width={180}
+                          width={220}
                         />
                         <Bar 
                           dataKey="performance" 
@@ -420,7 +420,7 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                 
                 {/* Heat Map View */}
                 <TabsContent value="heatmap">
-                  <div className="h-72">
+                  <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <Treemap
                         data={Array.isArray(sectorPerformance) ? sectorPerformance : []}
