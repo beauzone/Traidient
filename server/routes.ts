@@ -3172,48 +3172,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/market-data/losers', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Try to get top losers from Yahoo Finance (already includes dataSource field)
-      // Changed limit from 5 to 10 as requested
+      // Try to get top losers from Yahoo Finance API (with no fallback data)
+      // This will ensure we're only using real data from Yahoo Finance
       let losers = await yahooFinance.getTopLosers(10);
-      console.log('Fetched losers:', losers);
+      console.log(`Fetched ${losers.length} losers from Yahoo Finance API`);
       
-      // If we have no real data from Yahoo, use real reference data
-      if (losers.length === 0) {
-        console.log('API did not return any losers, using reference data');
-        // These are real stock tickers with realistic values
-        losers = [
-          { symbol: 'INTC', name: 'Intel Corporation', price: 22.71, change: -0.91, changePercent: -3.84, dataSource: "reference" },
-          { symbol: 'CAT', name: 'Caterpillar Inc.', price: 329.23, change: -10.07, changePercent: -2.97, dataSource: "reference" },
-          { symbol: 'BA', name: 'The Boeing Company', price: 174.45, change: -4.66, changePercent: -2.60, dataSource: "reference" },
-          { symbol: 'MMM', name: '3M Company', price: 144.74, change: -3.70, changePercent: -2.49, dataSource: "reference" },
-          { symbol: 'F', name: 'Ford Motor Company', price: 9.67, change: -0.24, changePercent: -2.37, dataSource: "reference" },
-          { symbol: 'OXY', name: 'Occidental Petroleum Corporation', price: 48.62, change: -0.89, changePercent: -1.80, dataSource: "reference" },
-          { symbol: 'GM', name: 'General Motors Company', price: 46.51, change: -0.69, changePercent: -1.46, dataSource: "reference" },
-          { symbol: 'IBM', name: 'International Business Machines Corp', price: 243.07, change: -3.14, changePercent: -1.28, dataSource: "reference" },
-          { symbol: 'WMT', name: 'Walmart Inc.', price: 84.98, change: -0.66, changePercent: -0.77, dataSource: "reference" },
-          { symbol: 'CVX', name: 'Chevron Corporation', price: 165.97, change: -0.69, changePercent: -0.41, dataSource: "reference" }
-        ];
+      // Query additional stocks to find more losers if we don't have enough
+      if (losers.length < 10) {
+        console.log(`Need more losers - trying to fetch more real market data`);
+        const additionalLosers = await yahooFinance.findMoreLosers(10 - losers.length);
+        
+        if (additionalLosers.length > 0) {
+          console.log(`Found ${additionalLosers.length} additional losers from extended search`);
+          // Combine the lists while removing duplicates
+          const existingSymbols = losers.map(l => l.symbol);
+          const uniqueAdditional = additionalLosers.filter(l => !existingSymbols.includes(l.symbol));
+          
+          losers = [...losers, ...uniqueAdditional].slice(0, 10);
+        }
       }
       
+      // Return whatever real losers we found, even if less than 10
       res.json(losers);
     } catch (error) {
       console.error('Yahoo Finance API error for top losers:', error);
       
-      // Return reference data in case of error
-      const losers = [
-        { symbol: 'INTC', name: 'Intel Corporation', price: 22.71, change: -0.91, changePercent: -3.84, dataSource: "reference" },
-        { symbol: 'CAT', name: 'Caterpillar Inc.', price: 329.23, change: -10.07, changePercent: -2.97, dataSource: "reference" },
-        { symbol: 'BA', name: 'The Boeing Company', price: 174.45, change: -4.66, changePercent: -2.60, dataSource: "reference" },
-        { symbol: 'MMM', name: '3M Company', price: 144.74, change: -3.70, changePercent: -2.49, dataSource: "reference" },
-        { symbol: 'F', name: 'Ford Motor Company', price: 9.67, change: -0.24, changePercent: -2.37, dataSource: "reference" },
-        { symbol: 'OXY', name: 'Occidental Petroleum Corporation', price: 48.62, change: -0.89, changePercent: -1.80, dataSource: "reference" },
-        { symbol: 'GM', name: 'General Motors Company', price: 46.51, change: -0.69, changePercent: -1.46, dataSource: "reference" },
-        { symbol: 'IBM', name: 'International Business Machines Corp', price: 243.07, change: -3.14, changePercent: -1.28, dataSource: "reference" },
-        { symbol: 'WMT', name: 'Walmart Inc.', price: 84.98, change: -0.66, changePercent: -0.77, dataSource: "reference" },
-        { symbol: 'CVX', name: 'Chevron Corporation', price: 165.97, change: -0.69, changePercent: -0.41, dataSource: "reference" }
-      ];
-      
-      res.json(losers);
+      // On error, return empty array rather than synthetic data
+      res.status(503).json({ 
+        message: 'Unable to fetch market data at this time',
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
