@@ -71,12 +71,15 @@ const CustomizedContent = (props: any) => {
     return `${perfNum >= 0 ? '+' : ''}${perfNum.toFixed(2)}%`;
   };
   
-  // Process sector names to wrap two-word names like "Consumer Discretionary"
+  // Process sector names to wrap two-word names like "Consumer Discretionary" and convert to ALL CAPS
   const processName = (fullName: string): string[] => {
     if (!fullName) return [''];
     
-    const words = fullName.split(' ');
-    if (words.length === 1) return [fullName]; // Single word, no wrapping needed
+    // Convert to uppercase first
+    const uppercaseName = fullName.toUpperCase();
+    
+    const words = uppercaseName.split(' ');
+    if (words.length === 1) return [uppercaseName]; // Single word, no wrapping needed
     
     // For two-word names, return as separate lines
     if (words.length === 2) return [words[0], words[1]];
@@ -90,7 +93,7 @@ const CustomizedContent = (props: any) => {
       ];
     }
     
-    return [fullName]; // Fallback
+    return [uppercaseName]; // Fallback
   };
   
   // Color calculation with safety check - using Finviz greens
