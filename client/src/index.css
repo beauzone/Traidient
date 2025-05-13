@@ -17,4 +17,16 @@
   .text-negative {
     @apply text-[#FF3B5C];
   }
+  
+  /* Heat map text styling - ensuring pure white text */
+  .heatmap-text {
+    fill: #FFFFFF !important;
+    paint-order: stroke;
+    stroke: none;
+    stroke-width: 0;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    text-shadow: none;
+    text-rendering: geometricPrecision;
+  }
 }

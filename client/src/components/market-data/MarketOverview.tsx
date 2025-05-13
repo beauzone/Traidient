@@ -101,36 +101,38 @@ const CustomizedContent = (props: any) => {
     ? getColorByPerformance(performance) 
     : '#21c44c';
   
-  // Pure white text with no shadow or outline
+  // Pure white text with absolutely no shadow, outline, or stroke
   const textStyle = {
     textShadow: 'none',
     fontFamily: 'Arial, sans-serif',
     fontWeight: 'bold',
+    stroke: 'none',
+    strokeWidth: '0',
   };
   
-  // Process the name for possible wrapping
-  const nameLines = processName(typeof name === 'string' ? name : '');
+  // Process the name for possible wrapping (convert to uppercase for Finviz style)
+  const nameLines = processName(typeof name === 'string' ? name.toUpperCase() : '');
   
   // Get font sizes and positioning based on cell dimensions exactly like screenshot - with smaller font
   const getFontSizeAndPosition = () => {
     const minDimension = Math.min(cellWidth, cellHeight);
     
-    // Large cells (like in your screenshot)
+    // Large cells (like in your screenshot) - Smaller for Finviz style
     if (minDimension > 120) {
       return {
-        nameSize: 16, // Reduced from 22
-        perfSize: 12, // Reduced from 16
+        nameSize: 14, // Even smaller for Finviz style
+        perfSize: 15, // Performance slightly larger than name
         nameOffset: nameLines.length > 1 ? 12 : 0, // Offset for 2-line names
-        lineHeight: 18, // Reduced spacing
-        perfY: nameLines.length > 1 ? 28 : 18 // Reduced spacing
+        lineHeight: 16, // Tighter line spacing
+        perfY: nameLines.length > 1 ? 26 : 16 // Adjusted spacing
       };
     }
     
-    // Medium cells
+    // Medium cells - Smaller for Finviz style
     if (minDimension > 70) {
       return {
-        nameSize: 13, // Reduced from 18
-        perfSize: 11, // Reduced from 14
+        nameSize: 11, // Even smaller for Finviz style
+        perfSize: 12, // Performance slightly larger than name
         nameOffset: nameLines.length > 1 ? 10 : 0,
         lineHeight: 16, // Reduced spacing
         perfY: nameLines.length > 1 ? 24 : 14
@@ -164,7 +166,7 @@ const CustomizedContent = (props: any) => {
         }}
       />
       
-      {/* Render the sector name - with support for wrapping to 2 lines - using SVG pure rendering */}
+      {/* Render the sector name - with support for wrapping to 2 lines */}
       {nameLines.map((line, index) => (
         <text
           key={`name-line-${index}`}
@@ -173,8 +175,7 @@ const CustomizedContent = (props: any) => {
           textAnchor="middle"
           dominantBaseline="middle"
           fontSize={nameSize}
-          fill="#FFFFFF"
-          style={{...textStyle, textRendering: 'geometricPrecision'}}
+          className="heatmap-text"
         >
           {line}
         </text>
@@ -187,8 +188,7 @@ const CustomizedContent = (props: any) => {
         textAnchor="middle"
         dominantBaseline="middle"
         fontSize={perfSize}
-        fill="#FFFFFF"
-        style={{...textStyle, textRendering: 'geometricPrecision'}}
+        className="heatmap-text"
       >
         {formatPerformance(performance)}
       </text>
