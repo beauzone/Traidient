@@ -15,12 +15,77 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  Treemap
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, TrendingUp, TrendingDown, Clock, Database, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { fetchData } from "@/lib/api";
 import { useMarketData } from "@/hooks/useMarketData";
+
+// Custom Treemap content component for heatmap view
+const CustomizedContent = (props: any) => {
+  const { x, y, width, height, name, performance } = props;
+  
+  // Calculate color based on performance
+  const getColorByPerformance = (perf: number) => {
+    if (perf <= -3) return '#FF3B5C';
+    if (perf < -2) return '#ff4d6d';
+    if (perf < -1) return '#ff6b87';
+    if (perf < 0) return '#ff8fa2';
+    if (perf < 1) return '#a8e063';
+    if (perf < 2) return '#78c850';
+    if (perf < 3) return '#56ab2f';
+    return '#2E7D32';
+  };
+
+  // Determine text color based on background brightness
+  const getTextColor = (perf: number) => {
+    return Math.abs(perf) > 2 ? '#fff' : '#e2e8f0';
+  };
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        style={{
+          fill: getColorByPerformance(performance),
+          stroke: '#1E293B',
+          strokeWidth: 2,
+          strokeOpacity: 1,
+        }}
+      />
+      {width > 40 && height > 40 && (
+        <>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 - 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={12}
+            fontWeight="bold"
+            fill={getTextColor(performance)}
+          >
+            {name}
+          </text>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 + 12}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={11}
+            fill={getTextColor(performance)}
+          >
+            {`${performance.toFixed(2)}%`}
+          </text>
+        </>
+      )}
+    </g>
+  );
+};
 
 interface MarketOverviewProps {
   onSymbolSelect: (symbol: string) => void;
@@ -75,7 +140,11 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
   });
 
   // Fetch sector performance data
-  const { data: sectorPerformance, isLoading: isLoadingSectors } = useQuery({
+  const { 
+    data: sectorPerformance, 
+    isLoading: isLoadingSectors,
+    dataUpdatedAt: sectorsUpdatedAt
+  } = useQuery({
     queryKey: ['/api/market-data/sectors'],
     queryFn: () => fetchData<SectorPerformanceData[]>('/api/market-data/sectors').catch(() => {
       // Fallback data in case API isn't implemented yet
@@ -234,49 +303,148 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
       {/* Sector Performance */}
       <Card className="overflow-hidden">
         <CardContent className="p-4">
-          <h3 className="font-medium mb-4">Sector Performance</h3>
-          {isLoadingSectors ? (
-            <div className="flex justify-center items-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-medium">Sector Performance</h3>
+            <div className="text-xs text-muted-foreground">
+              {sectorsUpdatedAt ? `Last updated: ${new Date(sectorsUpdatedAt).toLocaleTimeString()}` : ''}
             </div>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={sectorPerformance}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                  <XAxis 
-                    type="number" 
-                    tickFormatter={(value) => `${value}%`} 
-                    domain={[-2, 2]}
-                    tick={{ fontSize: 12, fill: '#94a3b8' }}
-                  />
-                  <YAxis 
-                    type="category" 
-                    dataKey="name" 
-                    tick={{ fontSize: 12, fill: '#94a3b8' }}
-                    width={120}
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`${value}%`, 'Performance']}
-                    contentStyle={{ 
-                      backgroundColor: '#1E293B', 
-                      borderColor: '#334155',
-                      color: '#E2E8F0'
-                    }}
-                  />
-                  <Bar dataKey="performance" radius={[0, 4, 4, 0]}>
-                    {sectorPerformance?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          </div>
+          
+          <Tabs defaultValue="bar">
+            <TabsList className="mb-4 w-full grid grid-cols-3">
+              <TabsTrigger value="bar">Bar Chart</TabsTrigger>
+              <TabsTrigger value="heatmap">Heat Map</TabsTrigger>
+              <TabsTrigger value="table">Table</TabsTrigger>
+            </TabsList>
+            
+            {isLoadingSectors ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <>
+                {/* Bar Chart View */}
+                <TabsContent value="bar">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={sectorPerformance}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                        <XAxis 
+                          type="number" 
+                          tickFormatter={(value) => `${value.toFixed(1)}%`} 
+                          domain={[
+                            (dataMin: number) => Math.floor(Math.min(dataMin, -1)), 
+                            (dataMax: number) => Math.ceil(Math.max(dataMax, 1))
+                          ]}
+                          tick={{ fontSize: 12, fill: '#94a3b8' }}
+                        />
+                        <YAxis 
+                          type="category" 
+                          dataKey="name" 
+                          tick={{ fontSize: 12, fill: '#94a3b8' }}
+                          width={120}
+                        />
+                        <Tooltip 
+                          formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Performance']}
+                          contentStyle={{ 
+                            backgroundColor: '#1E293B', 
+                            borderColor: '#334155',
+                            color: '#E2E8F0'
+                          }}
+                        />
+                        <Bar dataKey="performance" radius={[0, 4, 4, 0]}>
+                          {(Array.isArray(sectorPerformance) ? sectorPerformance : []).map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.performance >= 0 ? entry.color : '#FF3B5C'} 
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </TabsContent>
+                
+                {/* Heat Map View */}
+                <TabsContent value="heatmap">
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <Treemap
+                        data={Array.isArray(sectorPerformance) ? sectorPerformance : []}
+                        dataKey="performance"
+                        aspectRatio={1}
+                        stroke="#1E293B"
+                        fill="#1E293B"
+                        content={<CustomizedContent />}
+                      />
+                    </ResponsiveContainer>
+                    <div className="flex justify-center mt-2">
+                      <div className="w-full max-w-md flex">
+                        <div className="h-2 flex-1 bg-gradient-to-r from-[#FF3B5C] via-red-500 to-yellow-500"></div>
+                        <div className="h-2 flex-1 bg-gradient-to-r from-yellow-500 via-green-500 to-green-600"></div>
+                      </div>
+                      <div className="flex text-xs text-muted-foreground justify-between w-full max-w-md px-2 -mt-1">
+                        <span>-3% or less</span>
+                        <span>0%</span>
+                        <span>+3% or more</span>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* Table View */}
+                <TabsContent value="table">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="border-b border-border">
+                        <tr>
+                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Sector</th>
+                          <th className="text-right py-2 px-4 text-sm font-medium text-muted-foreground">Performance</th>
+                          <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(Array.isArray(sectorPerformance) ? sectorPerformance : [])
+                          .slice() // create a copy of the array
+                          .sort((a, b) => b.performance - a.performance)
+                          .map((sector) => (
+                            <tr 
+                              key={sector.name} 
+                              className="border-b border-border hover:bg-muted/50"
+                            >
+                              <td className="py-3 px-4 font-medium">{sector.name}</td>
+                              <td className={`py-3 px-4 text-right ${
+                                sector.performance >= 0 ? 'text-green-500' : 'text-negative'
+                              }`}>
+                                {sector.performance.toFixed(2)}%
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center">
+                                  <div 
+                                    className="w-3 h-3 rounded-full mr-2" 
+                                    style={{ backgroundColor: sector.color }}
+                                  ></div>
+                                  <span>
+                                    {sector.performance >= 3 ? 'Strong Outperform' : 
+                                     sector.performance >= 1 ? 'Outperform' :
+                                     sector.performance >= 0 ? 'Neutral' :
+                                     sector.performance >= -1 ? 'Underperform' : 'Strong Underperform'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
         </CardContent>
       </Card>
 
