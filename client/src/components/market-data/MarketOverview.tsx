@@ -32,7 +32,6 @@ const CustomizedContent = (props: any) => {
     if (!root || !root.children) return perf >= 0 ? '#4ADE80' : '#FF3B5C';
     
     const allPerformances = root.children.map((child: any) => child.performance);
-    console.log("All performances:", allPerformances);
     
     if (perf >= 0) {
       // For positive values
@@ -47,14 +46,9 @@ const CustomizedContent = (props: any) => {
     }
   };
 
-  // Determine text color based on background brightness
-  const getTextColor = (perf: number) => {
-    // Always use white text with shadow for better readability
-    return '#ffffff';
-  };
-
   return (
     <g>
+      {/* Main colored rectangle */}
       <rect
         x={x}
         y={y}
@@ -64,76 +58,45 @@ const CustomizedContent = (props: any) => {
           fill: performance !== undefined ? getColorByPerformance(performance) : '#a8e063',
           stroke: '#1E293B',
           strokeWidth: 2,
-          strokeOpacity: 1,
         }}
       />
-      {/* Add semi-transparent background for labels */}
-      {width > 30 && height > 30 && (
-        <rect
-          x={x + width / 2 - width * 0.45}
-          y={y + height / 2 - 20}
-          width={width * 0.9}
-          height={40}
-          rx={4}
-          ry={4}
-          fill="#000000"
-          opacity={0.3}
-        />
-      )}
+      
+      {/* Only render text label if there's enough space */}
       {width > 30 && height > 30 && (
         <>
-          {/* Add a text shadow by rendering a black copy of the text slightly offset */}
-          <text
-            x={x + width / 2 + 1}
-            y={y + height / 2 - 8 + 1}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={12}
-            fontWeight="bold"
-            fill="#000000"
-            opacity={0.8}
-            style={{ filter: 'blur(1px)' }}
-          >
-            {name}
-          </text>
-          {/* Main sector name text */}
+          {/* Black background for text for higher contrast */}
+          <rect
+            x={x + 2}
+            y={y + 2}
+            width={width - 4}
+            height={height - 4}
+            rx={4}
+            ry={4}
+            fill="black"
+            fillOpacity={0.5}
+          />
+          
+          {/* White text with large font and bold weight for maximum readability */}
           <text
             x={x + width / 2}
-            y={y + height / 2 - 8}
+            y={y + height / 2 - 10}
             textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={12}
+            fill="#FFFFFF"
+            fontSize={14}
             fontWeight="bold"
-            fill="#ffffff"
-            style={{ textShadow: '0px 0px 2px #000000' }}
+            style={{ textShadow: "0px 1px 2px rgba(0,0,0,0.9)" }}
           >
             {name}
           </text>
           
-          {/* Add a text shadow for performance percentage value */}
-          <text
-            x={x + width / 2 + 1}
-            y={y + height / 2 + 12 + 1}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={11}
-            fontWeight="bold"
-            fill="#000000"
-            opacity={0.8}
-            style={{ filter: 'blur(1px)' }}
-          >
-            {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
-          </text>
-          {/* Main performance percentage text */}
           <text
             x={x + width / 2}
-            y={y + height / 2 + 12}
+            y={y + height / 2 + 10}
             textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={11}
+            fill="#FFFFFF"
+            fontSize={14}
             fontWeight="bold"
-            fill="#ffffff"
-            style={{ textShadow: '0px 0px 2px #000000' }}
+            style={{ textShadow: "0px 1px 2px rgba(0,0,0,0.9)" }}
           >
             {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
           </text>
