@@ -41,7 +41,9 @@ app.use((req, res, next) => {
   try {
     const { initPythonEnvironment } = await import('./pythonExecutionService');
     log('Initializing Python environment for screeners...');
-    await initPythonEnvironment();
+    await initPythonEnvironment().catch(err => {
+      log(`Warning: Python environment initialization rejected: ${err instanceof Error ? err.message : String(err)}`);
+    });
     log('Python environment initialized successfully');
   } catch (error) {
     log(`Warning: Failed to initialize Python environment: ${error instanceof Error ? error.message : String(error)}`);
@@ -55,7 +57,7 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    console.error('Error:', err); // Log error instead of throwing
   });
 
   // importantly only setup vite in development and after
@@ -70,11 +72,10 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // This is the port that Replit workflow system expects
-  const port = 5000;
+  const port = process.env.PORT || 5000;
   server.listen({
-    port,
+    port: Number(port),
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });
