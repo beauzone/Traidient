@@ -35,7 +35,8 @@ import {
   Share2,
   Bell
 } from "lucide-react";
-import { createChart, ColorType, LineStyle, UTCTimestamp } from 'lightweight-charts';
+import { createChart, ColorType, LineStyle, UTCTimestamp, CandlestickData, Time } from 'lightweight-charts';
+import { useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,147 @@ interface HistoricalDataPoint {
   close: number;
   volume: number;
 }
+
+// TradingView Chart Component
+interface TradingViewChartProps {
+  data: HistoricalDataPoint[];
+  theme?: 'light' | 'dark';
+  timeRange: '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
+  currentPrice?: number;
+}
+
+const TradingViewChart = ({ data, theme = 'dark', timeRange, currentPrice }: TradingViewChartProps) => {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  useEffect(() => {
+    if (!chartContainerRef.current || data.length === 0) return;
+
+    // Filter data based on timeRange
+    let filteredData = [...data];
+    if (timeRange === '1D') filteredData = data.slice(-1);
+    else if (timeRange === '1W') filteredData = data.slice(-7);
+    else if (timeRange === '1M') filteredData = data.slice(-30);
+    else if (timeRange === '3M') filteredData = data.slice(-90);
+    else if (timeRange === '1Y') filteredData = data.slice(-365);
+
+    // If the chart already exists, dispose it
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
+
+    // Create the chart
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { color: theme === 'dark' ? '#1E293B' : '#FFFFFF' },
+        textColor: theme === 'dark' ? '#94A3B8' : '#334155',
+      },
+      grid: {
+        vertLines: { color: theme === 'dark' ? '#334155' : '#E2E8F0', style: LineStyle.Dotted },
+        horzLines: { color: theme === 'dark' ? '#334155' : '#E2E8F0', style: LineStyle.Dotted },
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: chartContainerRef.current.clientHeight,
+      timeScale: {
+        borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      rightPriceScale: {
+        borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
+      },
+      crosshair: {
+        horzLine: {
+          color: theme === 'dark' ? '#64748B' : '#94A3B8',
+          labelBackgroundColor: theme === 'dark' ? '#475569' : '#CBD5E1',
+        },
+        vertLine: {
+          color: theme === 'dark' ? '#64748B' : '#94A3B8',
+          labelBackgroundColor: theme === 'dark' ? '#475569' : '#CBD5E1',
+        },
+      },
+    });
+
+    // Format data for TradingView chart
+    const candlestickData = filteredData.map(item => ({
+      time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+    }));
+
+    // Add line series for price data
+    const series = chart.addLineSeries({
+      color: '#3B82F6',
+      lineWidth: 2,
+    });
+    
+    series.setData(candlestickData.map(item => ({
+      time: item.time,
+      value: item.close
+    })));
+
+    // Add area series for background color
+    const areaSeries = chart.addAreaSeries({
+      topColor: 'rgba(59, 130, 246, 0.4)',
+      bottomColor: 'rgba(59, 130, 246, 0.1)',
+      lineColor: 'rgba(59, 130, 246, 0)',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    
+    areaSeries.setData(candlestickData.map(item => ({
+      time: item.time,
+      value: item.close
+    })));
+
+    // Add current price line if provided
+    if (currentPrice) {
+      const priceLine = {
+        price: currentPrice,
+        color: '#64748B',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: 'Current Price',
+      };
+      
+      series.createPriceLine(priceLine);
+    }
+
+    // Fit content to show all data
+    chart.timeScale().fitContent();
+
+    // Store the chart instance
+    chartRef.current = chart;
+
+    // Create resize observer for responsive behavior
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries.length === 0 || !chartRef.current) return;
+      const { width, height } = entries[0].contentRect;
+      chartRef.current.applyOptions({ width, height });
+      chartRef.current.timeScale().fitContent();
+    });
+
+    resizeObserver.observe(chartContainerRef.current);
+    resizeObserverRef.current = resizeObserver;
+
+    // Cleanup
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      if (chartRef.current) {
+        chartRef.current.remove();
+      }
+    };
+  }, [data, theme, timeRange, currentPrice]);
+
+  return <div ref={chartContainerRef} className="w-full h-full" />;
+};
 
 interface NewsItem {
   title: string;
@@ -445,218 +587,51 @@ const StockDetail = ({ symbol }: StockDetailProps) => {
                 </TabsList>
                 
                 <TabsContent value="1D" className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={historicalData.slice(-1)}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                      />
-                      <YAxis 
-                        domain={['dataMin', 'dataMax']}
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                        tickFormatter={(value) => formatCurrency(value)}
-                      />
-                      <Tooltip 
-                        formatter={(value) => [formatCurrency(Number(value)), 'Price']}
-                        contentStyle={{ 
-                          backgroundColor: '#1E293B', 
-                          borderColor: '#334155',
-                          color: '#E2E8F0'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3B82F6" 
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                      <ReferenceLine 
-                        y={getPrice() || 0} 
-                        stroke="#64748B" 
-                        strokeDasharray="3 3" 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <TradingViewChart 
+                    data={historicalData} 
+                    timeRange="1D"
+                    currentPrice={getPrice() || undefined} 
+                  />
                 </TabsContent>
                 
                 <TabsContent value="1W" className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={historicalData.slice(-7)}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                      />
-                      <YAxis 
-                        domain={['dataMin', 'dataMax']}
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                        tickFormatter={(value) => formatCurrency(value)}
-                      />
-                      <Tooltip 
-                        formatter={(value) => [formatCurrency(Number(value)), 'Price']}
-                        contentStyle={{ 
-                          backgroundColor: '#1E293B', 
-                          borderColor: '#334155',
-                          color: '#E2E8F0'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3B82F6" 
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <TradingViewChart 
+                    data={historicalData} 
+                    timeRange="1W"
+                    currentPrice={getPrice() || undefined} 
+                  />
                 </TabsContent>
                 
                 <TabsContent value="1M" className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={historicalData.slice(-30)}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                      />
-                      <YAxis 
-                        domain={['dataMin', 'dataMax']}
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                        tickFormatter={(value) => formatCurrency(value)}
-                      />
-                      <Tooltip 
-                        formatter={(value) => [formatCurrency(Number(value)), 'Price']}
-                        contentStyle={{ 
-                          backgroundColor: '#1E293B', 
-                          borderColor: '#334155',
-                          color: '#E2E8F0'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3B82F6" 
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <TradingViewChart 
+                    data={historicalData} 
+                    timeRange="1M"
+                    currentPrice={getPrice() || undefined} 
+                  />
                 </TabsContent>
                 
                 <TabsContent value="3M" className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={historicalData.slice(-90)}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                      />
-                      <YAxis 
-                        domain={['dataMin', 'dataMax']}
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                        tickFormatter={(value) => formatCurrency(value)}
-                      />
-                      <Tooltip 
-                        formatter={(value) => [formatCurrency(Number(value)), 'Price']}
-                        contentStyle={{ 
-                          backgroundColor: '#1E293B', 
-                          borderColor: '#334155',
-                          color: '#E2E8F0'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3B82F6" 
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <TradingViewChart 
+                    data={historicalData} 
+                    timeRange="3M"
+                    currentPrice={getPrice() || undefined} 
+                  />
                 </TabsContent>
                 
                 <TabsContent value="1Y" className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={historicalData}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                      />
-                      <YAxis 
-                        domain={['dataMin', 'dataMax']}
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                        tickFormatter={(value) => formatCurrency(value)}
-                      />
-                      <Tooltip 
-                        formatter={(value) => [formatCurrency(Number(value)), 'Price']}
-                        contentStyle={{ 
-                          backgroundColor: '#1E293B', 
-                          borderColor: '#334155',
-                          color: '#E2E8F0'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3B82F6" 
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <TradingViewChart 
+                    data={historicalData} 
+                    timeRange="1Y"
+                    currentPrice={getPrice() || undefined} 
+                  />
                 </TabsContent>
                 
                 <TabsContent value="ALL" className="h-96">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={historicalData}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                      />
-                      <YAxis 
-                        domain={['dataMin', 'dataMax']}
-                        tick={{ fontSize: 12, fill: '#94a3b8' }}
-                        tickFormatter={(value) => formatCurrency(value)}
-                      />
-                      <Tooltip 
-                        formatter={(value) => [formatCurrency(Number(value)), 'Price']}
-                        contentStyle={{ 
-                          backgroundColor: '#1E293B', 
-                          borderColor: '#334155',
-                          color: '#E2E8F0'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="#3B82F6" 
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <TradingViewChart 
+                    data={historicalData} 
+                    timeRange="ALL"
+                    currentPrice={getPrice() || undefined} 
+                  />
                 </TabsContent>
               </Tabs>
             </div>
