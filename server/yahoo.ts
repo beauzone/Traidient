@@ -118,11 +118,20 @@ export class YahooFinanceAPI {
    */
   async getQuote(symbol: string): Promise<FormattedQuote> {
     try {
+      if (!symbol) {
+        throw new Error('Symbol is required for a quote');
+      }
+
       const result = await yahooFinance.quote(symbol);
       
+      // Verify the result contains the necessary data
+      if (!result || typeof result !== 'object') {
+        throw new Error(`Invalid response for symbol ${symbol}`);
+      }
+      
       const formattedQuote: FormattedQuote = {
-        symbol: result.symbol,
-        name: result.longName || result.shortName || result.symbol,
+        symbol: symbol, // Use the input symbol as fallback
+        name: result.longName || result.shortName || symbol,
         price: result.regularMarketPrice || 0,
         change: result.regularMarketChange || 0,
         changePercent: (result.regularMarketChangePercent || 0),
@@ -274,21 +283,21 @@ export class YahooFinanceAPI {
     
     // Convert to Eastern Time (ET)
     const easternTimeOffset = this.isDateInDST(now) ? -4 : -5;
-    const easternHours = (now.getUTCHours() + easternTimeOffset) % 24;
-    if (easternHours < 0) {
-      easternHours += 24; // Adjust for negative hours
+    let hours = (now.getUTCHours() + easternTimeOffset) % 24;
+    if (hours < 0) {
+      hours += 24; // Adjust for negative hours
     }
     const easternMinutes = now.getUTCMinutes();
-    const easternTimeStr = `${easternHours}:${easternMinutes < 10 ? '0' + easternMinutes : easternMinutes}`;
+    const easternTimeStr = `${hours}:${easternMinutes < 10 ? '0' + easternMinutes : easternMinutes}`;
     
-    console.log(`Current time in Eastern: ${easternHours}:${easternMinutes < 10 ? '0' + easternMinutes : easternMinutes} (${this.isDateInDST(now) ? 'EDT' : 'EST'})`);
+    console.log(`Current time in Eastern: ${hours}:${easternMinutes < 10 ? '0' + easternMinutes : easternMinutes} (${this.isDateInDST(now) ? 'EDT' : 'EST'})`);
     console.log(`Market hours: 9:30 AM - 4:00 PM Eastern Time`);
     
     // Market hours: 9:30 AM - 4:00 PM Eastern Time
     const isOpen = (
-      (easternHours === 9 && easternMinutes >= 30) ||
-      (easternHours > 9 && easternHours < 16) ||
-      (easternHours === 16 && easternMinutes === 0)
+      (hours === 9 && easternMinutes >= 30) ||
+      (hours > 9 && hours < 16) ||
+      (hours === 16 && easternMinutes === 0)
     );
     
     console.log(`Market is ${isOpen ? 'OPEN' : 'CLOSED'} based on Eastern Time check`);
@@ -578,23 +587,66 @@ export class YahooFinanceAPI {
         'NKE', 'HD', 'MCD', 'GS', 'JPM', 'C', 'BAC', 'WFC',
         'FCX', 'BHP', 'RIO', 'CLF', 'VALE', 'NEM', 'AA',
         'BIIB', 'GILD', 'AMGN', 'REGN', 'BMY', 'ABT', 'UNH',
-        'TGT', 'COST', 'LOW', 'BBY', 'M', 'GPS', 'KSS'
+        'TGT', 'COST', 'LOW', 'BBY'
       ];
       
       // Shuffle the array to get a random selection each time
       const shuffled = [...stocksToCheck].sort(() => 0.5 - Math.random());
       
       // Take a subset to avoid too many API calls
-      const selectedStocks = shuffled.slice(0, Math.min(30, shuffled.length));
+      const selectedStocks = shuffled.slice(0, Math.min(20, shuffled.length));
       
       console.log(`Checking ${selectedStocks.length} stocks for negative performance`);
       
-      // Get quotes for selected stocks
-      const quotesPromises = selectedStocks.map(symbol => this.getQuote(symbol));
-      const quotes = await Promise.all(quotesPromises);
+      // Get quotes for selected stocks one by one to handle errors gracefully
+      const validQuotes: FormattedQuote[] = [];
+      
+      for (const symbol of selectedStocks) {
+        try {
+          const quote = await yahooFinance.quote(symbol);
+          
+          if (quote && typeof quote === 'object') {
+            // Create a formatted quote
+            const formattedQuote: FormattedQuote = {
+              symbol: symbol,
+              name: quote.longName || quote.shortName || symbol,
+              price: quote.regularMarketPrice || 0,
+              change: quote.regularMarketChange || 0,
+              changePercent: (quote.regularMarketChangePercent || 0),
+              open: quote.regularMarketOpen || 0,
+              high: quote.regularMarketDayHigh || 0,
+              low: quote.regularMarketDayLow || 0,
+              volume: quote.regularMarketVolume || 0,
+              marketCap: quote.marketCap || 0,
+              peRatio: quote.trailingPE || 0,
+              dividend: quote.trailingAnnualDividendYield || 0,
+              eps: quote.epsTrailingTwelveMonths || 0,
+              exchange: quote.fullExchangeName || quote.exchange || '',
+              isSimulated: false,
+              isYahooData: true,
+              dataSource: "yahoo"
+            };
+            
+            validQuotes.push(formattedQuote);
+            
+            // If this quote has negative performance, log it
+            if (formattedQuote.changePercent < 0) {
+              console.log(`Found negative performer: ${symbol} with ${formattedQuote.changePercent.toFixed(2)}% change`);
+            }
+          }
+        } catch (err) {
+          console.error(`Error fetching quote for ${symbol}, skipping`);
+          // Continue with next symbol
+        }
+        
+        // Stop if we already have enough stocks with negative performance
+        if (validQuotes.filter(q => q.changePercent < 0).length >= count) {
+          break;
+        }
+      }
       
       // Filter to stocks with negative performance
-      const additionalLosers = quotes
+      const additionalLosers = validQuotes
         .filter(quote => quote.changePercent < 0)
         .sort((a, b) => a.changePercent - b.changePercent)
         .slice(0, count)
