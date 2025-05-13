@@ -23,7 +23,7 @@ import { Loader2, TrendingUp, TrendingDown, Clock, Database, ArrowUpDown, ArrowU
 import { fetchData } from "@/lib/api";
 import { useMarketData } from "@/hooks/useMarketData";
 
-// Custom Treemap content component for heatmap view - Finviz exact style
+// Custom Treemap content component for heatmap view - Finviz exact style with wrapping
 const CustomizedContent = (props: any) => {
   // Make sure we have valid props
   if (!props) return null;
@@ -71,42 +71,80 @@ const CustomizedContent = (props: any) => {
     return `${perfNum >= 0 ? '+' : ''}${perfNum.toFixed(2)}%`;
   };
   
-  // Finviz uses abbreviations for longer names and uppercase for tickers
-  const getDisplayName = (fullName: string): string => {
-    if (!fullName) return '';
+  // Process sector names to wrap two-word names like "Consumer Discretionary"
+  const processName = (fullName: string): string[] => {
+    if (!fullName) return [''];
     
-    // For sector names, keep as is, for tickers convert to uppercase
-    return fullName.length > 5 ? fullName : fullName.toUpperCase();
+    const words = fullName.split(' ');
+    if (words.length === 1) return [fullName]; // Single word, no wrapping needed
+    
+    // For two-word names, return as separate lines
+    if (words.length === 2) return [words[0], words[1]];
+    
+    // For longer names, try to split evenly
+    if (words.length > 2) {
+      const midpoint = Math.floor(words.length / 2);
+      return [
+        words.slice(0, midpoint).join(' '),
+        words.slice(midpoint).join(' ')
+      ];
+    }
+    
+    return [fullName]; // Fallback
   };
-  
-  // Get display name with proper formatting
-  const displayName = getDisplayName(typeof name === 'string' ? name : '');
   
   // Color calculation with safety check - using Finviz greens
   const fillColor = typeof performance === 'number' 
     ? getColorByPerformance(performance) 
     : '#21c44c';
   
-  // Exact Finviz text style with minimal shadow
+  // Exact Finviz text style with subtle shadow
   const textStyle = {
     textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
     fontFamily: 'Arial, sans-serif',
     fontWeight: 'bold',
   };
   
-  // Calculate position based on cell size like Finviz
-  const getTextPosition = (cellSize: number) => {
-    // For large cells (like MSFT in your screenshot)
-    if (cellSize > 120) return { nameSize: 40, perfSize: 22, nameY: -20, perfY: 25 };
-    // For medium cells (like ORCL in your screenshot)
-    if (cellSize > 70) return { nameSize: 24, perfSize: 16, nameY: -12, perfY: 18 };
-    // For smaller cells (like PLTR in your screenshot)
-    return { nameSize: 14, perfSize: 12, nameY: -8, perfY: 12 };
+  // Process the name for possible wrapping
+  const nameLines = processName(typeof name === 'string' ? name : '');
+  
+  // Get font sizes and positioning based on cell dimensions exactly like screenshot
+  const getFontSizeAndPosition = () => {
+    const minDimension = Math.min(cellWidth, cellHeight);
+    
+    // Large cells (like in your screenshot)
+    if (minDimension > 120) {
+      return {
+        nameSize: 22,
+        perfSize: 16,
+        nameOffset: nameLines.length > 1 ? 15 : 0, // Offset for 2-line names
+        lineHeight: 25,
+        perfY: nameLines.length > 1 ? 40 : 25
+      };
+    }
+    
+    // Medium cells
+    if (minDimension > 70) {
+      return {
+        nameSize: 18, 
+        perfSize: 14,
+        nameOffset: nameLines.length > 1 ? 12 : 0,
+        lineHeight: 20,
+        perfY: nameLines.length > 1 ? 32 : 18
+      };
+    }
+    
+    // Small cells
+    return {
+      nameSize: 12,
+      perfSize: 10,
+      nameOffset: nameLines.length > 1 ? 8 : 0,
+      lineHeight: 14,
+      perfY: nameLines.length > 1 ? 22 : 12
+    };
   };
   
-  // Get appropriate text sizes based on cell dimensions
-  const minDimension = Math.min(cellWidth, cellHeight);
-  const textPositions = getTextPosition(minDimension);
+  const { nameSize, perfSize, nameOffset, lineHeight, perfY } = getFontSizeAndPosition();
   
   return (
     <g>
@@ -123,51 +161,34 @@ const CustomizedContent = (props: any) => {
         }}
       />
       
-      {/* Only render text labels if there's enough space */}
-      {minDimension > 30 && (
-        <>
-          {/* Ticker/sector name - large white text */}
-          <text
-            x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 + textPositions.nameY}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={textPositions.nameSize}
-            fill="#FFFFFF"
-            style={textStyle}
-          >
-            {displayName}
-          </text>
-          
-          {/* Performance percentage */}
-          <text
-            x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 + textPositions.perfY}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={textPositions.perfSize}
-            fill="#FFFFFF"
-            style={textStyle}
-          >
-            {formatPerformance(performance)}
-          </text>
-        </>
-      )}
-      
-      {/* For tiny cells, just show simple text if possible */}
-      {minDimension <= 30 && minDimension > 15 && (
+      {/* Render the sector name - with support for wrapping to 2 lines */}
+      {nameLines.map((line, index) => (
         <text
+          key={`name-line-${index}`}
           x={xPos + cellWidth / 2}
-          y={yPos + cellHeight / 2}
+          y={yPos + cellHeight / 2 - nameOffset + (index * lineHeight)}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={8}
+          fontSize={nameSize}
           fill="#FFFFFF"
           style={textStyle}
         >
-          {displayName}
+          {line}
         </text>
-      )}
+      ))}
+      
+      {/* Performance percentage under the name */}
+      <text
+        x={xPos + cellWidth / 2}
+        y={yPos + cellHeight / 2 + perfY}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={perfSize}
+        fill="#FFFFFF"
+        style={textStyle}
+      >
+        {formatPerformance(performance)}
+      </text>
     </g>
   );
 };
