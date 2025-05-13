@@ -348,14 +348,6 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                           tick={{ fontSize: 12, fill: '#94a3b8' }}
                           width={140}
                         />
-                        <Tooltip 
-                          formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Performance']}
-                          contentStyle={{ 
-                            backgroundColor: '#1E293B', 
-                            borderColor: '#334155',
-                            color: '#E2E8F0'
-                          }}
-                        />
                         <Bar 
                           dataKey="performance" 
                           radius={[0, 4, 4, 0]}
