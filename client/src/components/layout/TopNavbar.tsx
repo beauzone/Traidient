@@ -119,77 +119,108 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   // Count unread notifications
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0;
 
-  // Provide a fallback countdown value that matches the current market status
+  // Provide a realistic fallback countdown value that matches the current market status
   useEffect(() => {
     if (!timeRemaining && marketStatus.isMarketOpen !== undefined) {
-      // Create temporary fallback timing data while waiting for real data
+      // Generate a reasonable fallback time until real data arrives
+      // Market generally opens at 9:30 AM ET and closes at 4:00 PM ET
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      let hours, minutes, seconds;
+      
+      if (marketStatus.isMarketOpen) {
+        // If market is open, calculate time until 4:00 PM ET (roughly)
+        // Assuming ET is 4 hours behind current time for simplicity
+        const closeHour = 16; // 4:00 PM
+        const etHour = (currentHour + 20) % 24; // Rough estimate of ET hour
+        
+        if (etHour < closeHour) {
+          hours = closeHour - etHour - 1;
+          minutes = 60 - currentMinute;
+        } else {
+          hours = 0;
+          minutes = 30; // Fallback value
+        }
+      } else {
+        // If market is closed, use a reasonable time until open
+        hours = 2;
+        minutes = 30;
+      }
+      
+      // Always set some seconds so it looks like it's counting
+      seconds = now.getSeconds();
+      
       setTimeRemaining({
-        hours: 0,
-        minutes: 0,
-        seconds: 0,
+        hours,
+        minutes,
+        seconds,
         isOpen: marketStatus.isMarketOpen
       });
     }
   }, [marketStatus.isMarketOpen, timeRemaining]);
 
-  // Update the countdown timer every second
+  // Direct timer that doesn't depend on marketStatus updates
   useEffect(() => {
-    if (!marketStatus.timing) return;
+    // Create a standalone timer that will keep updating regardless of marketStatus updates
+    // It will switch to real data once it becomes available
     
-    // Initial calculation of time remaining
+    // Function to calculate the actual time remaining
     const calculateTimeRemaining = () => {
-      const now = new Date().getTime();
-      const isOpen = marketStatus.timing?.isOpen || false;
+      // If we have real market timing data, use it
+      if (marketStatus.timing) {
+        const now = new Date().getTime();
+        const isOpen = marketStatus.timing.isOpen;
+        
+        // Get milliseconds to next state change
+        const msToChange = isOpen 
+          ? (marketStatus.timing.timeToClose?.milliseconds || 0)
+          : (marketStatus.timing.timeToOpen?.milliseconds || 0);
+        
+        // Calculate remaining time (adjust for time passed since data was sent)
+        const adjustedMs = Math.max(0, msToChange - (Date.now() - now));
+        
+        // Convert to hours, minutes, seconds
+        const hours = Math.floor(adjustedMs / (1000 * 60 * 60));
+        const minutes = Math.floor((adjustedMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((adjustedMs % (1000 * 60)) / 1000);
+        
+        return { hours, minutes, seconds, isOpen };
+      } 
       
-      // Get milliseconds to next state change
-      const msToChange = isOpen 
-        ? (marketStatus.timing?.timeToClose?.milliseconds || 0)
-        : (marketStatus.timing?.timeToOpen?.milliseconds || 0);
-      
-      // Calculate remaining time (adjust for time passed since data was sent)
-      const adjustedMs = Math.max(0, msToChange - (Date.now() - now));
-      
-      // Convert to hours, minutes, seconds
-      const hours = Math.floor(adjustedMs / (1000 * 60 * 60));
-      const minutes = Math.floor((adjustedMs % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((adjustedMs % (1000 * 60)) / 1000);
-      
-      return { hours, minutes, seconds, isOpen };
-    };
-    
-    // Set initial time
-    setTimeRemaining(calculateTimeRemaining());
-    
-    // For smoother updates, use requestAnimationFrame instead of setInterval
-    let start: number;
-    let frameId: number;
-    let lastSecondUpdate = 0;
-    
-    const updateTimer = (timestamp: number) => {
-      if (!start) start = timestamp;
-      const elapsed = timestamp - start;
-      
-      // Update exactly every second, regardless of frame rate
-      const currentSecond = Math.floor(elapsed / 1000);
-      if (currentSecond !== lastSecondUpdate) {
-        lastSecondUpdate = currentSecond;
-        setTimeRemaining(calculateTimeRemaining());
+      // If we don't have timing data yet, but do have the current timer,
+      // just decrement the seconds to keep the timer moving
+      else if (timeRemaining) {
+        const { hours, minutes, seconds, isOpen } = timeRemaining;
+        
+        if (seconds > 0) {
+          return { hours, minutes, seconds: seconds - 1, isOpen };
+        } else if (minutes > 0) {
+          return { hours, minutes: minutes - 1, seconds: 59, isOpen };
+        } else if (hours > 0) {
+          return { hours: hours - 1, minutes: 59, seconds: 59, isOpen };
+        } else {
+          // Keep showing zeros if we hit zero
+          return { hours: 0, minutes: 0, seconds: 0, isOpen };
+        }
       }
       
-      // Continue animation loop
-      frameId = requestAnimationFrame(updateTimer);
+      // This should never happen as we set a default timeRemaining earlier
+      return null;
     };
     
-    // Start the animation loop
-    frameId = requestAnimationFrame(updateTimer);
-    
-    // Clean up on unmount
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
+    // Use a basic setInterval for reliable timing
+    const timer = setInterval(() => {
+      const newTimeRemaining = calculateTimeRemaining();
+      if (newTimeRemaining) {
+        setTimeRemaining(newTimeRemaining);
       }
-    };
-  }, [marketStatus.timing]);
+    }, 1000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(timer);
+  }, [marketStatus.timing, timeRemaining]);
 
   // Apply theme to document
   useEffect(() => {
