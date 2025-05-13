@@ -46,6 +46,22 @@ const CustomizedContent = (props: any) => {
     }
   };
 
+  // Helper function to create label with outline effect
+  const createOutlinedText = (text: string, xPos: number, yPos: number, fontSize: number) => {
+    return (
+      <>
+        {/* Create outline effect with multiple black text elements */}
+        <text x={xPos-1} y={yPos-1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
+        <text x={xPos+1} y={yPos-1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
+        <text x={xPos-1} y={yPos+1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
+        <text x={xPos+1} y={yPos+1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
+        
+        {/* Main white text on top */}
+        <text x={xPos} y={yPos} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="white">{text}</text>
+      </>
+    )
+  };
+
   return (
     <g>
       {/* Main colored rectangle */}
@@ -64,42 +80,16 @@ const CustomizedContent = (props: any) => {
       {/* Only render text label if there's enough space */}
       {width > 30 && height > 30 && (
         <>
-          {/* Black background for text for higher contrast */}
-          <rect
-            x={x + 2}
-            y={y + 2}
-            width={width - 4}
-            height={height - 4}
-            rx={4}
-            ry={4}
-            fill="black"
-            fillOpacity={0.5}
-          />
+          {/* Sector name with outlined text for maximum readability */}
+          {createOutlinedText(name, x + width / 2, y + height / 2 - 10, 14)}
           
-          {/* White text with large font and bold weight for maximum readability */}
-          <text
-            x={x + width / 2}
-            y={y + height / 2 - 10}
-            textAnchor="middle"
-            fill="#FFFFFF"
-            fontSize={14}
-            fontWeight="bold"
-            style={{ textShadow: "0px 1px 2px rgba(0,0,0,0.9)" }}
-          >
-            {name}
-          </text>
-          
-          <text
-            x={x + width / 2}
-            y={y + height / 2 + 10}
-            textAnchor="middle"
-            fill="#FFFFFF"
-            fontSize={14}
-            fontWeight="bold"
-            style={{ textShadow: "0px 1px 2px rgba(0,0,0,0.9)" }}
-          >
-            {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
-          </text>
+          {/* Performance percentage with outlined text */}
+          {createOutlinedText(
+            performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%', 
+            x + width / 2, 
+            y + height / 2 + 10, 
+            14
+          )}
         </>
       )}
     </g>
