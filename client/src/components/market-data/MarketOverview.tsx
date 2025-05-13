@@ -49,7 +49,8 @@ const CustomizedContent = (props: any) => {
 
   // Determine text color based on background brightness
   const getTextColor = (perf: number) => {
-    return Math.abs(perf) > 2 ? '#fff' : '#e2e8f0';
+    // Always use white text with shadow for better readability
+    return '#ffffff';
   };
 
   return (
@@ -66,8 +67,36 @@ const CustomizedContent = (props: any) => {
           strokeOpacity: 1,
         }}
       />
-      {width > 40 && height > 40 && (
+      {/* Add semi-transparent background for labels */}
+      {width > 30 && height > 30 && (
+        <rect
+          x={x + width / 2 - width * 0.45}
+          y={y + height / 2 - 20}
+          width={width * 0.9}
+          height={40}
+          rx={4}
+          ry={4}
+          fill="#000000"
+          opacity={0.3}
+        />
+      )}
+      {width > 30 && height > 30 && (
         <>
+          {/* Add a text shadow by rendering a black copy of the text slightly offset */}
+          <text
+            x={x + width / 2 + 1}
+            y={y + height / 2 - 8 + 1}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={12}
+            fontWeight="bold"
+            fill="#000000"
+            opacity={0.8}
+            style={{ filter: 'blur(1px)' }}
+          >
+            {name}
+          </text>
+          {/* Main sector name text */}
           <text
             x={x + width / 2}
             y={y + height / 2 - 8}
@@ -75,17 +104,36 @@ const CustomizedContent = (props: any) => {
             dominantBaseline="middle"
             fontSize={12}
             fontWeight="bold"
-            fill={performance !== undefined ? getTextColor(performance) : '#e2e8f0'}
+            fill="#ffffff"
+            style={{ textShadow: '0px 0px 2px #000000' }}
           >
             {name}
           </text>
+          
+          {/* Add a text shadow for performance percentage value */}
+          <text
+            x={x + width / 2 + 1}
+            y={y + height / 2 + 12 + 1}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={11}
+            fontWeight="bold"
+            fill="#000000"
+            opacity={0.8}
+            style={{ filter: 'blur(1px)' }}
+          >
+            {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
+          </text>
+          {/* Main performance percentage text */}
           <text
             x={x + width / 2}
             y={y + height / 2 + 12}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={11}
-            fill={performance !== undefined ? getTextColor(performance) : '#e2e8f0'}
+            fontWeight="bold"
+            fill="#ffffff"
+            style={{ textShadow: '0px 0px 2px #000000' }}
           >
             {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
           </text>
