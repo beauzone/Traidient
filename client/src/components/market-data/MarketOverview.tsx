@@ -52,7 +52,7 @@ const CustomizedContent = (props: any) => {
         width={width}
         height={height}
         style={{
-          fill: getColorByPerformance(performance),
+          fill: performance !== undefined ? getColorByPerformance(performance) : '#a8e063',
           stroke: '#1E293B',
           strokeWidth: 2,
           strokeOpacity: 1,
@@ -67,7 +67,7 @@ const CustomizedContent = (props: any) => {
             dominantBaseline="middle"
             fontSize={12}
             fontWeight="bold"
-            fill={getTextColor(performance)}
+            fill={performance !== undefined ? getTextColor(performance) : '#e2e8f0'}
           >
             {name}
           </text>
@@ -77,9 +77,9 @@ const CustomizedContent = (props: any) => {
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={11}
-            fill={getTextColor(performance)}
+            fill={performance !== undefined ? getTextColor(performance) : '#e2e8f0'}
           >
-            {`${performance.toFixed(2)}%`}
+            {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
           </text>
         </>
       )}
