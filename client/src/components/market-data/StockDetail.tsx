@@ -134,10 +134,10 @@ const TradingViewChart = ({ data, theme = 'dark', timeRange, currentPrice }: Tra
       chartRef.current = null;
     }
 
-    // Create the chart
+    // Create the chart with dark theme optimal for trading
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { color: theme === 'dark' ? '#1E293B' : '#FFFFFF' },
+        background: { type: ColorType.Solid, color: theme === 'dark' ? '#1E293B' : '#FFFFFF' },
         textColor: theme === 'dark' ? '#94A3B8' : '#334155',
       },
       grid: {
@@ -149,69 +149,47 @@ const TradingViewChart = ({ data, theme = 'dark', timeRange, currentPrice }: Tra
       timeScale: {
         borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
         timeVisible: true,
-        secondsVisible: false,
       },
       rightPriceScale: {
         borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
       },
-      crosshair: {
-        horzLine: {
-          color: theme === 'dark' ? '#64748B' : '#94A3B8',
-          labelBackgroundColor: theme === 'dark' ? '#475569' : '#CBD5E1',
-        },
-        vertLine: {
-          color: theme === 'dark' ? '#64748B' : '#94A3B8',
-          labelBackgroundColor: theme === 'dark' ? '#475569' : '#CBD5E1',
-        },
-      },
     });
 
     // Format data for TradingView chart
-    const candlestickData = filteredData.map(item => ({
+    const chartData = filteredData.map(item => ({
       time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close,
+      value: item.close
     }));
 
-    // Add line series for price data
-    const series = chart.addLineSeries({
+    // Add a simple line series with correct parameters
+    const lineSeries = chart.addSeries({
+      type: 'Line'
+    });
+    
+    // Apply the preferred styling after creation
+    lineSeries.applyOptions({
       color: '#3B82F6',
       lineWidth: 2,
     });
     
-    series.setData(candlestickData.map(item => ({
-      time: item.time,
-      value: item.close
-    })));
-
-    // Add area series for background color
-    const areaSeries = chart.addAreaSeries({
-      topColor: 'rgba(59, 130, 246, 0.4)',
-      bottomColor: 'rgba(59, 130, 246, 0.1)',
-      lineColor: 'rgba(59, 130, 246, 0)',
-      lastValueVisible: false,
-      priceLineVisible: false,
-    });
-    
-    areaSeries.setData(candlestickData.map(item => ({
-      time: item.time,
-      value: item.close
-    })));
+    lineSeries.setData(chartData);
 
     // Add current price line if provided
     if (currentPrice) {
-      const priceLine = {
+      chart.priceScale('right').applyOptions({
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.2,
+        },
+      });
+      
+      // Add a horizontal price line (with TypeScript safe properties)
+      lineSeries.createPriceLine({
         price: currentPrice,
         color: '#64748B',
-        lineWidth: 1,
         lineStyle: LineStyle.Dashed,
-        axisLabelVisible: true,
         title: 'Current Price',
-      };
-      
-      series.createPriceLine(priceLine);
+      });
     }
 
     // Fit content to show all data
