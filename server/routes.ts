@@ -475,12 +475,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only send update if there are changes
       if (updates.length > 0) {
+        // Determine the actual data source from the updates
+        let dataSource = "unknown";
+        
+        // Check if any updates have real data (not simulated)
+        const hasRealData = updates.some(update => !update.isSimulated);
+        
+        // Use the dataSource from the first update, prioritizing real data
+        if (hasRealData) {
+          const realUpdate = updates.find(update => !update.isSimulated);
+          if (realUpdate) {
+            dataSource = realUpdate.dataSource;
+          }
+        } else {
+          // If all are simulated, use the first one's source
+          dataSource = updates[0].dataSource;
+        }
+        
         ws.send(JSON.stringify({
           type: 'market_data',
           data: updates,
           marketStatus: {
             isMarketOpen,
-            dataSource: isMarketOpen ? "alpaca-simulation" : "yahoo"
+            dataSource: dataSource
           }
         }));
       }
