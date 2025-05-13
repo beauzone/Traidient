@@ -23,7 +23,7 @@ import { Loader2, TrendingUp, TrendingDown, Clock, Database, ArrowUpDown, ArrowU
 import { fetchData } from "@/lib/api";
 import { useMarketData } from "@/hooks/useMarketData";
 
-// Custom Treemap content component for heatmap view - 3D blue text shadow style
+// Custom Treemap content component for heatmap view - Finviz exact style
 const CustomizedContent = (props: any) => {
   // Make sure we have valid props
   if (!props) return null;
@@ -39,7 +39,7 @@ const CustomizedContent = (props: any) => {
   // Calculate gradient color based on performance
   const getColorByPerformance = (perf: number) => {
     // Fallback if root data is missing
-    if (!root || !root.children) return perf >= 0 ? '#4ADE80' : '#FF3B5C';
+    if (!root || !root.children) return perf >= 0 ? '#21c44c' : '#FF3B5C';
     
     // Safely get performances
     const allPerformances = root.children
@@ -47,12 +47,13 @@ const CustomizedContent = (props: any) => {
       .map((child: any) => child.performance);
     
     if (perf >= 0) {
-      // For positive values
+      // For positive values - use exact Finviz colors
       const maxPositive = allPerformances.length > 0
         ? Math.max(...allPerformances.filter((p: number) => p >= 0), 1)
         : 1;
       const intensity = Math.max(0.4, Math.min(1, perf / maxPositive));
-      return `rgb(${Math.round(74 * intensity)}, ${Math.round(222 * intensity)}, ${Math.round(128 * intensity)})`;
+      // More saturated green for Finviz look
+      return `rgb(${Math.round(33 * intensity)}, ${Math.round(196 * intensity)}, ${Math.round(76 * intensity)})`;
     } else {
       // For negative values
       const minNegative = allPerformances.length > 0
@@ -63,38 +64,53 @@ const CustomizedContent = (props: any) => {
     }
   };
 
-  // Safely format performance value
+  // Safely format performance value - Finviz always shows + prefix
   const formatPerformance = (perf: any): string => {
     if (perf == null || isNaN(parseFloat(perf))) return '0.00%';
     const perfNum = parseFloat(perf);
-    return `${perfNum > 0 ? '+' : ''}${perfNum.toFixed(2)}%`;
+    return `${perfNum >= 0 ? '+' : ''}${perfNum.toFixed(2)}%`;
   };
   
-  // Get category name from top-level header (truncate if too long)
-  const displayName = typeof name === 'string' && name.length > 10 
-    ? name.substring(0, 9) + '.' 
-    : (name || '');
+  // Finviz uses abbreviations for longer names and uppercase for tickers
+  const getDisplayName = (fullName: string): string => {
+    if (!fullName) return '';
+    
+    // For sector names, keep as is, for tickers convert to uppercase
+    return fullName.length > 5 ? fullName : fullName.toUpperCase();
+  };
   
-  // Color calculation with safety check
+  // Get display name with proper formatting
+  const displayName = getDisplayName(typeof name === 'string' ? name : '');
+  
+  // Color calculation with safety check - using Finviz greens
   const fillColor = typeof performance === 'number' 
     ? getColorByPerformance(performance) 
-    : '#4ADE80';
+    : '#21c44c';
   
-  // Blue text shadow style for 3D effect - exactly matching screenshot
-  const textShadowStyle = {
-    textShadow: `
-      -1px -1px 0 #000066,
-       1px -1px 0 #000066,
-      -1px  1px 0 #000066,
-       1px  1px 0 #000066,
-       2px  2px 3px rgba(0,0,150,0.5)
-    `,
-    fontFamily: 'Arial, sans-serif'
+  // Exact Finviz text style with minimal shadow
+  const textStyle = {
+    textShadow: '1px 1px 1px rgba(0,0,0,0.5)',
+    fontFamily: 'Arial, sans-serif',
+    fontWeight: 'bold',
   };
+  
+  // Calculate position based on cell size like Finviz
+  const getTextPosition = (cellSize: number) => {
+    // For large cells (like MSFT in your screenshot)
+    if (cellSize > 120) return { nameSize: 40, perfSize: 22, nameY: -20, perfY: 25 };
+    // For medium cells (like ORCL in your screenshot)
+    if (cellSize > 70) return { nameSize: 24, perfSize: 16, nameY: -12, perfY: 18 };
+    // For smaller cells (like PLTR in your screenshot)
+    return { nameSize: 14, perfSize: 12, nameY: -8, perfY: 12 };
+  };
+  
+  // Get appropriate text sizes based on cell dimensions
+  const minDimension = Math.min(cellWidth, cellHeight);
+  const textPositions = getTextPosition(minDimension);
   
   return (
     <g>
-      {/* Main colored rectangle */}
+      {/* Main colored rectangle - Finviz uses very thin/subtle borders */}
       <rect
         x={xPos}
         y={yPos}
@@ -102,73 +118,55 @@ const CustomizedContent = (props: any) => {
         height={cellHeight}
         style={{
           fill: fillColor,
-          stroke: '#111111',
+          stroke: '#0a0a0a',
           strokeWidth: 0.5,
         }}
       />
       
-      {/* Only render text label if there's enough space */}
-      {cellWidth > 40 && cellHeight > 40 && (
+      {/* Only render text labels if there's enough space */}
+      {minDimension > 30 && (
         <>
-          {/* Sector name text with blue 3D shadow effect */}
+          {/* Ticker/sector name - large white text */}
           <text
             x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 - 20}
+            y={yPos + cellHeight / 2 + textPositions.nameY}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={28}
-            fontWeight="bold"
+            fontSize={textPositions.nameSize}
             fill="#FFFFFF"
-            style={textShadowStyle}
+            style={textStyle}
           >
             {displayName}
           </text>
           
-          {/* Performance percentage text with blue 3D shadow effect */}
+          {/* Performance percentage */}
           <text
             x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 + 30}
+            y={yPos + cellHeight / 2 + textPositions.perfY}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={22}
-            fontWeight="bold"
+            fontSize={textPositions.perfSize}
             fill="#FFFFFF"
-            style={textShadowStyle}
+            style={textStyle}
           >
             {formatPerformance(performance)}
           </text>
         </>
       )}
       
-      {/* For smaller cells, use smaller font */}
-      {(cellWidth <= 40 || cellHeight <= 40) && cellWidth > 20 && cellHeight > 20 && (
-        <>
-          <text
-            x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 - 8}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={12}
-            fontWeight="bold"
-            fill="#FFFFFF"
-            style={textShadowStyle}
-          >
-            {displayName}
-          </text>
-          
-          <text
-            x={xPos + cellWidth / 2}
-            y={yPos + cellHeight / 2 + 12}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={10}
-            fontWeight="bold"
-            fill="#FFFFFF"
-            style={textShadowStyle}
-          >
-            {formatPerformance(performance)}
-          </text>
-        </>
+      {/* For tiny cells, just show simple text if possible */}
+      {minDimension <= 30 && minDimension > 15 && (
+        <text
+          x={xPos + cellWidth / 2}
+          y={yPos + cellHeight / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={8}
+          fill="#FFFFFF"
+          style={textStyle}
+        >
+          {displayName}
+        </text>
       )}
     </g>
   );
