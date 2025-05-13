@@ -25,13 +25,14 @@ import { useMarketData } from "@/hooks/useMarketData";
 
 // Custom Treemap content component for heatmap view
 const CustomizedContent = (props: any) => {
-  const { x, y, width, height, name, performance, root } = props;
+  const { x, y, width, height, name, performance, value, root } = props;
   
   // Calculate gradient color based on performance
   const getColorByPerformance = (perf: number) => {
     if (!root || !root.children) return perf >= 0 ? '#4ADE80' : '#FF3B5C';
     
     const allPerformances = root.children.map((child: any) => child.performance);
+    console.log("All performances:", allPerformances);
     
     if (perf >= 0) {
       // For positive values
@@ -423,8 +424,13 @@ const MarketOverview = ({ onSymbolSelect }: MarketOverviewProps) => {
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <Treemap
-                        data={Array.isArray(sectorPerformance) ? sectorPerformance : []}
-                        dataKey="performance"
+                        data={Array.isArray(sectorPerformance) ? sectorPerformance.map(sector => ({
+                          ...sector,
+                          // Use absolute value for sizing but keep original value for coloring
+                          value: Math.abs(sector.performance),
+                          performance: sector.performance
+                        })) : []}
+                        dataKey="value"
                         aspectRatio={1}
                         stroke="#1E293B"
                         fill="#1E293B"
