@@ -76,7 +76,8 @@ export async function processWebhook(
   webhookToken: string,
   payload: WebhookPayload,
   ip: string,
-  signature: string
+  signature: string,
+  bypassIpCheck: boolean = false
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     // Get webhook by token
@@ -134,9 +135,10 @@ export async function processWebhook(
       }
     }
     
-    // Verify IP whitelist if configured
+    // Verify IP whitelist if configured and not bypassed
     if (webhook.configuration?.securitySettings?.ipWhitelist && 
-        webhook.configuration.securitySettings.ipWhitelist.length > 0) {
+        webhook.configuration.securitySettings.ipWhitelist.length > 0 &&
+        !bypassIpCheck) {
       if (!verifyIpWhitelist(ip, webhook.configuration.securitySettings.ipWhitelist)) {
         await storage.logWebhookCall(
           webhook.id, 
@@ -147,6 +149,16 @@ export async function processWebhook(
         );
         return { success: false, error: 'IP not authorized' };
       }
+    } else if (bypassIpCheck && webhook.configuration?.securitySettings?.ipWhitelist) {
+      // Log that we're bypassing IP check for this test request
+      console.log(`[DEBUG] Bypassing IP whitelist check for test request from ${ip}`);
+      await storage.logWebhookCall(
+        webhook.id,
+        payload,
+        'verification',
+        'success',
+        `IP whitelist check bypassed for test request from ${ip}`
+      );
     }
     
     // Process the webhook based on action type

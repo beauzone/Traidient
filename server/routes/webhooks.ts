@@ -141,8 +141,15 @@ router.post('/trigger/:token', async (req: Request, res: Response) => {
     const payload = req.body;
     const ip = req.ip || req.socket.remoteAddress || '';
     const signature = req.headers['x-signature'] as string || '';
+    const bypassIpCheck = req.headers['x-bypass-ip-check'] === 'true' || 
+                         req.headers['X-Bypass-IP-Check'] === 'true';
 
-    const result = await processWebhook(token, payload, ip, signature);
+    // Log if we're bypassing IP check
+    if (bypassIpCheck) {
+      console.log(`[DEBUG] Received webhook test with bypass IP check from ${ip}`);
+    }
+
+    const result = await processWebhook(token, payload, ip, signature, bypassIpCheck);
     
     if (result.success) {
       return res.status(200).json({ message: 'Webhook processed successfully', result: result.data });
