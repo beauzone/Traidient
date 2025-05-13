@@ -23,7 +23,7 @@ import { Loader2, TrendingUp, TrendingDown, Clock, Database, ArrowUpDown, ArrowU
 import { fetchData } from "@/lib/api";
 import { useMarketData } from "@/hooks/useMarketData";
 
-// Custom Treemap content component for heatmap view
+// Custom Treemap content component for heatmap view - Finviz style
 const CustomizedContent = (props: any) => {
   const { x, y, width, height, name, performance, value, root } = props;
   
@@ -46,22 +46,6 @@ const CustomizedContent = (props: any) => {
     }
   };
 
-  // Helper function to create label with outline effect
-  const createOutlinedText = (text: string, xPos: number, yPos: number, fontSize: number) => {
-    return (
-      <>
-        {/* Create outline effect with multiple black text elements */}
-        <text x={xPos-1} y={yPos-1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
-        <text x={xPos+1} y={yPos-1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
-        <text x={xPos-1} y={yPos+1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
-        <text x={xPos+1} y={yPos+1} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="black">{text}</text>
-        
-        {/* Main white text on top */}
-        <text x={xPos} y={yPos} textAnchor="middle" fontSize={fontSize} fontWeight="bold" fill="white">{text}</text>
-      </>
-    )
-  };
-
   return (
     <g>
       {/* Main colored rectangle */}
@@ -73,23 +57,55 @@ const CustomizedContent = (props: any) => {
         style={{
           fill: performance !== undefined ? getColorByPerformance(performance) : '#a8e063',
           stroke: '#1E293B',
-          strokeWidth: 2,
+          strokeWidth: 1,
         }}
       />
       
       {/* Only render text label if there's enough space */}
       {width > 30 && height > 30 && (
         <>
-          {/* Sector name with outlined text for maximum readability */}
-          {createOutlinedText(name, x + width / 2, y + height / 2 - 10, 14)}
+          {/* Simple black background for text (similar to Finviz style) */}
+          <rect
+            x={x + width / 2 - width * 0.45}
+            y={y + height / 2 - 23}
+            width={width * 0.9}
+            height={16}
+            fill="#000000"
+            fillOpacity={0.6}
+          />
+          <rect
+            x={x + width / 2 - width * 0.45}
+            y={y + height / 2 + 7}
+            width={width * 0.9}
+            height={16}
+            fill="#000000"
+            fillOpacity={0.6}
+          />
           
-          {/* Performance percentage with outlined text */}
-          {createOutlinedText(
-            performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%', 
-            x + width / 2, 
-            y + height / 2 + 10, 
-            14
-          )}
+          {/* Plain white text on black background - Finviz style */}
+          <text
+            x={x + width / 2}
+            y={y + height / 2 - 10}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={12}
+            fontWeight="bold"
+            fill="#FFFFFF"
+          >
+            {name}
+          </text>
+          
+          <text
+            x={x + width / 2}
+            y={y + height / 2 + 20}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={12}
+            fontWeight="bold"
+            fill="#FFFFFF"
+          >
+            {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
+          </text>
         </>
       )}
     </g>
