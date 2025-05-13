@@ -36,7 +36,7 @@ const CustomizedContent = (props: any) => {
     if (perf >= 0) {
       // For positive values
       const maxPositive = Math.max(...allPerformances.filter((p: number) => p >= 0), 1);
-      const intensity = Math.max(0.3, Math.min(1, perf / maxPositive));
+      const intensity = Math.max(0.4, Math.min(1, perf / maxPositive));
       return `rgb(${Math.round(74 * intensity)}, ${Math.round(222 * intensity)}, ${Math.round(128 * intensity)})`;
     } else {
       // For negative values
@@ -46,6 +46,9 @@ const CustomizedContent = (props: any) => {
     }
   };
 
+  // Get category name from top-level header (truncate if too long)
+  const displayName = name.length > 10 ? name.substring(0, 9) + '.' : name;
+  
   return (
     <g>
       {/* Main colored rectangle */}
@@ -55,59 +58,72 @@ const CustomizedContent = (props: any) => {
         width={width}
         height={height}
         style={{
-          fill: performance !== undefined ? getColorByPerformance(performance) : '#a8e063',
-          stroke: '#1e1e1e',
-          strokeWidth: 1,
+          fill: performance !== undefined ? getColorByPerformance(performance) : '#4ADE80',
+          stroke: '#111111',
+          strokeWidth: 0.5,
         }}
       />
       
       {/* Only render text label if there's enough space */}
-      {width > 30 && height > 30 && (
+      {width > 40 && height > 40 && (
         <>
-          {/* Dark background bar at top of cell for sector name */}
-          <rect
-            x={x}
-            y={y}
-            width={width}
-            height={20}
-            fill="#151515"
-            fillOpacity={0.9}
-          />
-          
-          {/* Dark background bar at bottom of cell for percentage */}
-          <rect
-            x={x}
-            y={y + height - 20}
-            width={width}
-            height={20}
-            fill="#151515"
-            fillOpacity={0.9}
-          />
-          
-          {/* Sector name text */}
+          {/* Sector name text - large and centered like Finviz */}
           <text
             x={x + width / 2}
-            y={y + 11}
+            y={y + height / 2 - 15}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={11}
+            fontSize={20}
             fontWeight="bold"
             fill="#FFFFFF"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.7)' }}
           >
-            {name}
+            {displayName}
           </text>
           
           {/* Performance percentage text */}
           <text
             x={x + width / 2}
-            y={y + height - 9}
+            y={y + height / 2 + 15}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={11}
+            fontSize={14}
             fontWeight="bold"
             fill="#FFFFFF"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.7)' }}
           >
-            {performance !== undefined ? `${performance.toFixed(2)}%` : '0.00%'}
+            {performance !== undefined ? `${performance > 0 ? '+' : ''}${performance.toFixed(2)}%` : '0.00%'}
+          </text>
+        </>
+      )}
+      
+      {/* For smaller cells, use smaller font */}
+      {(width <= 40 || height <= 40) && width > 20 && height > 20 && (
+        <>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 - 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={10}
+            fontWeight="bold"
+            fill="#FFFFFF"
+            style={{ textShadow: '1px 1px 1px rgba(0,0,0,0.7)' }}
+          >
+            {displayName}
+          </text>
+          
+          <text
+            x={x + width / 2}
+            y={y + height / 2 + 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={8}
+            fontWeight="bold"
+            fill="#FFFFFF"
+            style={{ textShadow: '1px 1px 1px rgba(0,0,0,0.7)' }}
+          >
+            {performance !== undefined ? `${performance > 0 ? '+' : ''}${performance.toFixed(2)}%` : '0.00%'}
           </text>
         </>
       )}
