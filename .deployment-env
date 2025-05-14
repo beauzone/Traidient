@@ -1,0 +1,22 @@
+# Required environment variables for deployment
+# This file lists all required environment variables without values
+# Values should be configured in the Replit deployment UI
+
+PORT=3000
+ALPACA_API_KEY=
+ALPACA_API_SECRET=
+ALPHAVANTAGE_API_KEY=
+JWT_SECRET=
+DATABASE_URL=
+POLYGON_API_KEY=
+OPENAI_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+SNAPTRADE_CLIENT_ID=
+SNAPTRADE_CONSUMER_KEY=
+PGHOST=
+PGDATABASE=
+PGUSER=
+PGPASSWORD=
+PGPORT=
