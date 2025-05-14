@@ -49,13 +49,16 @@ app.use((req, res, next) => {
     
     try {
       await Promise.race([
-        initPythonEnvironment(),
+        initPythonEnvironment().catch(e => {
+          log(`Python initialization error caught: ${e instanceof Error ? e.message : String(e)}`);
+          return null; // Prevent rejection from stopping server startup
+        }),
         new Promise(resolve => setTimeout(() => {
           log('Python initialization timeout safety resolved');
           resolve(null);
         }, 8000))
       ]);
-      log('Python environment initialized successfully');
+      log('Python environment initialization completed');
     } catch (err) {
       log(`Warning: Python environment initialization rejected: ${err instanceof Error ? err.message : String(err)}`);
       log('Continuing with limited Python functionality');
@@ -96,9 +99,9 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use port 5000 consistently across both development and production
-  // Replit will handle the forwarding to external port 80
-  const port = process.env.PORT || 5000;
+  // Always use port 5000 for production deployment
+  // Do not rely on process.env.PORT which may not be set in the deployment environment
+  const port = 5000;
   server.listen({
     port: Number(port),
     host: "0.0.0.0",
