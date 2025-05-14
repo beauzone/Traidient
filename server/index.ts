@@ -96,10 +96,10 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use port 3000 for production deployment and 5000 for development
-  // This matches what the Replit deployment system expects
+  // For production, deploy to port 80 to match Replit's expectations
+  // For development, use port 5000
   const isProduction = process.env.NODE_ENV === 'production';
-  const port = process.env.PORT || (isProduction ? 3000 : 5000);
+  const port = process.env.PORT || (isProduction ? 80 : 5000);
   server.listen({
     port: Number(port),
     host: "0.0.0.0",
