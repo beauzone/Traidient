@@ -37,17 +37,34 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize Python environment for screeners
+  // Initialize Python environment for screeners (with production safeguards)
   try {
     const { initPythonEnvironment } = await import('./pythonExecutionService');
     log('Initializing Python environment for screeners...');
-    await initPythonEnvironment().catch(err => {
+    
+    // Use a timeout to prevent hanging during deployment
+    const pythonInitTimeout = setTimeout(() => {
+      log('Python initialization timed out after 10 seconds, continuing startup');
+    }, 10000);
+    
+    try {
+      await Promise.race([
+        initPythonEnvironment(),
+        new Promise(resolve => setTimeout(() => {
+          log('Python initialization timeout safety resolved');
+          resolve(null);
+        }, 8000))
+      ]);
+      log('Python environment initialized successfully');
+    } catch (err) {
       log(`Warning: Python environment initialization rejected: ${err instanceof Error ? err.message : String(err)}`);
-    });
-    log('Python environment initialized successfully');
+      log('Continuing with limited Python functionality');
+    } finally {
+      clearTimeout(pythonInitTimeout);
+    }
   } catch (error) {
-    log(`Warning: Failed to initialize Python environment: ${error instanceof Error ? error.message : String(error)}`);
-    log('Stock screeners requiring Python may not work properly');
+    log(`Warning: Failed to import Python execution service: ${error instanceof Error ? error.message : String(error)}`);
+    log('Continuing without Python screener functionality');
   }
 
   const server = await registerRoutes(app);
@@ -79,9 +96,8 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use port 5000 consistently for both development and production
-  // Port 5000 is forwarded to port 80 in production
-  const port = process.env.PORT || 5000;
+  // Use port 3000 for production (forwarded to port 80) and 5000 for development
+  const port = process.env.NODE_ENV === 'production' ? 3000 : (process.env.PORT || 5000);
   server.listen({
     port: Number(port),
     host: "0.0.0.0",
