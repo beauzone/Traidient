@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/MainLayout";
 import { fetchData } from "@/lib/api";
@@ -14,6 +14,7 @@ import WatchlistTable from "@/components/live-trading/WatchlistTable";
 import PositionsTable from "@/components/live-trading/PositionsTable";
 import OrdersTable from "@/components/live-trading/OrdersTable";
 import StrategyMonitor from "@/components/live-trading/StrategyMonitor";
+import { useLocation } from "wouter";
 
 function LiveTrading() {
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -26,6 +27,23 @@ function LiveTrading() {
   const [selectedStock, setSelectedStock] = useState('AAPL');
   const [activeTab, setActiveTab] = useState("positions");
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | undefined>(undefined);
+  
+  // Parse URL parameters on component mount
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const symbolParam = searchParams.get('symbol');
+    const actionParam = searchParams.get('action');
+    
+    // Set the selected stock if symbol is provided in URL
+    if (symbolParam) {
+      setSelectedStock(symbolParam);
+    }
+    
+    // If there's an action specified, set the active tab to positions
+    if (actionParam) {
+      setActiveTab("positions");
+    }
+  }, []);
 
   // Queries
   const { data: strategies = [] } = useQuery({
