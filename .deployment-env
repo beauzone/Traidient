@@ -3,6 +3,8 @@
 # Values should be configured in the Replit deployment UI
 
 PORT=5000
+NODE_ENV=production
+REPLIT_DISABLE_PACKAGE_LAYER=1
 ALPACA_API_KEY=
 ALPACA_API_SECRET=
 ALPHAVANTAGE_API_KEY=

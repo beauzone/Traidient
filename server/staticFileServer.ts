@@ -8,6 +8,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
+ * The serveStatic function is required for deployment.
+ * It provides a simple implementation to serve static files.
+ */
+export function serveStatic(app: Express) {
+  const publicPath = path.join(__dirname, 'public');
+  log(`Setting up static file serving from: ${publicPath}`);
+  app.use(express.static(publicPath));
+  
+  // Serve index.html for client-side routes
+  app.get(/^(?!\/api\/).+/, (req, res) => {
+    const indexPath = path.join(publicPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(500).send('Index file not found');
+    }
+  });
+}
+
+/**
  * Serves static files for production environment
  * This function is used as an alternative to the serveStatic function in vite.ts
  */
