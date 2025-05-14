@@ -66,7 +66,17 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    try {
+      // Try the original serveStatic first
+      serveStatic(app);
+      log("Using built-in serveStatic for production");
+    } catch (error) {
+      // If that fails, use our custom implementation
+      log(`Original serveStatic failed: ${error instanceof Error ? error.message : String(error)}`);
+      log("Falling back to custom static file serving implementation");
+      const { serveStaticFiles } = await import('./staticFileServer');
+      serveStaticFiles(app);
+    }
   }
 
   // Use port 5000 consistently for both development and production
