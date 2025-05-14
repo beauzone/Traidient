@@ -117,6 +117,16 @@ const Dashboard = () => {
     }
 
     try {
+      // Debug log the raw API data to investigate the drops in the graph
+      console.log("DEBUG: Raw portfolio history data:", {
+        period: portfolioHistoryData.period,
+        timeframe: portfolioHistoryData.timeframe,
+        dataSource: portfolioHistoryData.dataSource,
+        dataPoints: portfolioHistoryData.timestamp.length,
+        timestamps: portfolioHistoryData.timestamp,
+        equityValues: portfolioHistoryData.equity
+      });
+      
       // Map API data to chart format
       const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
         // Keep the full timestamp to preserve time information for 1D view
