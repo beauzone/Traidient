@@ -69,10 +69,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // In development, serve on port 5000 (Replit workflow)
-  // In production, serve on port 3000 (Replit deployment)
-  // Both serve the API and client
-  const port = process.env.PORT || 3000;
+  // Use port 5000 consistently for both development and production
+  // Port 5000 is forwarded to port 80 in production
+  const port = process.env.PORT || 5000;
   server.listen({
     port: Number(port),
     host: "0.0.0.0",
