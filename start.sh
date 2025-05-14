@@ -1,9 +1,8 @@
 
 #!/bin/bash
 
-# Set production environment variables
-export NODE_ENV=production
+# Check if port is being specified by environment
 export PORT=5000
 
 # Start the server
-exec node dist/index.js
+node dist/index.js
