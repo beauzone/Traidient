@@ -1,44 +1,17 @@
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { log } from './vite';
 
-// Simple logging function
-const log = (message: string) => {
-  console.log(`[StaticFileServer] ${message}`);
-};
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function serveStaticFiles(app: express.Express) {
-  const distDir = path.join(__dirname, '..', 'dist');
-  const publicDistDir = path.join(distDir, 'public');
-  
-  if (!fs.existsSync(publicDistDir)) {
-    log(`Warning: Static files directory not found at ${publicDistDir}`);
-    return;
-  }
-  
-  // Serve static files from dist/public
-  app.use(express.static(publicDistDir, {
-    index: false, // Don't serve index.html for '/' - let the client router handle it
-    maxAge: '1d' // Cache static assets for 1 day
-  }));
-  
-  // Serve index.html for all routes to support client-side routing
-  app.get('*', (req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith('/api/')) {
-      return next();
-    }
-    
-    const indexPath = path.join(publicDistDir, 'index.html');
-    
-    // Check if index.html exists
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      log(`Error: index.html not found at ${indexPath}`);
-      res.status(500).send('Server configuration error - index.html not found');
-    }
+  const distPath = path.resolve(__dirname, '..', 'dist', 'public');
+
+  app.use(express.static(distPath));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
   });
-  
-  log(`Static files are being served from ${publicDistDir}`);
+
+  log('Static file serving configured');
 }
