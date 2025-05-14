@@ -99,9 +99,9 @@ app.use((req, res, next) => {
     }
   }
 
-  // Always use port 5000 for production deployment
-  // Do not rely on process.env.PORT which may not be set in the deployment environment
-  const port = 5000;
+  // Use port from environment or default to 5000
+  // This ensures compatibility with Replit's port forwarding system
+  const port = process.env.PORT || 5000;
   server.listen({
     port: Number(port),
     host: "0.0.0.0",

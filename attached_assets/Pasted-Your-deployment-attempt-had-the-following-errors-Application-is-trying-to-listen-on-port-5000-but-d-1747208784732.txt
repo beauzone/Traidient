@@ -1,0 +1,72 @@
+Your deployment attempt had the following errors:
+Application is trying to listen on port 5000 but deployment is routing port 80 to port 5000 differently
+Missing connection between internal server port and deployment port configuration
+No environment variable configured to set PORT in production environment
+Assistant suggestions
+// Always use port 5000 for production deployment
+  // Do not rely on process.env.PORT which may not be set in the deployment environment
+  const port = 5000;
+  server.listen({
+    port: Number(port),
+    host: "0.0.0.0",
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+// Use port from environment or default to 5000
+  const port = process.env.PORT || 5000;
+  server.listen({
+    port: Number(port),
+    host: "0.0.0.0",
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+[nix]
+channel = "stable-24_05"
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd"]
+
+[deployment]
+deploymentTarget = "gce"
+run = ["npm", "run", "start"]
+build = ["npm", "run", "build"]
+[nix]
+channel = "stable-24_05"
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd"]
+
+[deployment]
+deploymentTarget = "gce"
+run = ["npm", "run", "start"]
+build = ["npm", "run", "build"]
+
+[env]
+PORT = "5000"
+NODE_ENV = "production"
+# Use port 5000 for production deployment to match Replit's port forwarding configuration
+export PORT=5000
+# Use port 5000 for production deployment to match Replit's port forwarding configuration
+export PORT=5000
+# Disable package layer to ensure all dependencies are included
+export REPLIT_DISABLE_PACKAGE_LAYER=1
+[[ports]]
+localPort = 5000
+externalPort = 80
+[[ports]]
+localPort = 5000
+externalPort = 80
+proxy = "http"
+show = true
+#!/bin/bash
+echo "Building application for production deployment..."
+
+# Clear any previous build files
+echo "Cleaning previous build..."
+rm -rf dist/ public/
+#!/bin/bash
+echo "Building application for production deployment..."
+
+# Set environment variables for the build
+export NODE_ENV=production
+export REPLIT_DISABLE_PACKAGE_LAYER=1
+
+# Clear any previous build files
+echo "Cleaning previous build..."
+rm -rf dist/ public/

@@ -1,6 +1,11 @@
 #!/bin/bash
 echo "Building application for production deployment..."
 
+# Set environment variables for the build
+export NODE_ENV=production
+export REPLIT_DISABLE_PACKAGE_LAYER=1
+export PORT=5000
+
 # Clear any previous build files
 echo "Cleaning previous build..."
 rm -rf dist/ public/
