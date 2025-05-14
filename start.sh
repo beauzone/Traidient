@@ -5,8 +5,8 @@
 # Set the environment to production
 export NODE_ENV=production
 
-# Use port 80 for production deployment to match Replit's external port mapping
-export PORT=80
+# Use port 5000 for production deployment to match Replit's port forwarding configuration
+export PORT=5000
 
 # Start the server
 node dist/index.js
