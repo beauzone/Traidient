@@ -107,23 +107,26 @@ const Sidebar = () => {
             
             {/* Account name and dropdown */}
             <div className="flex-1">
-              <div className="font-medium">
-                {selectedAccount === "all" 
-                  ? "All Accounts" 
-                  : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {selectedAccount === "all" 
-                  ? "Multiple Accounts" 
-                  : accounts.find(a => a.id.toString() === selectedAccount)?.accountNumber || ""}
-              </div>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 px-0 py-0 mt-1">
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="font-medium">
+                    {selectedAccount === "all" 
+                      ? "All Accounts" 
+                      : accounts.find(a => a.id.toString() === selectedAccount)?.name || "Select Account"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {selectedAccount === "all" 
+                      ? "Multiple Accounts" 
+                      : accounts.find(a => a.id.toString() === selectedAccount)?.accountNumber || ""}
+                  </div>
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 px-0 py-0 ml-2">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[300px]">
                   <DropdownMenuItem 
                     className="flex justify-between py-2 px-4 cursor-pointer"
