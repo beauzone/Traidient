@@ -1,24 +1,14 @@
-# Required environment variables for deployment
-# This file lists all required environment variables without values
-# Values should be configured in the Replit deployment UI
+# Deployment Environment Configuration
+# Copy these settings to your Replit deployment settings
 
-PORT=5000
+# Core environment settings
 NODE_ENV=production
+PORT=5000
 REPLIT_DISABLE_PACKAGE_LAYER=1
-ALPACA_API_KEY=
-ALPACA_API_SECRET=
-ALPHAVANTAGE_API_KEY=
-JWT_SECRET=
-DATABASE_URL=
-POLYGON_API_KEY=
-OPENAI_API_KEY=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-SNAPTRADE_CLIENT_ID=
-SNAPTRADE_CONSUMER_KEY=
-PGHOST=
-PGDATABASE=
-PGUSER=
-PGPASSWORD=
-PGPORT=
+
+# Port configuration for .replit file
+# [[ports]]
+# localPort = 5000
+# externalPort = 80
+# proxy = "http"
+# show = true

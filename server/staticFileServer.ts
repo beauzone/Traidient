@@ -1,80 +1,40 @@
-import express, { type Express } from "express";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { log } from "./vite";
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { log } from './utils/logger';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/**
- * The serveStatic function is required for deployment.
- * It provides a simple implementation to serve static files.
- */
-export function serveStatic(app: Express) {
-  const publicPath = path.join(__dirname, 'public');
-  log(`Setting up static file serving from: ${publicPath}`);
-  app.use(express.static(publicPath));
+export function serveStaticFiles(app: express.Express) {
+  const distDir = path.join(__dirname, '..', 'dist');
+  const publicDistDir = path.join(distDir, 'public');
   
-  // Serve index.html for client-side routes
-  app.get(/^(?!\/api\/).+/, (req, res) => {
-    const indexPath = path.join(publicPath, 'index.html');
+  if (!fs.existsSync(publicDistDir)) {
+    log(`Warning: Static files directory not found at ${publicDistDir}`);
+    return;
+  }
+  
+  // Serve static files from dist/public
+  app.use(express.static(publicDistDir, {
+    index: false, // Don't serve index.html for '/' - let the client router handle it
+    maxAge: '1d' // Cache static assets for 1 day
+  }));
+  
+  // Serve index.html for all routes to support client-side routing
+  app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+    
+    const indexPath = path.join(publicDistDir, 'index.html');
+    
+    // Check if index.html exists
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(500).send('Index file not found');
+      log(`Error: index.html not found at ${indexPath}`);
+      res.status(500).send('Server configuration error - index.html not found');
     }
   });
-}
-
-/**
- * Serves static files for production environment
- * This function is used as an alternative to the serveStatic function in vite.ts
- */
-export function serveStaticFiles(app: Express) {
-  // Check different possible build output directories
-  const possibleDistPaths = [
-    path.resolve(__dirname, "..", "public"),
-    path.resolve(__dirname, "..", "dist", "public"),
-    path.resolve(__dirname, "..", "dist"),
-    path.resolve(__dirname, "public"),
-    path.resolve("public"),
-    path.resolve("dist")
-  ];
-
-  let distPath: string | null = null;
-
-  // Find first existing directory
-  for (const dir of possibleDistPaths) {
-    if (fs.existsSync(dir)) {
-      log(`Found static files directory: ${dir}`);
-      distPath = dir;
-      break;
-    }
-  }
-
-  if (!distPath) {
-    log("Warning: Could not find static files directory. Static content may not be served correctly.");
-    return;
-  }
-
-  // Index HTML path
-  const indexHtmlPath = path.join(distPath, "index.html");
-  if (!fs.existsSync(indexHtmlPath)) {
-    log(`Warning: index.html not found at ${indexHtmlPath}`);
-  } else {
-    log(`Found index.html at ${indexHtmlPath}`);
-  }
-
-  // Serve static files
-  app.use(express.static(distPath));
-
-  // Serve index.html for any non-API routes
-  app.get(/^(?!\/api\/).+/, (req, res) => {
-    if (fs.existsSync(indexHtmlPath)) {
-      res.sendFile(indexHtmlPath);
-    } else {
-      res.status(500).send("Server configured for production but build files not found");
-    }
-  });
+  
+  log(`Static files are being served from ${publicDistDir}`);
 }
