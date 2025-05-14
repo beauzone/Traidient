@@ -99,11 +99,10 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use PORT environment variable with fallback to 5000 for deployment
-  // Replit maps this to port 80 externally
+  // Use PORT environment variable with fallback to 5000
   const port = process.env.PORT || 5000;
   server.listen(port, "0.0.0.0", () => {
-    log(`Server listening on port ${port}`);
+    log(`Server listening on port ${port} (Replit will map this externally)`);
   });
 
 })();
