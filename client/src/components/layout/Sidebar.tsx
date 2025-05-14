@@ -127,81 +127,82 @@ const Sidebar = () => {
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[300px]">
-                  <DropdownMenuItem 
-                    className="flex justify-between py-2 px-4 cursor-pointer"
-                    onClick={() => setSelectedAccount("all")}
-                  >
-                    <div className="font-semibold">All Accounts</div>
-                    <div>${accounts.reduce((sum, account) => sum + (account.portfolioValue || account.equity || account.balance || 0), 0).toLocaleString()}</div>
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>PAPER ACCOUNTS</DropdownMenuLabel>
-                  
-                  {accounts
-                    .filter(account => account.accountType === 'paper')
-                    .map(account => (
-                      <DropdownMenuItem
-                        key={account.id}
-                        className="flex justify-between py-2 px-4 cursor-pointer"
-                        onClick={() => setSelectedAccount(account.id.toString())}
-                      >
-                        <div>
-                          <div className="font-medium">{account.name}</div>
-                          <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <div>${(account.portfolioValue || account.equity || account.balance || 0).toLocaleString()}</div>
-                          {account.performance !== undefined && (
-                            <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
-                              {account.performance >= 0 ? '+' : ''}{account.performance.toFixed(2)}%
-                            </div>
-                          )}
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  
-                  {accounts.some(account => account.accountType === 'live') && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel>LIVE ACCOUNTS</DropdownMenuLabel>
-                      
-                      {accounts
-                        .filter(account => account.accountType === 'live')
-                        .map(account => (
-                          <DropdownMenuItem
-                            key={account.id}
-                            className="flex justify-between py-2 px-4 cursor-pointer"
-                            onClick={() => setSelectedAccount(account.id.toString())}
-                          >
-                            <div>
-                              <div className="font-medium">{account.name}</div>
-                              <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <div>${(account.portfolioValue || account.equity || account.balance || 0).toLocaleString()}</div>
-                              {account.performance !== undefined && (
-                                <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
-                                  {account.performance >= 0 ? '+' : ''}{account.performance.toFixed(2)}%
-                                </div>
-                              )}
-                            </div>
-                          </DropdownMenuItem>
-                        ))
-                      }
-                    </>
-                  )}
-                  
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>ACCOUNT MANAGEMENT</DropdownMenuLabel>
-                  <DropdownMenuItem>
-                    <Link href="/settings" className="w-full">
-                      Account Settings
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <DropdownMenuContent align="end" className="w-[300px]">
+                    <DropdownMenuItem 
+                      className="flex justify-between py-2 px-4 cursor-pointer"
+                      onClick={() => setSelectedAccount("all")}
+                    >
+                      <div className="font-semibold">All Accounts</div>
+                      <div>${accounts.reduce((sum, account) => sum + (account.portfolioValue || account.equity || account.balance || 0), 0).toLocaleString()}</div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>PAPER ACCOUNTS</DropdownMenuLabel>
+                    
+                    {accounts
+                      .filter(account => account.accountType === 'paper')
+                      .map(account => (
+                        <DropdownMenuItem
+                          key={account.id}
+                          className="flex justify-between py-2 px-4 cursor-pointer"
+                          onClick={() => setSelectedAccount(account.id.toString())}
+                        >
+                          <div>
+                            <div className="font-medium">{account.name}</div>
+                            <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <div>${(account.portfolioValue || account.equity || account.balance || 0).toLocaleString()}</div>
+                            {account.performance !== undefined && (
+                              <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
+                                {account.performance >= 0 ? '+' : ''}{account.performance.toFixed(2)}%
+                              </div>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    
+                    {accounts.some(account => account.accountType === 'live') && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>LIVE ACCOUNTS</DropdownMenuLabel>
+                        
+                        {accounts
+                          .filter(account => account.accountType === 'live')
+                          .map(account => (
+                            <DropdownMenuItem
+                              key={account.id}
+                              className="flex justify-between py-2 px-4 cursor-pointer"
+                              onClick={() => setSelectedAccount(account.id.toString())}
+                            >
+                              <div>
+                                <div className="font-medium">{account.name}</div>
+                                <div className="text-xs text-muted-foreground">{account.accountNumber}</div>
+                              </div>
+                              <div className="flex flex-col items-end">
+                                <div>${(account.portfolioValue || account.equity || account.balance || 0).toLocaleString()}</div>
+                                {account.performance !== undefined && (
+                                  <div className={account.performance >= 0 ? "text-green-500" : "text-red-500"}>
+                                    {account.performance >= 0 ? '+' : ''}{account.performance.toFixed(2)}%
+                                  </div>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        }
+                      </>
+                    )}
+                    
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>ACCOUNT MANAGEMENT</DropdownMenuLabel>
+                    <DropdownMenuItem>
+                      <Link href="/settings" className="w-full">
+                        Account Settings
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             {/* Mobile close button */}
