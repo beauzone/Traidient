@@ -99,9 +99,9 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use port from environment or default to 5000
-  // This ensures compatibility with Replit's port forwarding system
-  const port = process.env.PORT || 5000;
+  // Use fixed port 5000 for deployment
+  // Replit maps this to port 80 externally
+  const port = 5000;
   server.listen({
     port: Number(port),
     host: "0.0.0.0",
