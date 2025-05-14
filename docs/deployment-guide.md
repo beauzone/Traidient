@@ -9,7 +9,7 @@ The application is configured to run on port 5000 in both development and produc
 The following environment variables need to be set in the deployment environment:
 
 - `NODE_ENV=production` - Ensures the application runs in production mode
-- `PORT=5000` - Specifies the port to use (hardcoded in server/index.ts for reliability)
+- `PORT=5000` - Specifies the port to use (configured in server/index.ts)
 - `REPLIT_DISABLE_PACKAGE_LAYER=1` - Helps with dependency installation
 
 ## API Keys
@@ -32,12 +32,39 @@ The application depends on several API keys that must be configured as secrets i
 
 1. Make sure all code changes are committed
 2. Configure all required environment variables in the deployment settings
-3. Deploy using the Replit deployment interface
-4. Verify the application is running on the assigned domain
-5. Check logs for any initialization issues
+3. In the Replit deployment settings:
+   - Set the deployment target to "gce" (Google Cloud Engine)
+   - Set the run command to: `bash ./start.sh`
+   - Set the build command to: `bash ./build.sh`
+   - Ensure port 5000 is mapped to external port 80:
+     ```
+     [[ports]]
+     localPort = 5000
+     externalPort = 80
+     ```
+4. Deploy using the Replit deployment interface
+5. Verify the application is running on the assigned domain
+6. Check logs for any initialization issues
+
+## Scripts
+
+The application uses the following scripts for deployment:
+
+### build.sh
+This script runs during the deployment build process and:
+- Sets production environment variables
+- Cleans previous build files
+- Builds client and server code
+
+### start.sh
+This script runs when the deployment starts and:
+- Sets production environment variables
+- Verifies the build completed successfully
+- Starts the server with the correct configuration
 
 ## Troubleshooting
 
 - If Python services fail to initialize, they won't block the application startup due to timeout protections
 - Static files are served from the dist/public directory in production
-- Deployment uses the start.sh script which sets the appropriate environment variables
+- The application uses a custom static file server implementation as fallback if the built-in one fails
+- If deployment fails due to port issues, check that the PORT environment variable is set to 5000 and that port 5000 is correctly mapped to external port 80 in the deployment settings

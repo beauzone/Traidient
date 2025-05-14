@@ -1,7 +1,11 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { log } from './utils/logger';
+
+// Simple logging function
+const log = (message: string) => {
+  console.log(`[StaticFileServer] ${message}`);
+};
 
 export function serveStaticFiles(app: express.Express) {
   const distDir = path.join(__dirname, '..', 'dist');
