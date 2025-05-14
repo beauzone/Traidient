@@ -3,5 +3,6 @@
 # Set NODE_ENV to production during build
 export NODE_ENV=production
 
-# Build the application
+# Clean and rebuild
+rm -rf dist
 npm run build

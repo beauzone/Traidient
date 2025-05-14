@@ -1,10 +1,10 @@
+
 #!/bin/bash
 
-# Set NODE_ENV to production
+# Set production environment variables
 export NODE_ENV=production
-
-# Set PORT to 5000 for Replit deployment
 export PORT=5000
+export REPLIT_DISABLE_PACKAGE_LAYER=1
 
 # Start the server
-npm run start
+exec node dist/index.js

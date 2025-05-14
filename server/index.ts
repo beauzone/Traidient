@@ -101,8 +101,8 @@ app.use((req, res, next) => {
 
   // Use fixed port 5000 for deployment
   // Replit maps this to port 80 externally
-  const port = 5000;
+  const port = process.env.PORT || 5000;
   server.listen(port, "0.0.0.0", () => {
-    log(`Server listening on http://0.0.0.0:${port}`);
+    log(`Server listening on port ${port}`);
   });
 })();
