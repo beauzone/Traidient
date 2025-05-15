@@ -134,95 +134,16 @@ const Dashboard = () => {
         });
       }
       
-      // For weekly view with large jumps, use a percentage change approach 
+      // Debug log the timestamp and equity values in a structured format for weekly data
       if (portfolioHistoryData.period === '1W') {
-        console.log("Creating percentage-based chart for weekly data");
-        
-        // Group data points by date to identify day boundaries
-        const dateMap = new Map(); // Map dates to their average values
-        
-        portfolioHistoryData.timestamp.forEach((ts: string, index: number) => {
-          const date = new Date(ts);
-          const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-          
-          if (!dateMap.has(dateStr)) {
-            dateMap.set(dateStr, { 
-              indices: [index],
-              values: [portfolioHistoryData.equity[index]],
-              date: date
-            });
-          } else {
-            const entry = dateMap.get(dateStr);
-            entry.indices.push(index);
-            entry.values.push(portfolioHistoryData.equity[index]);
-          }
-        });
-        
-        // Convert to array and sort by date
-        const dateEntries = Array.from(dateMap.values())
-          .sort((a, b) => a.date.getTime() - b.date.getTime());
-        
-        // Calculate average value for each day
-        const dailyAverages = dateEntries.map(entry => {
-          const sum = entry.values.reduce((a: number, b: number) => a + b, 0);
-          return {
-            ...entry,
-            average: sum / entry.values.length
-          };
-        });
-        
-        console.log("Daily averages:", dailyAverages.map(d => 
-          `${d.date.toLocaleDateString()}: $${d.average.toFixed(2)}`
-        ));
-        
-        // Use a smoothed approach that preserves intraday movements
-        // but handles large jumps between days properly
-        let processedEquity = [...portfolioHistoryData.equity];
-        let baselineValue = portfolioHistoryData.equity[0]; // First value is baseline
-        
-        for (let i = 1; i < dailyAverages.length; i++) {
-          const prevDay = dailyAverages[i-1];
-          const currentDay = dailyAverages[i];
-          
-          // Check if there's a significant jump between days
-          const percentChange = (currentDay.average - prevDay.average) / prevDay.average;
-          if (Math.abs(percentChange) > 0.15) {
-            console.log(`Large jump detected between ${prevDay.date.toLocaleDateString()} and ${currentDay.date.toLocaleDateString()}: ${(percentChange*100).toFixed(2)}%`);
-            
-            // For each data point in the current day
-            for (let j = 0; j < currentDay.indices.length; j++) {
-              const idx = currentDay.indices[j];
-              const rawValue = portfolioHistoryData.equity[idx];
-              
-              // Calculate intraday percentage change from the day's average
-              const intradayPercent = (rawValue - currentDay.average) / currentDay.average;
-              
-              // Apply the same intraday percentage to the previous day's average
-              // plus a tiny incremental change to create visual continuity
-              const adjustedValue = prevDay.average * (1 + 0.001*j) * (1 + intradayPercent);
-              processedEquity[idx] = adjustedValue;
-            }
-          }
-        }
-        
-        // Log the processed values
-        console.log("Data processing complete");
+        console.log("WEEKLY DATA DUMP:");
         portfolioHistoryData.timestamp.forEach((ts: string, i: number) => {
           const date = new Date(ts);
-          console.log(`${date.toLocaleString()} - Original: $${portfolioHistoryData.equity[i].toFixed(2)}, Processed: $${processedEquity[i].toFixed(2)}`);
+          console.log(`${date.toLocaleString()} - $${portfolioHistoryData.equity[i].toFixed(2)}`);
         });
-        
-        // Map API data to chart format using processed values
-        const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
-          date: timestamp,
-          value: processedEquity[index],
-        }));
-        
-        setPortfolioData(data);
-        return; // Exit early since we've already set the data
       }
       
-      // For other timeframes, use the original values without modification
+      // Map API data to chart format
       const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
         // Keep the full timestamp to preserve time information for 1D view
         date: timestamp,
