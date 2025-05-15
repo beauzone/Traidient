@@ -96,13 +96,14 @@ const Sidebar = () => {
         />
       )}
       
-      {/* Mobile menu button */}
+      {/* Mobile menu button - positioned with more margin from the left edge */}
       <button 
-        className="fixed top-4 left-4 z-40 lg:hidden p-2 rounded-md bg-primary text-white shadow-md"
+        className="fixed top-4 left-2 z-40 lg:hidden p-1.5 rounded-md bg-card text-foreground shadow-md border border-border"
         onClick={toggleMobileMenu}
         aria-label="Open menu"
+        style={{ marginTop: '2px' }}
       >
-        <Menu size={20} />
+        <Menu size={18} />
       </button>
 
       <div className={sidebarClasses}>
