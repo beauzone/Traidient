@@ -80,15 +80,25 @@ const Sidebar = () => {
     { path: "/debug", name: "Debug", icon: <Bug className="mr-3 flex-shrink-0 h-5 w-5" /> },
   ];
 
-  const sidebarClasses = `fixed inset-y-0 left-0 z-50 w-64 bg-dark-surface border-r border-border flex flex-col transition-all duration-300 ease-in-out lg:relative ${
+  // Adding solid background color for mobile view
+  const sidebarClasses = `fixed inset-y-0 left-0 z-50 w-64 bg-background border-r border-border flex flex-col transition-all duration-300 ease-in-out lg:relative shadow-xl ${
     isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
   }`;
 
   return (
     <>
+      {/* Mobile menu backdrop - only shown when menu is open */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" 
+          onClick={closeMobileMenu}
+          aria-hidden="true"
+        />
+      )}
+      
       {/* Mobile menu button */}
       <button 
-        className="fixed top-4 left-4 z-40 lg:hidden p-2 rounded-md bg-primary text-white"
+        className="fixed top-4 left-4 z-40 lg:hidden p-2 rounded-md bg-primary text-white shadow-md"
         onClick={toggleMobileMenu}
         aria-label="Open menu"
       >
@@ -207,7 +217,7 @@ const Sidebar = () => {
 
             {/* Mobile close button */}
             <button 
-              className="lg:hidden text-gray-400 hover:text-white ml-2 mt-1"
+              className="lg:hidden text-foreground hover:text-primary ml-2 p-1.5 rounded-full bg-muted hover:bg-muted-foreground/10"
               onClick={closeMobileMenu}
               aria-label="Close menu"
             >
@@ -224,9 +234,9 @@ const Sidebar = () => {
                   key={item.path}
                   href={item.path}
                   onClick={closeMobileMenu}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
+                  className={`flex items-center px-3 py-3 md:py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
                     location === item.path
-                      ? "bg-accent bg-opacity-10 border-l-2 border-primary"
+                      ? "bg-accent bg-opacity-20 border-l-2 border-primary text-primary"
                       : ""
                   }`}
                 >
@@ -237,7 +247,7 @@ const Sidebar = () => {
             </div>
             
             <div className="mt-8">
-              <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Account
               </h3>
               <div className="mt-1 space-y-1">
@@ -246,9 +256,9 @@ const Sidebar = () => {
                     key={item.path}
                     href={item.path}
                     onClick={closeMobileMenu}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
+                    className={`flex items-center px-3 py-3 md:py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
                       location === item.path
-                        ? "bg-accent bg-opacity-10 border-l-2 border-primary"
+                        ? "bg-accent bg-opacity-20 border-l-2 border-primary text-primary"
                         : ""
                     }`}
                   >
@@ -261,7 +271,7 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-5 border-t border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <UserAvatar user={user} className="h-10 w-10 mr-3" />
@@ -278,7 +288,7 @@ const Sidebar = () => {
             </div>
             <button 
               onClick={logout}
-              className="text-sm text-primary hover:text-primary-foreground p-1"
+              className="text-sm font-medium bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground px-3 py-1.5 rounded-md transition-colors"
               aria-label="Logout"
             >
               Logout
