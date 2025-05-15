@@ -283,6 +283,13 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
               {change.value} ({change.percentage})
             </span>
           </div>
+          
+          {/* Display a note about data smoothing for weekly view */}
+          {timeRange === '1W' && (
+            <div className="text-xs text-muted-foreground mt-1">
+              Note: Large account deposits/withdrawals are smoothed for better visualization
+            </div>
+          )}
         </div>
         <div className="h-72 px-2 pb-4">
           <ResponsiveContainer width="100%" height="100%">

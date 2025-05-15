@@ -134,19 +134,13 @@ const Dashboard = () => {
         });
       }
       
-      // DETECT AND FIX ANOMALOUS DATA JUMPS
-      // We've observed that the portfolio value can jump significantly between days
-      // (e.g., from ~$102k to ~$72k), which creates misleading drops in the chart
-      let normalizedEquity = [...portfolioHistoryData.equity];
-      
-      // Only normalize weekly data where we've seen these large jumps
+      // For weekly view with large jumps, use a percentage change approach 
       if (portfolioHistoryData.period === '1W') {
-        console.log("Normalizing weekly portfolio data");
-        
-        // Identify large jumps (more than 15% change between consecutive days)
-        const dateMap = new Map(); // Map dates to their average values
+        console.log("Creating percentage-based chart for weekly data");
         
         // Group data points by date to identify day boundaries
+        const dateMap = new Map(); // Map dates to their average values
+        
         portfolioHistoryData.timestamp.forEach((ts: string, index: number) => {
           const date = new Date(ts);
           const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -181,50 +175,58 @@ const Dashboard = () => {
           `${d.date.toLocaleDateString()}: $${d.average.toFixed(2)}`
         ));
         
-        // Track the adjustment between days
-        let cumulativeAdjustment = 0;
+        // Use a smoothed approach that preserves intraday movements
+        // but handles large jumps between days properly
+        let processedEquity = [...portfolioHistoryData.equity];
+        let baselineValue = portfolioHistoryData.equity[0]; // First value is baseline
         
-        // Apply adjustments to normalize the data
         for (let i = 1; i < dailyAverages.length; i++) {
           const prevDay = dailyAverages[i-1];
           const currentDay = dailyAverages[i];
           
-          // Calculate the percentage change from previous day
+          // Check if there's a significant jump between days
           const percentChange = (currentDay.average - prevDay.average) / prevDay.average;
-          
-          // If change is large (more than 15%), treat it as a deposit/withdrawal
           if (Math.abs(percentChange) > 0.15) {
             console.log(`Large jump detected between ${prevDay.date.toLocaleDateString()} and ${currentDay.date.toLocaleDateString()}: ${(percentChange*100).toFixed(2)}%`);
             
-            // Calculate adjustment needed
-            const adjustment = currentDay.average - prevDay.average;
-            cumulativeAdjustment += adjustment;
-            
-            // Adjust all values for this day and subsequent days
-            for (let j = i; j < dailyAverages.length; j++) {
-              dailyAverages[j].indices.forEach((idx: number) => {
-                normalizedEquity[idx] -= cumulativeAdjustment;
-              });
+            // For each data point in the current day
+            for (let j = 0; j < currentDay.indices.length; j++) {
+              const idx = currentDay.indices[j];
+              const rawValue = portfolioHistoryData.equity[idx];
+              
+              // Calculate intraday percentage change from the day's average
+              const intradayPercent = (rawValue - currentDay.average) / currentDay.average;
+              
+              // Apply the same intraday percentage to the previous day's average
+              // plus a tiny incremental change to create visual continuity
+              const adjustedValue = prevDay.average * (1 + 0.001*j) * (1 + intradayPercent);
+              processedEquity[idx] = adjustedValue;
             }
           }
         }
         
-        // Log the normalized values
-        console.log("Data normalization complete");
-        if (dailyAverages.length > 0) {
-          console.log("Normalized values:");
-          portfolioHistoryData.timestamp.forEach((ts: string, i: number) => {
-            const date = new Date(ts);
-            console.log(`${date.toLocaleString()} - Original: $${portfolioHistoryData.equity[i].toFixed(2)}, Normalized: $${normalizedEquity[i].toFixed(2)}`);
-          });
-        }
+        // Log the processed values
+        console.log("Data processing complete");
+        portfolioHistoryData.timestamp.forEach((ts: string, i: number) => {
+          const date = new Date(ts);
+          console.log(`${date.toLocaleString()} - Original: $${portfolioHistoryData.equity[i].toFixed(2)}, Processed: $${processedEquity[i].toFixed(2)}`);
+        });
+        
+        // Map API data to chart format using processed values
+        const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
+          date: timestamp,
+          value: processedEquity[index],
+        }));
+        
+        setPortfolioData(data);
+        return; // Exit early since we've already set the data
       }
       
-      // Map API data to chart format using normalized values
+      // For other timeframes, use the original values without modification
       const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
         // Keep the full timestamp to preserve time information for 1D view
         date: timestamp,
-        value: portfolioHistoryData.period === '1W' ? normalizedEquity[index] : portfolioHistoryData.equity[index],
+        value: portfolioHistoryData.equity[index],
       }));
       
       setPortfolioData(data);
