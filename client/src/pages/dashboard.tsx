@@ -122,10 +122,17 @@ const Dashboard = () => {
         period: portfolioHistoryData.period,
         timeframe: portfolioHistoryData.timeframe,
         dataSource: portfolioHistoryData.dataSource,
-        dataPoints: portfolioHistoryData.timestamp.length,
-        timestamps: portfolioHistoryData.timestamp,
-        equityValues: portfolioHistoryData.equity
+        dataPoints: portfolioHistoryData.timestamp.length
       });
+      
+      // Log the timestamp and equity values in a structured format for each data point
+      if (portfolioHistoryData.period === '1W') {
+        console.log("WEEKLY DATA DUMP:");
+        portfolioHistoryData.timestamp.forEach((ts, i) => {
+          const date = new Date(ts);
+          console.log(`${date.toLocaleString()} - $${portfolioHistoryData.equity[i].toFixed(2)}`);
+        });
+      }
       
       // Map API data to chart format
       const data = portfolioHistoryData.timestamp.map((timestamp: string, index: number) => ({
