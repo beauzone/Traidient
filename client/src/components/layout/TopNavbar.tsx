@@ -295,16 +295,32 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
                     <div className="flex items-center mr-3">
                       <Clock className="h-3.5 w-3.5 mr-1" />
                       {timeRemaining ? (
-                        <span className="text-xs font-medium">
-                          {timeRemaining.isOpen 
-                            ? `US markets close in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}` 
-                            : `US markets open in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}`
-                          }
-                        </span>
+                        <>
+                          {/* Full text for desktop */}
+                          <span className="text-xs font-medium hidden md:inline">
+                            {timeRemaining.isOpen 
+                              ? `US markets close in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}` 
+                              : `US markets open in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}`
+                            }
+                          </span>
+                          
+                          {/* Simplified text for mobile */}
+                          <span className="text-xs font-medium md:hidden">
+                            {timeRemaining.hours}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+                          </span>
+                        </>
                       ) : (
-                        <span className="text-xs font-medium">
-                          US markets {marketStatus.isMarketOpen ? 'close' : 'open'} soon
-                        </span>
+                        <>
+                          {/* Full text for desktop */}
+                          <span className="text-xs font-medium hidden md:inline">
+                            US markets {marketStatus.isMarketOpen ? 'close' : 'open'} soon
+                          </span>
+                          
+                          {/* Simplified text for mobile */}
+                          <span className="text-xs font-medium md:hidden">
+                            Soon
+                          </span>
+                        </>
                       )}
                     </div>
                   </TooltipTrigger>
@@ -327,8 +343,13 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
                   <TooltipTrigger asChild>
                     <div className="flex items-center mr-3">
                       <div className={`w-2 h-2 rounded-full mr-1.5 ${marketStatus.isMarketOpen ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <span className="text-xs font-medium">
+                      {/* Full text for desktop */}
+                      <span className="text-xs font-medium hidden md:inline">
                         Market {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
+                      </span>
+                      {/* Simplified indicator for mobile */}
+                      <span className="text-xs font-medium md:hidden">
+                        {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
                       </span>
                     </div>
                   </TooltipTrigger>
@@ -341,7 +362,7 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center">
+                    <div className="hidden md:flex items-center">
                       <Database className="h-3.5 w-3.5 mr-1" />
                       <span className="text-xs font-medium">
                         {marketStatus.dataSource || 'Unknown'}
