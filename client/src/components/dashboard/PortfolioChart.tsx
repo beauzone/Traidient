@@ -145,6 +145,44 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
     return Math.max(1, Math.floor(dataLength / 10)); // Default to 10 ticks
   };
 
+  // Process data to handle non-trading hours better for chart rendering
+  const processedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    // For weekly view, we need to handle the gaps between trading sessions
+    if (timeRange === '1W') {
+      // Create a processed array of data points
+      const result = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        const currentPoint = data[i];
+        result.push(currentPoint);
+        
+        // If this is not the last point, check if we need to insert a non-connecting point
+        if (i < data.length - 1) {
+          const currentDate = new Date(currentPoint.date);
+          const nextDate = new Date(data[i+1].date);
+          
+          // Calculate time difference in hours
+          const hoursDiff = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60);
+          
+          // If gap is more than 3 hours (after market close to next open, or weekend),
+          // insert a null point to break the line
+          if (hoursDiff > 3) {
+            result.push({
+              date: new Date(currentDate.getTime() + 1000 * 60 * 60).toISOString(), // 1 hour after current
+              value: null // This creates a gap in the line chart
+            });
+          }
+        }
+      }
+      
+      return result;
+    }
+    
+    return data;
+  }, [data, timeRange]);
+
   // Calculate Y-axis domain to focus on the data variation
   const yAxisDomain = useMemo(() => {
     if (!data || data.length === 0) {
@@ -249,7 +287,7 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
         <div className="h-72 px-2 pb-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={data}
+              data={processedData}
               margin={{
                 top: 10,
                 right: 10,
@@ -275,7 +313,7 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
                 width={70} // Less space needed for whole numbers
               />
               <Tooltip 
-                formatter={(value) => [`$${Math.round(Number(value)).toLocaleString()}`, 'Value']}
+                formatter={(value) => value !== null ? [`$${Math.round(Number(value)).toLocaleString()}`, 'Value'] : ['No Data', 'Value']}
                 labelFormatter={(label) => formatTooltipTime(label)}
                 contentStyle={{ 
                   backgroundColor: '#1E293B', 
@@ -297,6 +335,7 @@ const PortfolioChart = ({ data, currentValue, change, onTimeRangeChange }: Portf
                 activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
                 isAnimationActive={true}
                 animationDuration={500}
+                connectNulls={false} // Important - don't connect across null values
               />
             </LineChart>
           </ResponsiveContainer>
