@@ -1,9 +1,7 @@
-
 #!/bin/bash
-
 # Set production environment
 export NODE_ENV=production
-export PORT=3000
+export PORT=4000
 export REPLIT_DISABLE_PACKAGE_LAYER=1
 
 # Log startup info

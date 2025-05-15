@@ -163,10 +163,73 @@ export class YahooFinanceAPI {
    * @param interval Data interval (e.g., '1d', '1wk', '1mo')
    * @returns Historical market data
    */
-  async getHistoricalData(symbol: string, period: string = '1mo', interval: string = '1d'): Promise<HistoricalDataResponse> {
+  /**
+   * Get historical data for a specific date range - optimized for backtesting
+   * @param symbol Stock symbol
+   * @param interval Data interval (e.g., '1d', '1h')
+   * @param startDate The start date for the data
+   * @param endDate The end date for the data (defaults to current date)
+   * @returns Historical market data
+   */
+  async getHistoricalDataForBacktest(
+    symbol: string,
+    interval: string = '1d',
+    startDate: Date,
+    endDate: Date = new Date()
+  ): Promise<HistoricalDataResponse> {
     try {
-      const startDate = this.getPeriodStartDate(period);
-      const endDate = new Date();
+      console.log(`Yahoo Finance API (Backtest): Fetching ${symbol} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      
+      const result = await yahooFinance.historical(symbol, {
+        period1: startDate,
+        period2: endDate,
+        interval: interval as any
+      });
+      
+      const bars = result.map((bar: HistoricalDataBar) => ({
+        t: bar.date.toISOString(),
+        o: bar.open,
+        h: bar.high,
+        l: bar.low,
+        c: bar.close,
+        v: bar.volume
+      }));
+      
+      return {
+        symbol,
+        bars,
+        isSimulated: false,
+        isYahooData: true,
+        dataSource: 'yahoo'
+      };
+    } catch (error) {
+      console.error(`Error fetching historical data for ${symbol}:`, error);
+      throw new Error(`Failed to fetch historical data: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Get historical data using period string
+   * @param symbol Stock symbol 
+   * @param period Period for historical data (e.g., '1mo', '1y')
+   * @param interval Data interval (e.g., '1d', '1h')
+   * @param startDateParam Optional start date override
+   * @param endDateParam Optional end date override
+   * @returns Historical market data
+   */
+  async getHistoricalData(
+    symbol: string, 
+    period: string = '1mo', 
+    interval: string = '1d',
+    startDateParam?: Date,
+    endDateParam?: Date
+  ): Promise<HistoricalDataResponse> {
+    try {
+      // If explicit dates are provided, use them; otherwise calculate based on period
+      const startDate = startDateParam || this.getPeriodStartDate(period);
+      const endDate = endDateParam || new Date();
+      
+      console.log(`Yahoo Finance API: Fetching ${symbol} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
       
       const result = await yahooFinance.historical(symbol, {
         period1: startDate,

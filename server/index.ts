@@ -99,9 +99,9 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use PORT environment variable with fallback to another port (3000)
-  // Changed from 5000 to avoid port conflict issues
-  const port = process.env.PORT || 3000;
+  // Use PORT environment variable with fallback to port 5000
+  // This needs to match the port specified in .replit configuration
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
   server.listen(port, "0.0.0.0", () => {
     log(`Server listening on port ${port} (Replit will map this externally)`);
   });

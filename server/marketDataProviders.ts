@@ -161,11 +161,14 @@ export class YahooDataProvider implements MarketDataProvider {
     }>;
     dataSource: string;
   }> {
-    // Convert to Yahoo's format
-    const { period, interval } = timeframeToYahooParams(timeframe, startDate, endDate);
+    // Convert to Yahoo's format with proper date handling
+    const { period, interval, start, end } = timeframeToYahooParams(timeframe, startDate, endDate);
     
     try {
-      const data = await this.yahoo.getHistoricalData(symbol, period, interval);
+      console.log(`Yahoo provider: Fetching data for ${symbol} from ${start.toISOString()} to ${end.toISOString()}`);
+      
+      // Call Yahoo Finance API with the correct start and end dates
+      const data = await this.yahoo.getHistoricalDataForBacktest(symbol, interval, start, end);
       
       if (!data || !data.bars || data.bars.length === 0) {
         throw new Error(`No data returned from Yahoo Finance for ${symbol}`);
@@ -314,8 +317,8 @@ function timeframeToAlpacaTimeframe(timeframe: string): string {
  * @param endDate End date string
  * @returns Yahoo Finance period and interval
  */
-function timeframeToYahooParams(timeframe: string, startDate: string, endDate: string): { period: string, interval: string } {
-  // Calculate the appropriate period and interval for Yahoo Finance
+function timeframeToYahooParams(timeframe: string, startDate: string, endDate: string): { period: string, interval: string, start: Date, end: Date } {
+  // Calculate the appropriate interval for Yahoo Finance
   const match = timeframe.match(/(\d+)([DHMS])/i);
   let interval = '1d'; // Default to daily
   
@@ -337,6 +340,15 @@ function timeframeToYahooParams(timeframe: string, startDate: string, endDate: s
     }
   }
   
-  // For Yahoo, we just use max (we'll filter by date later)
-  return { period: 'max', interval };
+  // Convert string dates to Date objects
+  const start = new Date(startDate);
+  const end = new Date(endDate || new Date());
+  
+  // For historical backtests, we need to respect the date range
+  return { 
+    period: 'custom', // Use custom period instead of 'max'
+    interval,
+    start,
+    end
+  };
 }
