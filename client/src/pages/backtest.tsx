@@ -1289,7 +1289,11 @@ def handle_data(context, data):
                                   </td>
                                   <td className="py-2 px-4">{trade.asset}</td>
                                   <td className="py-2 px-4 text-right">{formatCurrency(trade.price)}</td>
-                                  <td className="py-2 px-4 text-right">{trade.quantity}</td>
+                                  <td className="py-2 px-4 text-right">
+                                    {trade.quantity || (trade.value && trade.price && trade.price > 0 
+                                      ? Math.round(trade.value / trade.price) 
+                                      : 0)}
+                                  </td>
                                   <td className="py-2 px-4 text-right">{formatCurrency(trade.value)}</td>
                                   <td className="py-2 px-4 text-right">{formatCurrency(trade.fees)}</td>
                                 </tr>
