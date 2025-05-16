@@ -364,7 +364,7 @@ export async function runBacktest(
         benchmarkReturn = ((benchmarkEndValue - benchmarkStartValue) / benchmarkStartValue) * 100;
         benchmarkAnnualizedReturn = (Math.pow((benchmarkEndValue / benchmarkStartValue), (1 / durationInYears)) - 1) * 100;
         
-        logMarketData('Benchmark calculation complete', { 
+        console.log('Benchmark calculation complete', { 
           startValue: benchmarkStartValue, 
           endValue: benchmarkEndValue, 
           totalReturn: benchmarkReturn.toFixed(2) + '%', 

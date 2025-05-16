@@ -1861,24 +1861,41 @@ const getMonthlyReturns = (equityData: { timestamp: string; value: number }[]) =
     if (Math.abs(calculatedTotalPercentReturn - totalReturn) > 10) {
       console.log(`Monthly returns adjustment: Total return from equity ${totalReturn.toFixed(2)}% vs. calculated ${calculatedTotalPercentReturn.toFixed(2)}%`);
       
-      // If we have enough months, scale the returns to match
+      // If we have enough months, recalculate the returns to match the actual performance
       if (monthlyData.length > 0) {
-        const scaleFactor = (1 + totalReturn/100) ** (1/monthlyData.length) - 1;
+        // Calculate proper monthly multiplier from total performance
+        const totalMultiplier = 1 + (totalReturn / 100);
+        const monthlyMultiplier = Math.pow(totalMultiplier, 1/monthlyData.length);
+        const monthlyReturn = (monthlyMultiplier - 1) * 100;
         
-        // Apply a minimum scale to ensure the chart shows meaningful variations
-        const minScale = 0.005; // Minimum 0.5% monthly return for visibility
-        const effectiveScale = Math.max(scaleFactor, minScale);
+        console.log(`Adjusting monthly returns: Using ${monthlyReturn.toFixed(2)}% per month to match ${totalReturn.toFixed(2)}% total return`);
         
-        // Create more representative monthly returns based on the pattern
-        monthlyData.forEach(month => {
-          // Preserve the direction (positive/negative) but adjust the magnitude
-          const direction = Math.sign(month.return);
-          const magnitude = Math.abs(month.return);
-          
-          // Scale the magnitude, with larger values getting proportionally larger scaling
-          // This preserves the relative pattern while matching the total return
-          month.return = Number((direction * magnitude * effectiveScale * 100).toFixed(2));
-        });
+        // Distribution method: distribute the total return proportionally to preserve patterns
+        // Calculate sum of absolute returns to use as weights
+        const totalAbsoluteReturn = monthlyData.reduce((sum, month) => sum + Math.abs(month.return), 0);
+        
+        if (totalAbsoluteReturn > 0) {
+          // Calculate adjusted returns proportionally
+          monthlyData.forEach(month => {
+            // Calculate the weight of this month in the overall pattern
+            const weight = Math.abs(month.return) / totalAbsoluteReturn;
+            
+            // Calculate a target return for this month (share of the total)
+            const targetReturn = monthlyReturn * monthlyData.length * weight;
+            
+            // Preserve the sign (direction) of the original return
+            const direction = Math.sign(month.return) || 1; // Default to positive if zero
+            
+            // Apply the adjusted return
+            month.return = Number((direction * Math.abs(targetReturn)).toFixed(2));
+          });
+        } else {
+          // If all returns are zero, distribute evenly
+          const evenReturn = monthlyReturn;
+          monthlyData.forEach(month => {
+            month.return = Number(evenReturn.toFixed(2));
+          });
+        }
       }
     }
     
