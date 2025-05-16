@@ -139,9 +139,17 @@ const StrategiesPage = () => {
       
       const originalStrategy = await response.json();
       
-      // Create clone data
+      // Check if the strategy name already has a copy number
+      const nameRegex = /^(.*?)(?:\s+-\s+Copy\s+(\d+))?$/;
+      const matches = originalStrategy.name.match(nameRegex);
+      const baseName = matches ? matches[1] : originalStrategy.name;
+      const currentCopyNumber = matches && matches[2] ? parseInt(matches[2]) : 0;
+      
+      // Create clone data with improved naming
       const cloneData = {
-        name: `${originalStrategy.name} (Clone)`,
+        name: currentCopyNumber > 0 
+          ? `${baseName} - Copy ${currentCopyNumber + 1}` 
+          : `${baseName} - Copy 1`,
         description: originalStrategy.description,
         type: originalStrategy.type,
         source: originalStrategy.source,
