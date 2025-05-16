@@ -304,8 +304,10 @@ const BacktestPage = () => {
     return strategies[0] || null;
   }, [strategies, parsedStrategyId]);
   
-  // Log for debugging
+  // Enhanced debugging logs
   console.log("Selected strategy ID from URL:", parsedStrategyId);
+  console.log("All available strategies:", strategies);
+  console.log("Strategy from URL param:", strategies.find(s => s.id === parsedStrategyId));
   console.log("Selected strategy:", selectedStrategy);
   
   // If the strategy doesn't have a source property, create a default one
