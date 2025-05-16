@@ -1128,16 +1128,12 @@ def handle_data(context, data):
                                 dataKey="timestamp" 
                                 tickFormatter={(tick) => {
                                   const date = new Date(tick);
-                                  // Only display years for a multi-year chart
-                                  const year = date.getFullYear();
-                                  const month = date.getMonth();
-                                  // Only show year on January or if it's the first point
-                                  return month === 0 ? year.toString() : '';
+                                  return date.getFullYear().toString();
                                 }}
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                                 axisLine={{ stroke: '#334155' }}
                                 tickLine={{ stroke: '#334155' }}
-                                interval={0}
+                                interval="preserveStartEnd"
                               />
                               <YAxis 
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
