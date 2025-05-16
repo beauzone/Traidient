@@ -1483,22 +1483,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Format data for CSV - handle case where trades might not exist
         const tradesArray = backtest.results.trades || [];
-        const trades = tradesArray.map((trade: any) => ({
-          symbol: trade.symbol || 'Unknown',
-          entryDate: trade.entryTime ? new Date(trade.entryTime).toLocaleString() : 'N/A',
-          exitDate: trade.exitTime ? new Date(trade.exitTime).toLocaleString() : 'N/A',
-          entryPrice: trade.entryPrice ? trade.entryPrice.toFixed(2) : 'N/A',
-          exitPrice: trade.exitPrice ? trade.exitPrice.toFixed(2) : 'N/A',
-          quantity: trade.quantity || 0,
-          profit: trade.profit ? trade.profit.toFixed(2) : 'N/A',
-          profitPercent: trade.profitPercent ? (trade.profitPercent * 100).toFixed(2) + '%' : 'N/A',
-          status: trade.status || 'Unknown'
-        }));
+        
+        // Create a more robust trade mapping function that handles different trade data structures
+        const trades = tradesArray.map((trade: any) => {
+          // First try to access data using field names directly
+          let symbol = trade.symbol || trade.ticker || trade.asset || 'Unknown';
+          let entryTime = trade.entryTime || trade.entry_time || trade.entryDate || trade.openTime;
+          let exitTime = trade.exitTime || trade.exit_time || trade.exitDate || trade.closeTime;
+          let entryPrice = trade.entryPrice || trade.entry_price || trade.openPrice;
+          let exitPrice = trade.exitPrice || trade.exit_price || trade.closePrice;
+          let quantity = trade.quantity || trade.size || trade.position_size || trade.shares || 0;
+          let profit = trade.profit || trade.pnl || trade.pl || trade.profitLoss;
+          let profitPercent = trade.profitPercent || trade.profit_percent || trade.pnlPercent || trade.returnPercent;
+          let status = trade.status || trade.state || 'Unknown';
+          
+          // Format the data properly
+          return {
+            symbol: symbol,
+            entryDate: entryTime ? new Date(entryTime).toLocaleString() : '',
+            exitDate: exitTime ? new Date(exitTime).toLocaleString() : '',
+            entryPrice: entryPrice ? Number(entryPrice).toFixed(2) : '',
+            exitPrice: exitPrice ? Number(exitPrice).toFixed(2) : '',
+            quantity: quantity ? Number(quantity) : '',
+            profit: profit ? Number(profit).toFixed(2) : '',
+            profitPercent: profitPercent ? (Number(profitPercent) * 100).toFixed(2) + '%' : '',
+            status: status
+          };
+        });
         
         // Calculate total profit based on initial capital and return percentage
-        const totalProfit = backtest.results.summary?.totalReturn 
-          ? (backtest.results.summary.totalReturn * backtest.configuration.initialCapital / 100)
-          : 0;
+        const totalReturn = backtest.results.summary?.totalReturn || 0;
+        const totalProfit = totalReturn * backtest.configuration.initialCapital / 100;
         
         // Add summary at the end
         const summary = {
@@ -1508,10 +1523,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           entryPrice: '',
           exitPrice: '',
           quantity: '',
-          profit: totalProfit ? totalProfit.toFixed(2) : '0.00',
-          profitPercent: backtest.results.summary?.totalReturn 
-            ? backtest.results.summary.totalReturn.toFixed(2) + '%' 
-            : '0.00%',
+          profit: totalProfit.toFixed(2),
+          profitPercent: totalReturn.toFixed(2) + '%',
           status: ''
         };
         
@@ -1521,6 +1534,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fields = ['symbol', 'entryDate', 'exitDate', 'entryPrice', 'exitPrice', 'quantity', 'profit', 'profitPercent', 'status'];
         const parser = new Parser({ fields });
         csvData = parser.parse(trades);
+        
+        console.log(`Generated CSV export with ${trades.length} trades for backtest ${id}`);
       } catch (err) {
         console.error('Error formatting CSV data:', err);
         return res.status(500).json({ message: 'Error generating CSV export' });
@@ -1595,7 +1610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Export Backtest as PDF - this returns data for frontend rendering
+  // Export Backtest as PDF - server-side PDF generation
   app.get('/api/backtests/:id/export/pdf', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {
@@ -1625,44 +1640,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const strategy = await storage.getStrategy(backtest.strategyId);
       const strategyName = strategy?.name || 'Unknown Strategy';
+      const backtestName = backtest.name || `${strategyName} Backtest`;
+      const filename = `${strategyName}_backtest_${id}_${new Date().toISOString().slice(0, 10)}.pdf`;
       
-      // Format data for PDF export
-      const pdfData = {
-        backtest: {
-          id: backtest.id,
-          name: backtest.name || `${strategyName} Backtest`,
-          strategyName: strategyName,
-          strategyId: backtest.strategyId,
-          configuration: backtest.configuration,
-          results: backtest.results,
-          createdAt: backtest.createdAt
-        },
-        // Add additional formatted data for easier PDF rendering
-        summary: {
-          initialCapital: backtest.configuration.initialCapital.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD'
-          }),
-          finalValue: backtest.results.summary?.totalReturn 
-            ? (backtest.configuration.initialCapital * (1 + backtest.results.summary.totalReturn / 100)).toLocaleString('en-US', {
-                style: 'currency',
-                currency: 'USD'
-              })
-            : 'N/A',
-          totalReturn: backtest.results.summary?.totalReturn 
-            ? (backtest.results.summary.totalReturn > 0 ? '+' : '') + 
-              backtest.results.summary.totalReturn.toFixed(2) + '%'
-            : 'N/A',
-          timeframe: `${new Date(backtest.configuration.startDate).toLocaleDateString()} - ${new Date(backtest.configuration.endDate).toLocaleDateString()}`
-        }
+      // Import PDFKit for server-side PDF generation
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+      
+      // Set response headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // Pipe the PDF to the response
+      doc.pipe(res);
+      
+      // Format currency values
+      const formatCurrency = (value: number) => {
+        return value.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD'
+        });
       };
       
-      // Since PDF generation is complex, we'll return the data in a format suitable for frontend rendering
-      // The frontend will use a PDF library to generate the PDF
-      res.json(pdfData);
+      // Format percentages
+      const formatPercent = (value: number) => {
+        return (value > 0 ? '+' : '') + value.toFixed(2) + '%';
+      };
+      
+      // Calculate summary values
+      const initialCapital = backtest.configuration.initialCapital;
+      const totalReturn = backtest.results.summary?.totalReturn || 0;
+      const finalValue = initialCapital * (1 + totalReturn / 100);
+      const timeframe = `${new Date(backtest.configuration.startDate).toLocaleDateString()} - ${new Date(backtest.configuration.endDate).toLocaleDateString()}`;
+      
+      // Build the PDF document
+      // Header
+      doc.fontSize(25).text('Backtest Results Report', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(15).text(backtestName, { align: 'center' });
+      doc.moveDown(2);
+      
+      // Summary section
+      doc.fontSize(16).text('Summary', { underline: true });
+      doc.moveDown();
+      doc.fontSize(12);
+      doc.text(`Strategy: ${strategyName}`);
+      doc.text(`Time Period: ${timeframe}`);
+      doc.text(`Initial Capital: ${formatCurrency(initialCapital)}`);
+      doc.text(`Final Value: ${formatCurrency(finalValue)}`);
+      doc.text(`Total Return: ${formatPercent(totalReturn)}`);
+      doc.moveDown(2);
+      
+      // Configuration section
+      doc.fontSize(16).text('Configuration', { underline: true });
+      doc.moveDown();
+      doc.fontSize(12);
+      doc.text(`Assets: ${backtest.configuration.assets.join(', ')}`);
+      doc.text(`Data Provider: ${backtest.configuration.dataProvider}`);
+      
+      if (backtest.configuration.parameters) {
+        doc.moveDown();
+        doc.text('Parameters:');
+        if (backtest.configuration.parameters.takeProfitLevels) {
+          doc.text(`  Take Profit Levels: ${backtest.configuration.parameters.takeProfitLevels.join('%, ')}%`);
+        }
+        if (backtest.configuration.parameters.stopLossPercentage) {
+          doc.text(`  Stop Loss: ${backtest.configuration.parameters.stopLossPercentage}%`);
+        }
+      }
+      doc.moveDown(2);
+      
+      // Performance metrics
+      if (backtest.results.summary) {
+        doc.fontSize(16).text('Performance Metrics', { underline: true });
+        doc.moveDown();
+        doc.fontSize(12);
+        
+        const metrics = backtest.results.summary;
+        if (metrics.winRate) doc.text(`Win Rate: ${(metrics.winRate * 100).toFixed(2)}%`);
+        if (metrics.maxDrawdown) doc.text(`Max Drawdown: ${metrics.maxDrawdown.toFixed(2)}%`);
+        if (metrics.sharpeRatio) doc.text(`Sharpe Ratio: ${metrics.sharpeRatio.toFixed(2)}`);
+        if (metrics.profitFactor) doc.text(`Profit Factor: ${metrics.profitFactor.toFixed(2)}`);
+        if (metrics.averageProfit) doc.text(`Average Profit: ${formatCurrency(metrics.averageProfit)}`);
+        if (metrics.averageLoss) doc.text(`Average Loss: ${formatCurrency(metrics.averageLoss)}`);
+        doc.moveDown(2);
+      }
+      
+      // Trades list
+      if (backtest.results.trades && backtest.results.trades.length > 0) {
+        doc.fontSize(16).text('Trades', { underline: true });
+        doc.moveDown();
+        
+        // Create table header
+        const tableTop = doc.y;
+        const tableHeaders = ['Symbol', 'Entry Date', 'Exit Date', 'Entry Price', 'Exit Price', 'Quantity', 'Profit', '% Profit', 'Status'];
+        const columnWidths = [60, 80, 80, 60, 60, 50, 70, 70, 60];
+        let currentX = doc.x;
+        
+        // Draw table header row
+        doc.fontSize(10);
+        tableHeaders.forEach((header, i) => {
+          doc.text(header, currentX, tableTop, { width: columnWidths[i], align: 'left' });
+          currentX += columnWidths[i];
+        });
+        
+        doc.moveDown();
+        const tradeData = backtest.results.trades;
+        
+        // Draw trade rows (limit to 25 trades for PDF readability)
+        const maxTrades = Math.min(tradeData.length, 25);
+        for (let i = 0; i < maxTrades; i++) {
+          // Skip if we need a new page
+          if (doc.y > 700) {
+            doc.addPage();
+            doc.y = 50;
+          }
+          
+          const trade = tradeData[i];
+          currentX = doc.x;
+          
+          // Ensure each field is properly formatted
+          const symbol = trade.symbol || trade.ticker || trade.asset || 'Unknown';
+          const entryDate = trade.entryTime ? new Date(trade.entryTime).toLocaleDateString() : '';
+          const exitDate = trade.exitTime ? new Date(trade.exitTime).toLocaleDateString() : '';
+          const entryPrice = trade.entryPrice ? '$' + Number(trade.entryPrice).toFixed(2) : '';
+          const exitPrice = trade.exitPrice ? '$' + Number(trade.exitPrice).toFixed(2) : '';
+          const quantity = trade.quantity || trade.shares || '';
+          const profit = trade.profit ? '$' + Number(trade.profit).toFixed(2) : '';
+          const profitPercent = trade.profitPercent ? formatPercent(trade.profitPercent * 100) : '';
+          const status = trade.status || '';
+          
+          // Add each cell to the table
+          const cellData = [symbol, entryDate, exitDate, entryPrice, exitPrice, quantity, profit, profitPercent, status];
+          
+          cellData.forEach((data, i) => {
+            doc.text(String(data), currentX, doc.y, { width: columnWidths[i], align: 'left' });
+            currentX += columnWidths[i];
+          });
+          
+          doc.moveDown(0.5);
+        }
+        
+        // Indicate if there are more trades than shown
+        if (tradeData.length > maxTrades) {
+          doc.moveDown();
+          doc.text(`Note: ${tradeData.length - maxTrades} more trades not shown. Export to CSV for complete trade list.`);
+        }
+      }
+      
+      // Add footer with timestamp
+      doc.moveDown(2);
+      doc.fontSize(8).text(`Generated on ${new Date().toLocaleString()}`, { align: 'center' });
+      
+      // Finalize the PDF and end the response
+      doc.end();
+      
     } catch (error) {
-      console.error('Export backtest error:', error);
-      res.status(500).json({ message: 'Error exporting backtest' });
+      console.error('Export backtest PDF error:', error);
+      res.status(500).json({ message: 'Error generating PDF export' });
     }
   });
 
