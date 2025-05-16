@@ -123,18 +123,31 @@ const StrategiesPage = () => {
   
   // Clone strategy mutation
   const cloneStrategy = useMutation({
-    mutationFn: (id: number) => {
-      return fetchData(`/api/strategies/${id}`).then(strategy => {
-        // Remove ID, created date and modified date to create a new strategy
-        const { id: _, createdAt, updatedAt, ...cloneData } = strategy;
+    mutationFn: async (id: number) => {
+      try {
+        // First fetch the original strategy
+        const originalStrategy = await fetchData(`/api/strategies/${id}`);
         
-        // Change the name to indicate it's a clone
-        cloneData.name = `${cloneData.name} (Clone)`;
-        // Set status to draft by default
-        cloneData.status = 'draft';
+        // Extract only the required fields for creating a new strategy
+        // using the schema defined in shared/schema.ts (insertStrategySchema)
+        const cloneData = {
+          name: `${originalStrategy.name} (Clone)`,
+          description: originalStrategy.description,
+          type: originalStrategy.type,
+          source: originalStrategy.source,
+          configuration: originalStrategy.configuration,
+          // Set status to draft by default - this will be overridden in backend
+          status: 'draft'
+        };
         
-        return updateData('/api/strategies', cloneData);
-      });
+        // Use postData instead of updateData to create a new strategy
+        const response = await postData('/api/strategies', cloneData);
+        console.log("Clone strategy response:", response);
+        return response;
+      } catch (error) {
+        console.error("Error during clone operation:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
@@ -144,9 +157,10 @@ const StrategiesPage = () => {
       });
     },
     onError: (error) => {
+      console.error("Clone error details:", error);
       toast({
         title: "Failed to clone strategy",
-        description: error instanceof Error ? error.message : "An error occurred.",
+        description: error instanceof Error ? error.message : "An error occurred during cloning.",
         variant: "destructive",
       });
     }
