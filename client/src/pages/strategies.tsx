@@ -356,12 +356,21 @@ const StrategiesPage = () => {
                           <DropdownMenuItem onClick={() => cloneStrategy.mutate(strategy.id)}>
                             <Copy className="mr-2 h-4 w-4" /> Clone
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Link href={`/backtest?strategyId=${strategy.id}`}>
-                              <div className="flex items-center">
-                                <TestTube2 className="mr-2 h-4 w-4" /> Backtest
-                              </div>
-                            </Link>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Create a direct HTML anchor and simulate a click
+                              const link = document.createElement('a');
+                              link.href = `/backtest?strategyId=${strategy.id}`;
+                              link.setAttribute('data-strategy-id', strategy.id.toString());
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                          >
+                            <div className="flex items-center">
+                              <TestTube2 className="mr-2 h-4 w-4" /> Backtest
+                            </div>
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
