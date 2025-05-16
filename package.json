@@ -50,6 +50,7 @@
     "@uiw/react-codemirror": "^4.23.10",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
+    "caniuse-lite": "^1.0.30001718",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",

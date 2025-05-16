@@ -1012,21 +1012,18 @@ def handle_data(context, data):
                                       angle={-45}
                                       textAnchor="end"
                                       tickFormatter={(tick) => {
-                                        // Get the month data for this tick
-                                        const data = getMonthlyReturns(currentBacktest.results.equity);
-                                        const entry = data.find(item => item.month === tick);
-                                        if (!entry) return '';
+                                        // Date parts
+                                        const parts = tick.split('-');
+                                        if (parts.length !== 2) return tick;
+                                        
+                                        const year = parts[0];
+                                        const monthNum = parseInt(parts[1]);
                                         
                                         // Calculate appropriate label based on timeframe
                                         const start = new Date(currentBacktest.configuration.startDate);
                                         const end = new Date(currentBacktest.configuration.endDate);
                                         const totalMonths = (end.getFullYear() - start.getFullYear()) * 12 + 
                                                           (end.getMonth() - start.getMonth());
-                                        
-                                        // Date parts
-                                        const parts = tick.split('-');
-                                        const year = parts[0];
-                                        const monthNum = parseInt(parts[1]);
                                         
                                         // Different label formats based on timeframe
                                         if (totalMonths > 36) { // Over 3 years
@@ -1056,9 +1053,16 @@ def handle_data(context, data):
                                       formatter={(value) => [`${value}%`, 'Monthly Return']}
                                       labelFormatter={(label) => {
                                         // Find the matching entry to get the display name
-                                        const data = getMonthlyReturns(currentBacktest.results.equity);
-                                        const entry = data.find(item => item.month === label);
-                                        return entry ? entry.displayName : label;
+                                        if (typeof label !== 'string') return label;
+                                        
+                                        const parts = label.split('-');
+                                        if (parts.length !== 2) return label;
+                                        
+                                        const year = parts[0];
+                                        const monthNum = parseInt(parts[1]);
+                                        // Get full month name for tooltip
+                                        const fullMonth = new Date(2020, monthNum - 1, 1).toLocaleString('default', { month: 'long' });
+                                        return `${fullMonth} ${year}`;
                                       }}
                                       contentStyle={{ 
                                         backgroundColor: '#1E293B', 
@@ -1069,12 +1073,14 @@ def handle_data(context, data):
                                     <Bar 
                                       dataKey="return" 
                                       radius={4}
-                                      maxBarSize={20} // Narrower bars
+                                      maxBarSize={12} // Narrower bars for better spacing
                                       minPointSize={2} // Ensure small values are visible
                                       isAnimationActive={false}
+                                      name="Monthly Return"
+                                      fill="#10B981" // Default fill (will be overridden by Cell)
                                     >
                                       {/* Dynamic coloring based on return value */}
-                                      {getMonthlyReturns(currentBacktest.results.equity).map((entry, index) => (
+                                      {currentBacktest.results.equity && getMonthlyReturns(currentBacktest.results.equity).map((entry, index) => (
                                         <Cell 
                                           key={`cell-${index}`} 
                                           fill={entry.return >= 0 ? '#10B981' : '#FF3B5C'} // Using standardized red color
@@ -1723,51 +1729,72 @@ def handle_data(context, data):
 const getMonthlyReturns = (equityData: { timestamp: string; value: number }[]) => {
   if (!equityData || equityData.length < 2) return [];
   
-  // Sort data by timestamp to ensure chronological processing
-  const sortedData = [...equityData].sort((a, b) => 
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
-
-  // Organize data by month
-  const monthlyValues: Record<string, {firstValue: number, lastValue: number, displayName: string}> = {};
-  
-  sortedData.forEach(point => {
-    const date = new Date(point.timestamp);
-    const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-    const monthName = date.toLocaleString('default', { month: 'short' });
-    const displayName = `${monthName} ${date.getFullYear()}`;
+  try {
+    // Sort data by timestamp to ensure chronological processing
+    const sortedData = [...equityData].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
     
-    if (!monthlyValues[monthKey]) {
-      monthlyValues[monthKey] = {
-        firstValue: point.value,
-        lastValue: point.value,
-        displayName
-      };
-    } else {
-      // Update the last value for this month
-      monthlyValues[monthKey].lastValue = point.value;
-    }
-  });
-  
-  // Calculate monthly returns (not cumulative)
-  const monthlyData: { month: string; return: number; displayName: string }[] = [];
-  
-  // Process each month's data to calculate individual monthly returns
-  Object.entries(monthlyValues).forEach(([monthKey, data]) => {
-    // Calculate the percentage change for this specific month only
-    const monthReturn = ((data.lastValue - data.firstValue) / data.firstValue) * 100;
+    // Group data by month and calculate end-of-month values
+    const monthlyValues: Record<string, {startValue: number, endValue: number, displayName: string}> = {};
+    let previousMonthKey = "";
     
-    monthlyData.push({
-      month: monthKey,
-      displayName: data.displayName,
-      return: Number(monthReturn.toFixed(2))
+    sortedData.forEach((point, index) => {
+      const date = new Date(point.timestamp);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+      const monthName = date.toLocaleString('default', { month: 'short' });
+      const displayName = `${monthName} ${year}`;
+      
+      // If this is a new month
+      if (monthKey !== previousMonthKey) {
+        // If there was a previous month, finalize its end value
+        if (previousMonthKey && monthlyValues[previousMonthKey]) {
+          // The end value is the last value from the previous month
+          if (index > 0) {
+            monthlyValues[previousMonthKey].endValue = sortedData[index - 1].value;
+          }
+        }
+        
+        // Start tracking the new month
+        monthlyValues[monthKey] = {
+          startValue: point.value,
+          endValue: point.value, // Initial end value (will be updated)
+          displayName
+        };
+        
+        previousMonthKey = monthKey;
+      }
+      
+      // Always update the end value for the current month with each point
+      // (will be overwritten until we reach the last point for this month)
+      if (monthlyValues[monthKey]) {
+        monthlyValues[monthKey].endValue = point.value;
+      }
     });
-  });
-  
-  // Sort by date to ensure chronological display
-  monthlyData.sort((a, b) => a.month.localeCompare(b.month));
-  
-  return monthlyData;
+    
+    // Calculate individual (non-cumulative) monthly returns
+    const monthlyData: { month: string; displayName: string; return: number }[] = [];
+    
+    Object.entries(monthlyValues).forEach(([monthKey, data]) => {
+      const monthReturn = ((data.endValue - data.startValue) / data.startValue) * 100;
+      
+      monthlyData.push({
+        month: monthKey,
+        displayName: data.displayName,
+        return: Number(monthReturn.toFixed(2))
+      });
+    });
+    
+    // Sort by date for chronological display
+    monthlyData.sort((a, b) => a.month.localeCompare(b.month));
+    
+    return monthlyData;
+  } catch (error) {
+    console.error("Error calculating monthly returns:", error);
+    return [];
+  }
 };
 
 export default BacktestPage;
