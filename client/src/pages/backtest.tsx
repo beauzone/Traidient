@@ -539,11 +539,13 @@ def handle_data(context, data):
                             form.setValue("assets", strategy.configuration.assets);
                           }
                         }}
-                        defaultValue={field.value.toString()}
+                        value={field.value ? field.value.toString() : undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a strategy" />
+                            <SelectValue placeholder="Select a strategy">
+                              {selectedStrategy ? selectedStrategy.name : "Select a strategy"}
+                            </SelectValue>
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
