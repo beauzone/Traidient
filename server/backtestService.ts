@@ -375,17 +375,17 @@ export async function runBacktest(
           durationInYears
         });
       } else {
-        logMarketData('Could not fetch sufficient benchmark data, using historical average of 8% annually', {
+        logMarketData('Could not fetch sufficient benchmark data, cannot calculate benchmark performance', {
           receivedDataPoints: benchmarkData?.bars?.length || 0
         });
-        benchmarkReturn = 8 * durationInYears;
-        benchmarkAnnualizedReturn = 8;
+        benchmarkReturn = 0;
+        benchmarkAnnualizedReturn = 0;
       }
     } catch (error) {
       console.error('Error fetching benchmark data:', error);
-      // Fall back to historical average if we can't get benchmark data
-      benchmarkReturn = 8 * durationInYears;
-      benchmarkAnnualizedReturn = 8;
+      // Don't use fallback values - just report that we couldn't get benchmark data
+      benchmarkReturn = 0;
+      benchmarkAnnualizedReturn = 0;
     }
     
     // Calculate true alpha as the difference between strategy and benchmark returns
