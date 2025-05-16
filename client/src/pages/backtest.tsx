@@ -1115,46 +1115,24 @@ def handle_data(context, data):
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
                               data={currentBacktest.results.equity}
-                              margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+                              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                             >
                               <defs>
                                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9}/>
-                                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.15}/>
+                                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                                 </linearGradient>
                               </defs>
-                              <CartesianGrid 
-                                strokeDasharray="2 4" 
-                                stroke="#334155" 
-                                opacity={0.05} 
-                                vertical={false} 
-                                horizontalPoints={[0, 200000, 400000, 600000, 800000]} 
-                              />
+                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
                               <XAxis 
                                 dataKey="timestamp" 
                                 tickFormatter={(tick) => {
                                   const date = new Date(tick);
-                                  // Use different formatting based on the timeframe
-                                  const start = new Date(currentBacktest.configuration.startDate);
-                                  const end = new Date(currentBacktest.configuration.endDate);
-                                  const yearDiff = end.getFullYear() - start.getFullYear();
-                                  
-                                  if (yearDiff >= 3) {
-                                    // For multi-year backtests (3+ years), just show the year
-                                    // Only show year if it's January or it's the first/last tick
-                                    const isJanuary = date.getMonth() === 0;
-                                    return isJanuary ? date.getFullYear().toString() : '';
-                                  } else if (yearDiff >= 1) {
-                                    // For 1-2 year backtests, show abbreviated month and year for first month of each quarter
-                                    const month = date.getMonth();
-                                    if (month === 0 || month === 3 || month === 6 || month === 9) {
-                                      return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-                                    }
-                                    return '';
-                                  } else {
-                                    // For shorter timeframes, show abbreviated month and day
-                                    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                  }
+                                  // Only display years for a multi-year chart
+                                  const year = date.getFullYear();
+                                  const month = date.getMonth();
+                                  // Only show year on January or if it's the first point
+                                  return month === 0 ? year.toString() : '';
                                 }}
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                                 axisLine={{ stroke: '#334155' }}
@@ -1200,51 +1178,25 @@ def handle_data(context, data):
                             <ResponsiveContainer width="100%" height="100%">
                               <AreaChart
                                 data={currentBacktest.results.drawdowns}
-                                margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                               >
                                 <defs>
                                   <linearGradient id="colorDrawdown" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.9}/>
-                                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.15}/>
+                                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.2}/>
                                   </linearGradient>
                                 </defs>
-                                <CartesianGrid 
-                                  strokeDasharray="2 4" 
-                                  stroke="#334155" 
-                                  opacity={0.05} 
-                                  vertical={false} 
-                                  horizontalPoints={[0, 10, 20, 30, 40]} 
-                                />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
                                 <XAxis 
                                   dataKey="timestamp" 
                                   tickFormatter={(tick) => {
                                     const date = new Date(tick);
-                                    // Use different formatting based on the timeframe
-                                    const start = new Date(currentBacktest.configuration.startDate);
-                                    const end = new Date(currentBacktest.configuration.endDate);
-                                    const yearDiff = end.getFullYear() - start.getFullYear();
-                                    
-                                    if (yearDiff >= 3) {
-                                      // For multi-year backtests (3+ years), just show the year
-                                      // Only show year if it's January or it's the first/last tick
-                                      const isJanuary = date.getMonth() === 0;
-                                      return isJanuary ? date.getFullYear().toString() : '';
-                                    } else if (yearDiff >= 1) {
-                                      // For 1-2 year backtests, show abbreviated month and year for first month of each quarter
-                                      const month = date.getMonth();
-                                      if (month === 0 || month === 3 || month === 6 || month === 9) {
-                                        return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-                                      }
-                                      return '';
-                                    } else {
-                                      // For shorter timeframes, show abbreviated month and day
-                                      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                    }
+                                    return date.getFullYear().toString();
                                   }}
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
                                   axisLine={{ stroke: '#334155' }}
                                   tickLine={{ stroke: '#334155' }}
-                                  interval={0}
+                                  interval="preserveStartEnd"
                                 />
                                 <YAxis 
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
