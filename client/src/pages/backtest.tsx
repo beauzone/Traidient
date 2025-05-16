@@ -1115,15 +1115,21 @@ def handle_data(context, data):
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
                               data={currentBacktest.results.equity}
-                              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                              margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
                             >
                               <defs>
                                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9}/>
+                                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.15}/>
                                 </linearGradient>
                               </defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                              <CartesianGrid 
+                                strokeDasharray="2 4" 
+                                stroke="#334155" 
+                                opacity={0.05} 
+                                vertical={false} 
+                                horizontalPoints={[0, 200000, 400000, 600000, 800000]} 
+                              />
                               <XAxis 
                                 dataKey="timestamp" 
                                 tickFormatter={(tick) => {
@@ -1194,15 +1200,21 @@ def handle_data(context, data):
                             <ResponsiveContainer width="100%" height="100%">
                               <AreaChart
                                 data={currentBacktest.results.drawdowns}
-                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
                               >
                                 <defs>
                                   <linearGradient id="colorDrawdown" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.2}/>
+                                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.9}/>
+                                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.15}/>
                                   </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                                <CartesianGrid 
+                                  strokeDasharray="2 4" 
+                                  stroke="#334155" 
+                                  opacity={0.05} 
+                                  vertical={false} 
+                                  horizontalPoints={[0, 10, 20, 30, 40]} 
+                                />
                                 <XAxis 
                                   dataKey="timestamp" 
                                   tickFormatter={(tick) => {
