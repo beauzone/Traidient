@@ -1133,7 +1133,7 @@ def handle_data(context, data):
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                                 axisLine={{ stroke: '#334155' }}
                                 tickLine={{ stroke: '#334155' }}
-                                interval="preserveStartEnd"
+                                minTickGap={50}
                               />
                               <YAxis 
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
@@ -1192,7 +1192,7 @@ def handle_data(context, data):
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
                                   axisLine={{ stroke: '#334155' }}
                                   tickLine={{ stroke: '#334155' }}
-                                  interval="preserveStartEnd"
+                                  minTickGap={50}
                                 />
                                 <YAxis 
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
