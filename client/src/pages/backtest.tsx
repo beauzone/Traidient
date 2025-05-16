@@ -1001,7 +1001,40 @@ def handle_data(context, data):
                                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                   >
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                                    <XAxis dataKey="month" />
+                                    <XAxis 
+                                      dataKey="month" 
+                                      tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                      tickFormatter={(tick) => {
+                                        // Format month labels more compactly
+                                        // Extract month and year from format like "Jan 2020"
+                                        const parts = tick.split(' ');
+                                        if (parts.length !== 2) return tick;
+                                        
+                                        const month = parts[0];
+                                        const year = parts[1];
+                                        
+                                        // For multi-year backtests, show month + year in compact form
+                                        const start = new Date(currentBacktest.configuration.startDate);
+                                        const end = new Date(currentBacktest.configuration.endDate);
+                                        const yearDiff = end.getFullYear() - start.getFullYear();
+                                        
+                                        if (yearDiff >= 3) {
+                                          // For long timeframes, only show key months (Jan, Apr, Jul, Oct) with year
+                                          if (['Jan', 'Apr', 'Jul', 'Oct'].includes(month)) {
+                                            return `${month} ${year.slice(2)}`;
+                                          } else {
+                                            return '';
+                                          }
+                                        } else if (yearDiff >= 1) {
+                                          // For medium timeframes, show all months with year for Jan only
+                                          return month === 'Jan' ? `${month} ${year.slice(2)}` : month;
+                                        } else {
+                                          // For short timeframes, show all months
+                                          return month;
+                                        }
+                                      }}
+                                      interval={0}
+                                    />
                                     <YAxis tickFormatter={(value) => `${value}%`} />
                                     <Tooltip
                                       formatter={(value) => [`${value}%`, 'Return']}
@@ -1057,10 +1090,28 @@ def handle_data(context, data):
                               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
                               <XAxis 
                                 dataKey="timestamp" 
-                                tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                                tickFormatter={(tick) => {
+                                  const date = new Date(tick);
+                                  // Use different formatting based on the timeframe
+                                  const start = new Date(currentBacktest.configuration.startDate);
+                                  const end = new Date(currentBacktest.configuration.endDate);
+                                  const yearDiff = end.getFullYear() - start.getFullYear();
+                                  
+                                  if (yearDiff >= 3) {
+                                    // For multi-year backtests (3+ years), just show the year
+                                    return date.getFullYear().toString();
+                                  } else if (yearDiff >= 1) {
+                                    // For 1-2 year backtests, show abbreviated month and year
+                                    return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                  } else {
+                                    // For shorter timeframes, show abbreviated month and day
+                                    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                  }
+                                }}
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                                 axisLine={{ stroke: '#334155' }}
                                 tickLine={{ stroke: '#334155' }}
+                                interval="preserveStartEnd"
                               />
                               <YAxis 
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
@@ -1112,10 +1163,28 @@ def handle_data(context, data):
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
                                 <XAxis 
                                   dataKey="timestamp" 
-                                  tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                                  tickFormatter={(tick) => {
+                                    const date = new Date(tick);
+                                    // Use different formatting based on the timeframe
+                                    const start = new Date(currentBacktest.configuration.startDate);
+                                    const end = new Date(currentBacktest.configuration.endDate);
+                                    const yearDiff = end.getFullYear() - start.getFullYear();
+                                    
+                                    if (yearDiff >= 3) {
+                                      // For multi-year backtests (3+ years), just show the year
+                                      return date.getFullYear().toString();
+                                    } else if (yearDiff >= 1) {
+                                      // For 1-2 year backtests, show abbreviated month and year
+                                      return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                    } else {
+                                      // For shorter timeframes, show abbreviated month and day
+                                      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                    }
+                                  }}
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
                                   axisLine={{ stroke: '#334155' }}
                                   tickLine={{ stroke: '#334155' }}
+                                  interval="preserveStartEnd"
                                 />
                                 <YAxis 
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
