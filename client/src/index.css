@@ -18,6 +18,16 @@
     @apply text-[#FF3B5C];
   }
   
+  /* Brighter red for destructive text (like delete buttons) - better contrast on dark backgrounds */
+  .text-destructive {
+    @apply text-[#FF5370] !important;
+  }
+  
+  /* Focus style for destructive elements to maintain readability */
+  .focus\:text-destructive:focus {
+    @apply text-[#FF5370] !important;
+  }
+  
   /* Heat map text styling - ensuring pure white text */
   .heatmap-text {
     fill: #FFFFFF !important;
