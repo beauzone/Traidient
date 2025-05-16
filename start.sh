@@ -1,8 +1,8 @@
+
 #!/bin/bash
 # Set production environment
 export NODE_ENV=production
-export PORT=4000
-export REPLIT_DISABLE_PACKAGE_LAYER=1
+export PORT=5000
 
 # Log startup info
 echo "Starting server in production mode on port $PORT"
