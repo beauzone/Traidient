@@ -99,9 +99,8 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use PORT environment variable with fallback to port 5000
-  // Replit expects this port to be used in the default configuration
-  let port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+  // Fixed port for Replit deployment - external port 80 maps to internal port 5000
+  const port = 5000;
   
   // Make sure any existing server is properly closed
   server.on('error', (err: any) => {
