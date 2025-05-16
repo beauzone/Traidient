@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { fetchData, deleteData, updateData, postData } from "@/lib/api";
+import { fetchData, deleteData, updateData, postData, apiRequest } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import MainLayout from "@/components/layout/MainLayout";
 import {
@@ -124,26 +124,45 @@ const StrategiesPage = () => {
   // Clone strategy mutation
   const cloneStrategy = useMutation({
     mutationFn: async (id: number) => {
-      try {
-        // First fetch the original strategy
-        const originalStrategy = await fetchData(`/api/strategies/${id}`);
-        
-        // Extract only the required fields for creating a new strategy
-        // using the schema defined in shared/schema.ts (insertStrategySchema)
-        const cloneData = {
-          name: `${originalStrategy.name} (Clone)`,
-          description: originalStrategy.description,
-          type: originalStrategy.type,
-          source: originalStrategy.source,
-          configuration: originalStrategy.configuration,
-        };
-        
-        // Create a new strategy using the data from the original
-        return await apiRequest('/api/strategies', { method: 'POST' }, cloneData);
-      } catch (error) {
-        console.error("Error during clone operation:", error);
-        throw error;
+      // Get the original strategy
+      const response = await fetch(`/api/strategies/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch strategy: ${response.status}`);
       }
+      
+      const originalStrategy = await response.json();
+      
+      // Create clone data
+      const cloneData = {
+        name: `${originalStrategy.name} (Clone)`,
+        description: originalStrategy.description,
+        type: originalStrategy.type,
+        source: originalStrategy.source,
+        configuration: originalStrategy.configuration
+      };
+      
+      // Create the cloned strategy
+      const createResponse = await fetch('/api/strategies', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+        },
+        body: JSON.stringify(cloneData)
+      });
+      
+      if (!createResponse.ok) {
+        throw new Error(`Failed to create cloned strategy: ${createResponse.status}`);
+      }
+      
+      return createResponse.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
