@@ -120,6 +120,37 @@ const StrategiesPage = () => {
       });
     }
   });
+  
+  // Clone strategy mutation
+  const cloneStrategy = useMutation({
+    mutationFn: (id: number) => {
+      return fetchData(`/api/strategies/${id}`).then(strategy => {
+        // Remove ID, created date and modified date to create a new strategy
+        const { id: _, createdAt, updatedAt, ...cloneData } = strategy;
+        
+        // Change the name to indicate it's a clone
+        cloneData.name = `${cloneData.name} (Clone)`;
+        // Set status to draft by default
+        cloneData.status = 'draft';
+        
+        return updateData('/api/strategies', cloneData);
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
+      toast({
+        title: "Strategy cloned",
+        description: "The strategy has been cloned successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to clone strategy",
+        description: error instanceof Error ? error.message : "An error occurred.",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Filter strategies based on search query and status filter
   const filteredStrategies = strategies.filter((strategy) => {
@@ -285,7 +316,7 @@ const StrategiesPage = () => {
                           <DropdownMenuItem onClick={() => navigate(`/strategies/${strategy.id}`)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => cloneStrategy.mutate(strategy.id)}>
                             <Copy className="mr-2 h-4 w-4" /> Clone
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate(`/backtest?strategyId=${strategy.id}`)}>
