@@ -17,6 +17,14 @@ function Calendar({
   const [displayedYear, setDisplayedYear] = React.useState<number>(
     props.selected instanceof Date ? props.selected.getFullYear() : new Date().getFullYear()
   );
+  
+  // Create a ref to store the onSelect handler
+  const onSelectRef = React.useRef(props.onSelect);
+  
+  // Update the ref when props.onSelect changes
+  React.useEffect(() => {
+    onSelectRef.current = props.onSelect;
+  }, [props.onSelect]);
 
   // Update displayed year when selected date changes
   React.useEffect(() => {
@@ -25,14 +33,21 @@ function Calendar({
     }
   }, [props.selected]);
 
+  // Create a wrapper for the onSelect handler
+  const handleSelect = React.useCallback((date: Date | undefined) => {
+    if (onSelectRef.current) {
+      onSelectRef.current(date);
+    }
+  }, []);
+
   // Custom caption component with year navigation
-  const CustomCaption = (captionProps: any) => {
+  const CustomCaption = ({ displayMonth }: { displayMonth: Date }) => {
     const years = Array.from({ length: 30 }, (_, i) => displayedYear - 15 + i);
     
     const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newYear = parseInt(e.target.value);
-      if (captionProps.displayMonth) {
-        const newDate = new Date(captionProps.displayMonth);
+      if (displayMonth) {
+        const newDate = new Date(displayMonth);
         newDate.setFullYear(newYear);
         setDisplayedYear(newYear);
         
@@ -54,14 +69,15 @@ function Calendar({
             onClick={() => {
               if (displayedYear > 1900) {
                 setDisplayedYear(displayedYear - 1);
-                if (captionProps.displayMonth && props.onMonthChange) {
-                  const newDate = new Date(captionProps.displayMonth);
+                if (displayMonth && props.onMonthChange) {
+                  const newDate = new Date(displayMonth);
                   newDate.setFullYear(newDate.getFullYear() - 1);
                   props.onMonthChange(newDate);
                 }
               }
             }}
             title="Previous Year"
+            type="button"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -69,7 +85,7 @@ function Calendar({
         
         <div className="flex items-center gap-1">
           <span className="text-sm font-medium">
-            {captionProps.displayMonth?.toLocaleString('default', { month: 'long' })}
+            {displayMonth?.toLocaleString('default', { month: 'long' })}
           </span>
           <select
             className="text-sm bg-background border rounded px-1"
@@ -94,14 +110,15 @@ function Calendar({
             onClick={() => {
               if (displayedYear < 2100) {
                 setDisplayedYear(displayedYear + 1);
-                if (captionProps.displayMonth && props.onMonthChange) {
-                  const newDate = new Date(captionProps.displayMonth);
+                if (displayMonth && props.onMonthChange) {
+                  const newDate = new Date(displayMonth);
                   newDate.setFullYear(newDate.getFullYear() + 1);
                   props.onMonthChange(newDate);
                 }
               }
             }}
             title="Next Year"
+            type="button"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -149,11 +166,18 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-        Caption: CustomCaption,
+        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+        IconRight: () => <ChevronRight className="h-4 w-4" />,
+        Caption: CustomCaption as any,
       }}
-      {...props}
+      selected={props.selected}
+      onSelect={handleSelect}
+      mode={props.mode}
+      defaultMonth={props.defaultMonth}
+      onMonthChange={props.onMonthChange}
+      disabled={props.disabled}
+      initialFocus={props.initialFocus}
+      footer={props.footer}
     />
   )
 }
