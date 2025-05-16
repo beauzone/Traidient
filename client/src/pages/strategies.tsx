@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { fetchData, deleteData, updateData } from "@/lib/api";
+import { fetchData, deleteData, updateData, postData } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import MainLayout from "@/components/layout/MainLayout";
 import {
@@ -136,14 +136,10 @@ const StrategiesPage = () => {
           type: originalStrategy.type,
           source: originalStrategy.source,
           configuration: originalStrategy.configuration,
-          // Set status to draft by default - this will be overridden in backend
-          status: 'draft'
         };
         
-        // Use postData instead of updateData to create a new strategy
-        const response = await postData('/api/strategies', cloneData);
-        console.log("Clone strategy response:", response);
-        return response;
+        // Create a new strategy using the data from the original
+        return await apiRequest('/api/strategies', { method: 'POST' }, cloneData);
       } catch (error) {
         console.error("Error during clone operation:", error);
         throw error;
