@@ -1488,11 +1488,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const trades = tradesArray.map((trade: any) => {
           // First try to access data using field names directly
           let symbol = trade.symbol || trade.ticker || trade.asset || 'Unknown';
-          let entryTime = trade.entryTime || trade.entry_time || trade.entryDate || trade.openTime;
+          let entryTime = trade.entryTime || trade.entry_time || trade.entryDate || trade.openTime || trade.timestamp;
           let exitTime = trade.exitTime || trade.exit_time || trade.exitDate || trade.closeTime;
-          let entryPrice = trade.entryPrice || trade.entry_price || trade.openPrice;
+          let entryPrice = trade.entryPrice || trade.entry_price || trade.openPrice || trade.price;
           let exitPrice = trade.exitPrice || trade.exit_price || trade.closePrice;
-          let quantity = trade.quantity || trade.size || trade.position_size || trade.shares || 0;
+          
+          // Calculate actual quantity based on value and price if quantity is missing or zero
+          let quantity = trade.quantity || trade.size || trade.position_size || trade.shares;
+          if (!quantity && trade.value && entryPrice && entryPrice > 0) {
+            quantity = Math.round(trade.value / entryPrice);
+          }
+          
+          // Make sure we have a valid quantity
+          quantity = quantity || 0;
+          
           let profit = trade.profit || trade.pnl || trade.pl || trade.profitLoss;
           let profitPercent = trade.profitPercent || trade.profit_percent || trade.pnlPercent || trade.returnPercent;
           let status = trade.status || trade.state || 'Unknown';
@@ -1761,11 +1770,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Ensure each field is properly formatted
           const symbol = trade.symbol || trade.ticker || trade.asset || 'Unknown';
-          const entryDate = trade.entryTime ? new Date(trade.entryTime).toLocaleDateString() : '';
+          const entryDate = trade.entryTime ? new Date(trade.entryTime).toLocaleDateString() : 
+                            trade.timestamp ? new Date(trade.timestamp).toLocaleDateString() : '';
           const exitDate = trade.exitTime ? new Date(trade.exitTime).toLocaleDateString() : '';
-          const entryPrice = trade.entryPrice ? '$' + Number(trade.entryPrice).toFixed(2) : '';
+          const entryPrice = trade.entryPrice ? '$' + Number(trade.entryPrice).toFixed(2) : 
+                             trade.price ? '$' + Number(trade.price).toFixed(2) : '';
           const exitPrice = trade.exitPrice ? '$' + Number(trade.exitPrice).toFixed(2) : '';
-          const quantity = trade.quantity || trade.shares || '';
+          
+          // Calculate quantity from value and price if needed
+          let quantity = trade.quantity || trade.shares;
+          if (!quantity && trade.value && trade.price && trade.price > 0) {
+            quantity = Math.round(trade.value / trade.price);
+          }
+          
           const profit = trade.profit ? '$' + Number(trade.profit).toFixed(2) : '';
           const profitPercent = trade.profitPercent ? formatPercent(trade.profitPercent * 100) : '';
           const status = trade.status || '';
