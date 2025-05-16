@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import MainLayout from "@/components/layout/MainLayout";
@@ -324,6 +324,14 @@ def handle_data(context, data):
       dataProvider: 'alpaca', // Default to Alpaca
     },
   });
+  
+  // Update form values when strategy is loaded
+  useEffect(() => {
+    if (selectedStrategy) {
+      form.setValue("strategyId", selectedStrategy.id);
+      form.setValue("assets", selectedStrategy.configuration.assets || []);
+    }
+  }, [selectedStrategy, form]);
 
   // Run backtest mutation
   const runBacktest = useMutation({
