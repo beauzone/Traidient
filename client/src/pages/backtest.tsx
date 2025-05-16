@@ -284,23 +284,40 @@ const BacktestPage = () => {
     }
   }
 
-  // Find strategy by ID
-  const selectedStrategy = strategies.find(
-    s => s.id === (strategyIdParam ? parseInt(strategyIdParam) : null)
-  );
+  // Parse the strategy ID from URL parameter
+  const parsedStrategyId = strategyIdParam ? parseInt(strategyIdParam) : null;
   
-  // Debug log to see strategy structure
+  // State to track if the form has been initialized with the strategy from URL
+  const [isFormInitialized, setIsFormInitialized] = useState(false);
+  
+  // Create a reference to the currently selected strategy
+  const selectedStrategy = React.useMemo(() => {
+    if (!strategies.length) return null;
+    
+    // If we have a strategy ID from URL, use that first
+    if (parsedStrategyId) {
+      const strategyFromUrl = strategies.find(s => s.id === parsedStrategyId);
+      if (strategyFromUrl) return strategyFromUrl;
+    }
+    
+    // If no valid strategy from URL, return the first one or null
+    return strategies[0] || null;
+  }, [strategies, parsedStrategyId]);
+  
+  // Log for debugging
+  console.log("Selected strategy ID from URL:", parsedStrategyId);
   console.log("Selected strategy:", selectedStrategy);
   
   // If the strategy doesn't have a source property, create a default one
   // This is a temporary fix to ensure the optimization tab works
-  if (selectedStrategy && !selectedStrategy.source) {
-    selectedStrategy.source = {
-      type: "code",
-      content: `# This is a placeholder strategy code
+  React.useEffect(() => {
+    if (selectedStrategy && !selectedStrategy.source) {
+      selectedStrategy.source = {
+        type: "code",
+        content: `# This is a placeholder strategy code
 # The actual strategy logic would go here
 def initialize(context):
-    context.stocks = ${JSON.stringify(selectedStrategy.configuration.assets)}
+    context.stocks = ${JSON.stringify(selectedStrategy.configuration.assets || [])}
     
 def handle_data(context, data):
     # Simple buy and hold strategy
@@ -308,30 +325,40 @@ def handle_data(context, data):
         if stock not in context.portfolio.positions:
             order_target_percent(stock, 1.0 / len(context.stocks))
 `
-    };
-    console.log("Added default source to strategy:", selectedStrategy);
-  }
+      };
+      console.log("Added default source to strategy:", selectedStrategy);
+    }
+  }, [selectedStrategy]);
 
-  // Set up form with default values
+  // Set up form with default values - we'll update these in the useEffect
   const form = useForm<BacktestFormValues>({
     resolver: zodResolver(backtestSchema),
     defaultValues: {
-      strategyId: selectedStrategy?.id || 0,
+      strategyId: 0, // This will be set in the effect below
       startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 90 days ago
       endDate: new Date().toISOString().split('T')[0], // Today
       initialCapital: 100000,
-      assets: selectedStrategy?.configuration.assets || [],
-      dataProvider: 'alpaca', // Default to Alpaca
+      assets: [],
+      dataProvider: 'alpaca',
     },
   });
   
-  // Update form values when strategy is loaded
+  // Initialize form values when strategies load
   useEffect(() => {
-    if (selectedStrategy) {
+    // Only run this if strategies are loaded and form hasn't been initialized yet
+    if (strategies.length > 0 && !isFormInitialized && selectedStrategy) {
+      // Set the strategy ID
       form.setValue("strategyId", selectedStrategy.id);
-      form.setValue("assets", selectedStrategy.configuration.assets || []);
+      
+      // Set the assets from the selected strategy
+      if (selectedStrategy.configuration && selectedStrategy.configuration.assets) {
+        form.setValue("assets", selectedStrategy.configuration.assets);
+      }
+      
+      // Mark form as initialized so we don't keep resetting values
+      setIsFormInitialized(true);
     }
-  }, [selectedStrategy, form]);
+  }, [strategies, selectedStrategy, form, isFormInitialized]);
 
   // Run backtest mutation
   const runBacktest = useMutation({
@@ -551,9 +578,7 @@ def handle_data(context, data):
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a strategy">
-                              {selectedStrategy ? selectedStrategy.name : "Select a strategy"}
-                            </SelectValue>
+                            <SelectValue placeholder="Select a strategy" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
