@@ -1044,11 +1044,22 @@ def handle_data(context, data):
                                       interval={0}
                                     />
                                     <YAxis 
-                                      tickFormatter={(value) => `${value}%`} 
+                                      tickFormatter={(value) => {
+                                        // Format percentages properly, handling both positive and negative values
+                                        return `${parseFloat(value).toFixed(1)}%`;
+                                      }}
                                       axisLine={{ stroke: '#475569' }}
                                       tick={{ fontSize: 12, fill: '#94a3b8' }}
-                                      domain={[(dataMin) => Math.min(dataMin * 1.1, -2), (dataMax) => Math.max(dataMax * 1.1, 2)]} 
-                                      // Add some padding to the min/max and ensure we always show at least -2% to 2%
+                                      // Ensure Y-axis has reasonable bounds for monthly returns (-20% to +20% by default)
+                                      domain={[(dataMin: number) => {
+                                        // For negative values, ensure we have enough room but don't go too extreme
+                                        const min = Math.min(dataMin, 0);
+                                        return min < 0 ? Math.floor(min * 1.2) : -3;
+                                      }, (dataMax: number) => {
+                                        // For positive values, ensure we have enough room but don't go too extreme
+                                        const max = Math.max(dataMax, 0);
+                                        return max > 0 ? Math.ceil(max * 1.2) : 3;
+                                      }]}
                                     />
                                     <Tooltip
                                       formatter={(value) => [`${value}%`, 'Monthly Return']}
