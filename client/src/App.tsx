@@ -110,6 +110,11 @@ function AppRoutes() {
         </Suspense>
       </Route>
       
+      {/* Screen Editing */}
+      <Route path="/edit-screen/:id">
+        <ProtectedRoute component={lazy(() => import('./pages/edit-screen'))} />
+      </Route>
+      
       {/* Backtesting */}
       <Route path="/backtest">
         <ProtectedRoute component={Backtest} />

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import MainLayout from "@/components/layout/MainLayout";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import * as React from "react";
 import { ScreenerNav } from '@/components/ScreenerNav';
 import { 
@@ -1063,6 +1063,7 @@ const DeleteConfirmDialog = ({
 
 const Screeners = () => {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [screenToDelete, setScreenToDelete] = useState<{id: number, name: string} | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -1220,12 +1221,7 @@ const Screeners = () => {
   };
 
   const handleEditScreen = (id: number) => {
-    // For simplicity, let's just run the screen instead of implementing a full edit UI
-    toast({
-      title: "Running screen",
-      description: "For now, we'll just run the screen instead of editing it.",
-    });
-    handleRunScreen(id);
+    navigate(`/edit-screen/${id}`);
   };
 
   const handleRunScreen = (id: number) => {
