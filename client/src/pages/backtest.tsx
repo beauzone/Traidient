@@ -1295,8 +1295,36 @@ def handle_data(context, data):
                             variant="outline" 
                             onClick={() => {
                               if (currentBacktest?.id) {
-                                // Using window.open to trigger download in new tab
-                                window.open(`/api/backtests/${currentBacktest.id}/export/csv`, '_blank');
+                                // Create a link with authentication token
+                                const token = localStorage.getItem('token');
+                                fetch(`/api/backtests/${currentBacktest.id}/export/csv`, {
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`
+                                  }
+                                })
+                                .then(response => response.blob())
+                                .then(blob => {
+                                  // Create a temporary download link
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.style.display = 'none';
+                                  a.href = url;
+                                  a.download = `backtest_${currentBacktest.id}_data.csv`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  
+                                  // Clean up
+                                  window.URL.revokeObjectURL(url);
+                                  document.body.removeChild(a);
+                                })
+                                .catch(error => {
+                                  console.error('Error downloading CSV:', error);
+                                  toast({
+                                    title: "Export Error",
+                                    description: "Failed to download CSV file. Please try again.",
+                                    variant: "destructive"
+                                  });
+                                });
                               }
                             }}
                             disabled={!currentBacktest?.id || currentBacktest?.status !== 'completed'}
@@ -1307,7 +1335,36 @@ def handle_data(context, data):
                             variant="outline" 
                             onClick={() => {
                               if (currentBacktest?.id) {
-                                window.open(`/api/backtests/${currentBacktest.id}/export/json`, '_blank');
+                                // Create a link with authentication token
+                                const token = localStorage.getItem('token');
+                                fetch(`/api/backtests/${currentBacktest.id}/export/json`, {
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`
+                                  }
+                                })
+                                .then(response => response.blob())
+                                .then(blob => {
+                                  // Create a temporary download link
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.style.display = 'none';
+                                  a.href = url;
+                                  a.download = `backtest_${currentBacktest.id}_data.json`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  
+                                  // Clean up
+                                  window.URL.revokeObjectURL(url);
+                                  document.body.removeChild(a);
+                                })
+                                .catch(error => {
+                                  console.error('Error downloading JSON:', error);
+                                  toast({
+                                    title: "Export Error",
+                                    description: "Failed to download JSON file. Please try again.",
+                                    variant: "destructive"
+                                  });
+                                });
                               }
                             }}
                             disabled={!currentBacktest?.id || currentBacktest?.status !== 'completed'}
@@ -1318,10 +1375,46 @@ def handle_data(context, data):
                             variant="outline" 
                             onClick={() => {
                               if (currentBacktest?.id) {
-                                // For PDF, we'll need to handle this client-side
-                                // We'll fetch the data and then use a client-side PDF library
-                                // For now, just fetch the formatted data
-                                window.open(`/api/backtests/${currentBacktest.id}/export/pdf`, '_blank');
+                                // Create a link with authentication token
+                                const token = localStorage.getItem('token');
+                                fetch(`/api/backtests/${currentBacktest.id}/export/pdf`, {
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`
+                                  }
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                  // For PDF, we're getting structured data and generating it client-side
+                                  // This is a simpler approach since we don't have server-side PDF generation
+                                  console.log('PDF data received:', data);
+                                  toast({
+                                    title: "PDF Export",
+                                    description: "PDF data received. Downloading PDF export...",
+                                  });
+                                  
+                                  // In a real implementation, we would use a library like jsPDF to generate a PDF
+                                  // here, but for now we'll just download the JSON data
+                                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.style.display = 'none';
+                                  a.href = url;
+                                  a.download = `backtest_${currentBacktest.id}_report.json`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  
+                                  // Clean up
+                                  window.URL.revokeObjectURL(url);
+                                  document.body.removeChild(a);
+                                })
+                                .catch(error => {
+                                  console.error('Error downloading PDF data:', error);
+                                  toast({
+                                    title: "Export Error",
+                                    description: "Failed to download PDF data. Please try again.",
+                                    variant: "destructive"
+                                  });
+                                });
                               }
                             }}
                             disabled={!currentBacktest?.id || currentBacktest?.status !== 'completed'}
