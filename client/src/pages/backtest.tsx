@@ -1047,7 +1047,8 @@ def handle_data(context, data):
                                       tickFormatter={(value) => `${value}%`} 
                                       axisLine={{ stroke: '#475569' }}
                                       tick={{ fontSize: 12, fill: '#94a3b8' }}
-                                      domain={['auto', 'auto']} // Let chart auto-scale based on actual data
+                                      domain={[(dataMin) => Math.min(dataMin * 1.1, -2), (dataMax) => Math.max(dataMax * 1.1, 2)]} 
+                                      // Add some padding to the min/max and ensure we always show at least -2% to 2%
                                     />
                                     <Tooltip
                                       formatter={(value) => [`${value}%`, 'Monthly Return']}
@@ -1730,16 +1731,33 @@ const getMonthlyReturns = (equityData: { timestamp: string; value: number }[]) =
   if (!equityData || equityData.length < 2) return [];
   
   try {
+    // First convert timestamps to start of day to avoid time zone issues
+    const normalizedData = equityData.map(point => {
+      const date = new Date(point.timestamp);
+      return {
+        timestamp: new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString(),
+        value: point.value
+      };
+    });
+    
     // Sort data by timestamp to ensure chronological processing
-    const sortedData = [...equityData].sort((a, b) => 
+    const sortedData = [...normalizedData].sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
     
-    // Group data by month and calculate end-of-month values
-    const monthlyValues: Record<string, {startValue: number, endValue: number, displayName: string}> = {};
-    let previousMonthKey = "";
+    // Group points by month 
+    interface MonthData {
+      startValue: number;
+      endValue: number;
+      startDate: Date;
+      endDate: Date;
+      displayName: string;
+    }
     
-    sortedData.forEach((point, index) => {
+    const monthlyValues: Record<string, MonthData> = {};
+    
+    // First, identify the first and last data point for each month
+    sortedData.forEach(point => {
       const date = new Date(point.timestamp);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
@@ -1747,44 +1765,45 @@ const getMonthlyReturns = (equityData: { timestamp: string; value: number }[]) =
       const monthName = date.toLocaleString('default', { month: 'short' });
       const displayName = `${monthName} ${year}`;
       
-      // If this is a new month
-      if (monthKey !== previousMonthKey) {
-        // If there was a previous month, finalize its end value
-        if (previousMonthKey && monthlyValues[previousMonthKey]) {
-          // The end value is the last value from the previous month
-          if (index > 0) {
-            monthlyValues[previousMonthKey].endValue = sortedData[index - 1].value;
-          }
-        }
-        
-        // Start tracking the new month
+      if (!monthlyValues[monthKey]) {
+        // First data point for this month
         monthlyValues[monthKey] = {
           startValue: point.value,
-          endValue: point.value, // Initial end value (will be updated)
+          endValue: point.value,
+          startDate: new Date(date),
+          endDate: new Date(date),
           displayName
         };
+      } else {
+        // Update if this is a later date in the same month
+        if (date > monthlyValues[monthKey].endDate) {
+          monthlyValues[monthKey].endValue = point.value;
+          monthlyValues[monthKey].endDate = new Date(date);
+        }
         
-        previousMonthKey = monthKey;
-      }
-      
-      // Always update the end value for the current month with each point
-      // (will be overwritten until we reach the last point for this month)
-      if (monthlyValues[monthKey]) {
-        monthlyValues[monthKey].endValue = point.value;
+        // Update if this is an earlier date in the same month
+        if (date < monthlyValues[monthKey].startDate) {
+          monthlyValues[monthKey].startValue = point.value;
+          monthlyValues[monthKey].startDate = new Date(date);
+        }
       }
     });
     
-    // Calculate individual (non-cumulative) monthly returns
+    // Calculate the monthly return percentages (not cumulative, just for that month)
     const monthlyData: { month: string; displayName: string; return: number }[] = [];
     
     Object.entries(monthlyValues).forEach(([monthKey, data]) => {
-      const monthReturn = ((data.endValue - data.startValue) / data.startValue) * 100;
-      
-      monthlyData.push({
-        month: monthKey,
-        displayName: data.displayName,
-        return: Number(monthReturn.toFixed(2))
-      });
+      // Calculate the percentage change for this specific month only
+      // Make sure we have valid data for the month (both start and end points)
+      if (data.startValue > 0) {
+        const monthlyPercentChange = ((data.endValue - data.startValue) / data.startValue) * 100;
+        
+        monthlyData.push({
+          month: monthKey,
+          displayName: data.displayName,
+          return: Number(monthlyPercentChange.toFixed(2)) // Round to 2 decimal places
+        });
+      }
     });
     
     // Sort by date for chronological display
