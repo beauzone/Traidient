@@ -1135,10 +1135,16 @@ def handle_data(context, data):
                                   
                                   if (yearDiff >= 3) {
                                     // For multi-year backtests (3+ years), just show the year
-                                    return date.getFullYear().toString();
+                                    // Only show year if it's January or it's the first/last tick
+                                    const isJanuary = date.getMonth() === 0;
+                                    return isJanuary ? date.getFullYear().toString() : '';
                                   } else if (yearDiff >= 1) {
-                                    // For 1-2 year backtests, show abbreviated month and year
-                                    return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                    // For 1-2 year backtests, show abbreviated month and year for first month of each quarter
+                                    const month = date.getMonth();
+                                    if (month === 0 || month === 3 || month === 6 || month === 9) {
+                                      return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                    }
+                                    return '';
                                   } else {
                                     // For shorter timeframes, show abbreviated month and day
                                     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -1147,7 +1153,7 @@ def handle_data(context, data):
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                                 axisLine={{ stroke: '#334155' }}
                                 tickLine={{ stroke: '#334155' }}
-                                interval="preserveStartEnd"
+                                interval={0}
                               />
                               <YAxis 
                                 tick={{ fontSize: 12, fill: '#94a3b8' }}
@@ -1208,10 +1214,16 @@ def handle_data(context, data):
                                     
                                     if (yearDiff >= 3) {
                                       // For multi-year backtests (3+ years), just show the year
-                                      return date.getFullYear().toString();
+                                      // Only show year if it's January or it's the first/last tick
+                                      const isJanuary = date.getMonth() === 0;
+                                      return isJanuary ? date.getFullYear().toString() : '';
                                     } else if (yearDiff >= 1) {
-                                      // For 1-2 year backtests, show abbreviated month and year
-                                      return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                      // For 1-2 year backtests, show abbreviated month and year for first month of each quarter
+                                      const month = date.getMonth();
+                                      if (month === 0 || month === 3 || month === 6 || month === 9) {
+                                        return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                                      }
+                                      return '';
                                     } else {
                                       // For shorter timeframes, show abbreviated month and day
                                       return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -1220,7 +1232,7 @@ def handle_data(context, data):
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
                                   axisLine={{ stroke: '#334155' }}
                                   tickLine={{ stroke: '#334155' }}
-                                  interval="preserveStartEnd"
+                                  interval={0}
                                 />
                                 <YAxis 
                                   tick={{ fontSize: 12, fill: '#94a3b8' }}
