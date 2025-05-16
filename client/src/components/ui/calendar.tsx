@@ -13,6 +13,103 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Enable year selection by default
+  const [displayedYear, setDisplayedYear] = React.useState<number>(
+    props.selected instanceof Date ? props.selected.getFullYear() : new Date().getFullYear()
+  );
+
+  // Update displayed year when selected date changes
+  React.useEffect(() => {
+    if (props.selected instanceof Date) {
+      setDisplayedYear(props.selected.getFullYear());
+    }
+  }, [props.selected]);
+
+  // Custom caption component with year navigation
+  const CustomCaption = (captionProps: any) => {
+    const years = Array.from({ length: 30 }, (_, i) => displayedYear - 15 + i);
+    
+    const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newYear = parseInt(e.target.value);
+      if (captionProps.displayMonth) {
+        const newDate = new Date(captionProps.displayMonth);
+        newDate.setFullYear(newYear);
+        setDisplayedYear(newYear);
+        
+        // Update the displayed month in the calendar
+        if (props.onMonthChange) {
+          props.onMonthChange(newDate);
+        }
+      }
+    };
+    
+    return (
+      <div className="flex justify-between items-center pt-1 relative px-8">
+        <div className="absolute left-1">
+          <button
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+            )}
+            onClick={() => {
+              if (displayedYear > 1900) {
+                setDisplayedYear(displayedYear - 1);
+                if (captionProps.displayMonth && props.onMonthChange) {
+                  const newDate = new Date(captionProps.displayMonth);
+                  newDate.setFullYear(newDate.getFullYear() - 1);
+                  props.onMonthChange(newDate);
+                }
+              }
+            }}
+            title="Previous Year"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-medium">
+            {captionProps.displayMonth?.toLocaleString('default', { month: 'long' })}
+          </span>
+          <select
+            className="text-sm bg-background border rounded px-1"
+            value={displayedYear}
+            onChange={handleYearChange}
+            aria-label="Year"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="absolute right-1">
+          <button 
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+            )}
+            onClick={() => {
+              if (displayedYear < 2100) {
+                setDisplayedYear(displayedYear + 1);
+                if (captionProps.displayMonth && props.onMonthChange) {
+                  const newDate = new Date(captionProps.displayMonth);
+                  newDate.setFullYear(newDate.getFullYear() + 1);
+                  props.onMonthChange(newDate);
+                }
+              }
+            }}
+            title="Next Year"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -21,7 +118,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "hidden", // Hide default caption label
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -54,6 +151,7 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+        Caption: CustomCaption,
       }}
       {...props}
     />
