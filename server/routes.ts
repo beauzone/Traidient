@@ -1486,6 +1486,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create a more robust trade mapping function that handles different trade data structures
         const trades = tradesArray.map((trade: any) => {
+          console.log("Processing trade for CSV export:", JSON.stringify(trade));
+          
           // First try to access data using field names directly
           let symbol = trade.symbol || trade.ticker || trade.asset || 'Unknown';
           let entryTime = trade.entryTime || trade.entry_time || trade.entryDate || trade.openTime || trade.timestamp;
@@ -1502,20 +1504,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Make sure we have a valid quantity
           quantity = quantity || 0;
           
+          // Calculate profit if missing but we have entry and exit prices
           let profit = trade.profit || trade.pnl || trade.pl || trade.profitLoss;
+          if (!profit && exitPrice && entryPrice && quantity) {
+            profit = (Number(exitPrice) - Number(entryPrice)) * Number(quantity);
+          }
+          
+          // Calculate profit percent if missing but we have profit and entry price
           let profitPercent = trade.profitPercent || trade.profit_percent || trade.pnlPercent || trade.returnPercent;
-          let status = trade.status || trade.state || 'Unknown';
+          if (!profitPercent && profit && entryPrice && quantity) {
+            const investment = Number(entryPrice) * Number(quantity);
+            if (investment > 0) {
+              profitPercent = Number(profit) / investment;
+            }
+          }
+          
+          // Determine trade status - if we have exit time/price it's closed, otherwise open
+          let status = trade.status || trade.state || (exitTime ? 'Closed' : 'Open');
+          if (status === 'Unknown' && exitPrice) {
+            status = 'Closed';
+          }
           
           // Format the data properly
           return {
             symbol: symbol,
-            entryDate: entryTime ? new Date(entryTime).toLocaleString() : '',
-            exitDate: exitTime ? new Date(exitTime).toLocaleString() : '',
-            entryPrice: entryPrice ? Number(entryPrice).toFixed(2) : '',
-            exitPrice: exitPrice ? Number(exitPrice).toFixed(2) : '',
-            quantity: quantity ? Number(quantity) : '',
-            profit: profit ? Number(profit).toFixed(2) : '',
-            profitPercent: profitPercent ? (Number(profitPercent) * 100).toFixed(2) + '%' : '',
+            entryDate: entryTime ? new Date(entryTime).toLocaleString() : 'N/A',
+            exitDate: exitTime ? new Date(exitTime).toLocaleString() : (status === 'Open' ? 'Still Open' : 'N/A'),
+            entryPrice: entryPrice ? Number(entryPrice).toFixed(2) : 'N/A',
+            exitPrice: exitPrice ? Number(exitPrice).toFixed(2) : (status === 'Open' ? 'Still Open' : 'N/A'),
+            quantity: quantity ? Number(quantity) : 0,
+            profit: profit !== undefined ? Number(profit).toFixed(2) : (status === 'Open' ? 'Unrealized' : 'N/A'),
+            profitPercent: profitPercent !== undefined ? (Number(profitPercent) * 100).toFixed(2) + '%' : (status === 'Open' ? 'Unrealized' : 'N/A'),
             status: status
           };
         });
@@ -1768,27 +1787,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const trade = tradeData[i];
           currentX = doc.x;
           
-          // Ensure each field is properly formatted
+          // Ensure each field is properly formatted using the same robust extraction logic as CSV export
           const symbol = trade.symbol || trade.ticker || trade.asset || 'Unknown';
-          const entryDate = trade.entryTime ? new Date(trade.entryTime).toLocaleDateString() : 
-                            trade.timestamp ? new Date(trade.timestamp).toLocaleDateString() : '';
-          const exitDate = trade.exitTime ? new Date(trade.exitTime).toLocaleDateString() : '';
-          const entryPrice = trade.entryPrice ? '$' + Number(trade.entryPrice).toFixed(2) : 
-                             trade.price ? '$' + Number(trade.price).toFixed(2) : '';
-          const exitPrice = trade.exitPrice ? '$' + Number(trade.exitPrice).toFixed(2) : '';
           
-          // Calculate quantity from value and price if needed
-          let quantity = trade.quantity || trade.shares;
-          if (!quantity && trade.value && trade.price && trade.price > 0) {
-            quantity = Math.round(trade.value / trade.price);
+          // More inclusive extraction of entry/exit times
+          let entryTime = trade.entryTime || trade.entry_time || trade.entryDate || trade.openTime || trade.timestamp;
+          let exitTime = trade.exitTime || trade.exit_time || trade.exitDate || trade.closeTime;
+          
+          const entryDate = entryTime ? new Date(entryTime).toLocaleDateString() : 'N/A';
+          
+          // Determine status based on exit time/price
+          let status = trade.status || trade.state || (exitTime ? 'Closed' : 'Open');
+          if (status === 'Unknown' && exitTime) {
+            status = 'Closed';
           }
           
-          const profit = trade.profit ? '$' + Number(trade.profit).toFixed(2) : '';
-          const profitPercent = trade.profitPercent ? formatPercent(trade.profitPercent * 100) : '';
-          const status = trade.status || '';
+          // Better formatting for exit date based on trade status
+          const exitDate = exitTime ? new Date(exitTime).toLocaleDateString() : 
+                          (status === 'Open' ? 'Still Open' : 'N/A');
+          
+          // More thorough price lookups
+          let entryPrice = trade.entryPrice || trade.entry_price || trade.openPrice || trade.price;
+          let exitPrice = trade.exitPrice || trade.exit_price || trade.closePrice;
+          
+          const entryPriceFormatted = entryPrice ? '$' + Number(entryPrice).toFixed(2) : 'N/A';
+          const exitPriceFormatted = exitPrice ? '$' + Number(exitPrice).toFixed(2) : 
+                                   (status === 'Open' ? 'Still Open' : 'N/A');
+          
+          // Calculate quantity from value and price if needed
+          let quantity = trade.quantity || trade.size || trade.position_size || trade.shares;
+          if (!quantity && trade.value && entryPrice && entryPrice > 0) {
+            quantity = Math.round(trade.value / entryPrice);
+          }
+          quantity = quantity || 0;
+          
+          // Calculate profit if missing but we have entry and exit prices
+          let profit = trade.profit || trade.pnl || trade.pl || trade.profitLoss;
+          if (!profit && exitPrice && entryPrice && quantity) {
+            profit = (Number(exitPrice) - Number(entryPrice)) * Number(quantity);
+          }
+          
+          // Calculate profit percent if missing but we have profit and entry price
+          let profitPercent = trade.profitPercent || trade.profit_percent || trade.pnlPercent || trade.returnPercent;
+          if (!profitPercent && profit && entryPrice && quantity) {
+            const investment = Number(entryPrice) * Number(quantity);
+            if (investment > 0) {
+              profitPercent = Number(profit) / investment;
+            }
+          }
+          
+          const profitFormatted = profit !== undefined ? '$' + Number(profit).toFixed(2) : 
+                                 (status === 'Open' ? 'Unrealized' : 'N/A');
+          const profitPercentFormatted = profitPercent !== undefined ? formatPercent(profitPercent * 100) : 
+                                        (status === 'Open' ? 'Unrealized' : 'N/A');
           
           // Add each cell to the table
-          const cellData = [symbol, entryDate, exitDate, entryPrice, exitPrice, quantity, profit, profitPercent, status];
+          const cellData = [symbol, entryDate, exitDate, entryPriceFormatted, exitPriceFormatted, quantity.toString(), profitFormatted, profitPercentFormatted, status];
           
           cellData.forEach((data, i) => {
             doc.text(String(data), currentX, doc.y, { width: columnWidths[i], align: 'left' });
