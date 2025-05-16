@@ -999,44 +999,49 @@ def handle_data(context, data):
                                 <ResponsiveContainer width="100%" height="100%">
                                   <BarChart
                                     data={getMonthlyReturns(currentBacktest.results.equity)}
-                                    margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
-                                    barGap={2}
+                                    margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
+                                    barGap={1}
                                   >
-                                    {/* Reduced grid lines for cleaner look */}
+                                    {/* Minimal grid lines for cleaner look */}
                                     <CartesianGrid vertical={false} stroke="#334155" opacity={0.2} />
                                     <XAxis 
                                       dataKey="month" 
                                       axisLine={{ stroke: '#475569' }}
                                       tick={{ fontSize: 12, fill: '#94a3b8' }}
-                                      height={40}
+                                      height={50}
+                                      angle={-45}
+                                      textAnchor="end"
                                       tickFormatter={(tick) => {
-                                        // Format month labels more compactly
-                                        const parts = tick.split('-');
-                                        if (parts.length !== 2) return tick;
+                                        // Get the month data for this tick
+                                        const data = getMonthlyReturns(currentBacktest.results.equity);
+                                        const entry = data.find(item => item.month === tick);
+                                        if (!entry) return '';
                                         
-                                        const year = parts[0];
-                                        const month = new Date(2020, parseInt(parts[1]) - 1, 1).toLocaleString('default', { month: 'short' });
-                                        
-                                        // For multi-year backtests, show month + year in compact form
+                                        // Calculate appropriate label based on timeframe
                                         const start = new Date(currentBacktest.configuration.startDate);
                                         const end = new Date(currentBacktest.configuration.endDate);
-                                        const yearDiff = end.getFullYear() - start.getFullYear();
+                                        const totalMonths = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                          (end.getMonth() - start.getMonth());
                                         
-                                        if (yearDiff >= 3) {
-                                          // For long timeframes (3+ years), only show first month of each quarter with year
-                                          const monthNum = parseInt(parts[1]);
-                                          if (monthNum % 3 === 1) {
-                                            return `${month} ${year.slice(2)}`;
-                                          } else {
-                                            return '';
+                                        // Date parts
+                                        const parts = tick.split('-');
+                                        const year = parts[0];
+                                        const monthNum = parseInt(parts[1]);
+                                        
+                                        // Different label formats based on timeframe
+                                        if (totalMonths > 36) { // Over 3 years
+                                          // Only show Jan of each year
+                                          return monthNum === 1 ? `Jan ${year.slice(2)}` : '';
+                                        } else if (totalMonths > 12) { // 1-3 years
+                                          // Show first month of each quarter with year
+                                          if (monthNum === 1 || monthNum === 4 || monthNum === 7 || monthNum === 10) {
+                                            const shortMonth = new Date(2020, monthNum - 1, 1).toLocaleString('default', { month: 'short' });
+                                            return `${shortMonth} ${year.slice(2)}`;
                                           }
-                                        } else if (yearDiff >= 1) {
-                                          // For medium timeframes (1-2 years), show all months with year for January only
-                                          const monthNum = parseInt(parts[1]);
-                                          return monthNum === 1 ? `${month} ${year.slice(2)}` : month;
-                                        } else {
-                                          // For shorter timeframes (<1 year), show all months
-                                          return month;
+                                          return '';
+                                        } else { // Under 1 year
+                                          const shortMonth = new Date(2020, monthNum - 1, 1).toLocaleString('default', { month: 'short' });
+                                          return shortMonth;
                                         }
                                       }}
                                       interval={0}
@@ -1045,15 +1050,15 @@ def handle_data(context, data):
                                       tickFormatter={(value) => `${value}%`} 
                                       axisLine={{ stroke: '#475569' }}
                                       tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                      domain={['auto', 'auto']} // Let chart auto-scale based on actual data
                                     />
                                     <Tooltip
-                                      formatter={(value) => [`${value}%`, 'Return']}
+                                      formatter={(value) => [`${value}%`, 'Monthly Return']}
                                       labelFormatter={(label) => {
-                                        const parts = label.split('-');
-                                        if (parts.length !== 2) return label;
-                                        const year = parts[0];
-                                        const month = new Date(2020, parseInt(parts[1]) - 1, 1).toLocaleString('default', { month: 'long' });
-                                        return `${month} ${year}`;
+                                        // Find the matching entry to get the display name
+                                        const data = getMonthlyReturns(currentBacktest.results.equity);
+                                        const entry = data.find(item => item.month === label);
+                                        return entry ? entry.displayName : label;
                                       }}
                                       contentStyle={{ 
                                         backgroundColor: '#1E293B', 
@@ -1064,17 +1069,19 @@ def handle_data(context, data):
                                     <Bar 
                                       dataKey="return" 
                                       radius={4}
-                                      maxBarSize={30}
+                                      maxBarSize={20} // Narrower bars
+                                      minPointSize={2} // Ensure small values are visible
                                       isAnimationActive={false}
                                     >
-                                      {/* Use cell component for dynamic coloring based on return value */}
+                                      {/* Dynamic coloring based on return value */}
                                       {getMonthlyReturns(currentBacktest.results.equity).map((entry, index) => (
                                         <Cell 
                                           key={`cell-${index}`} 
-                                          fill={entry.return >= 0 ? '#10B981' : '#EF4444'}
+                                          fill={entry.return >= 0 ? '#10B981' : '#FF3B5C'} // Using standardized red color
                                         />
                                       ))}
                                     </Bar>
+                                    <ReferenceLine y={0} stroke="#475569" />
                                   </BarChart>
                                 </ResponsiveContainer>
                               </div>
@@ -1716,51 +1723,49 @@ def handle_data(context, data):
 const getMonthlyReturns = (equityData: { timestamp: string; value: number }[]) => {
   if (!equityData || equityData.length < 2) return [];
   
-  const monthlyData: { month: string; return: number }[] = [];
-  let currentMonth = "";
-  let monthStartValue = 0;
-  
   // Sort data by timestamp to ensure chronological processing
   const sortedData = [...equityData].sort((a, b) => 
     new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
+
+  // Organize data by month
+  const monthlyValues: Record<string, {firstValue: number, lastValue: number, displayName: string}> = {};
   
-  sortedData.forEach((point, index) => {
+  sortedData.forEach(point => {
     const date = new Date(point.timestamp);
-    // Format as YYYY-MM for easier date handling and sorting
-    const month = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    const monthName = date.toLocaleString('default', { month: 'short' });
+    const displayName = `${monthName} ${date.getFullYear()}`;
     
-    if (month !== currentMonth) {
-      if (currentMonth && monthStartValue > 0) {
-        // Calculate return for previous month
-        const previousPoint = sortedData[index - 1];
-        const monthReturn = ((previousPoint.value - monthStartValue) / monthStartValue) * 100;
-        monthlyData.push({
-          month: currentMonth, // Keep the YYYY-MM format
-          return: Number(monthReturn.toFixed(2))
-        });
-      }
-      
-      // Start new month
-      currentMonth = month;
-      monthStartValue = point.value;
+    if (!monthlyValues[monthKey]) {
+      monthlyValues[monthKey] = {
+        firstValue: point.value,
+        lastValue: point.value,
+        displayName
+      };
+    } else {
+      // Update the last value for this month
+      monthlyValues[monthKey].lastValue = point.value;
     }
   });
   
-  // Add the last month
-  if (currentMonth && monthStartValue > 0) {
-    const lastPoint = sortedData[sortedData.length - 1];
-    const monthReturn = ((lastPoint.value - monthStartValue) / monthStartValue) * 100;
+  // Calculate monthly returns (not cumulative)
+  const monthlyData: { month: string; return: number; displayName: string }[] = [];
+  
+  // Process each month's data to calculate individual monthly returns
+  Object.entries(monthlyValues).forEach(([monthKey, data]) => {
+    // Calculate the percentage change for this specific month only
+    const monthReturn = ((data.lastValue - data.firstValue) / data.firstValue) * 100;
+    
     monthlyData.push({
-      month: currentMonth,
+      month: monthKey,
+      displayName: data.displayName,
       return: Number(monthReturn.toFixed(2))
     });
-  }
+  });
   
   // Sort by date to ensure chronological display
-  monthlyData.sort((a, b) => {
-    return a.month.localeCompare(b.month);
-  });
+  monthlyData.sort((a, b) => a.month.localeCompare(b.month));
   
   return monthlyData;
 };
