@@ -18,6 +18,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
+import { Parser } from 'json2csv';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
@@ -1442,6 +1443,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Delete backtest error:', error);
       res.status(500).json({ message: 'Error deleting backtest' });
+    }
+  });
+  
+  // Export Backtest as CSV
+  app.get('/api/backtests/:id/export/csv', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const backtest = await storage.getBacktest(id);
+      
+      if (!backtest) {
+        return res.status(404).json({ message: 'Backtest not found' });
+      }
+      
+      if (backtest.userId !== req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: Not your backtest' });
+      }
+      
+      // Check if backtest is completed
+      if (backtest.status !== 'completed') {
+        return res.status(400).json({ message: 'Cannot export incomplete backtest' });
+      }
+      
+      // Check if results exist
+      if (!backtest.results) {
+        return res.status(400).json({ message: 'No results available for this backtest' });
+      }
+      
+      // Export trades data
+      let csvData;
+      const strategy = await storage.getStrategy(backtest.strategyId);
+      const strategyName = strategy?.name || 'Unknown Strategy';
+      const filename = `${strategyName}_backtest_${id}_${new Date().toISOString().slice(0, 10)}.csv`;
+      
+      try {
+        // Format data for CSV - handle case where trades might not exist
+        const tradesArray = backtest.results.trades || [];
+        const trades = tradesArray.map((trade: any) => ({
+          symbol: trade.symbol || 'Unknown',
+          entryDate: trade.entryTime ? new Date(trade.entryTime).toLocaleString() : 'N/A',
+          exitDate: trade.exitTime ? new Date(trade.exitTime).toLocaleString() : 'N/A',
+          entryPrice: trade.entryPrice ? trade.entryPrice.toFixed(2) : 'N/A',
+          exitPrice: trade.exitPrice ? trade.exitPrice.toFixed(2) : 'N/A',
+          quantity: trade.quantity || 0,
+          profit: trade.profit ? trade.profit.toFixed(2) : 'N/A',
+          profitPercent: trade.profitPercent ? (trade.profitPercent * 100).toFixed(2) + '%' : 'N/A',
+          status: trade.status || 'Unknown'
+        }));
+        
+        // Calculate total profit based on initial capital and return percentage
+        const totalProfit = backtest.results.summary?.totalReturn 
+          ? (backtest.results.summary.totalReturn * backtest.configuration.initialCapital / 100)
+          : 0;
+        
+        // Add summary at the end
+        const summary = {
+          symbol: 'SUMMARY',
+          entryDate: '',
+          exitDate: '',
+          entryPrice: '',
+          exitPrice: '',
+          quantity: '',
+          profit: totalProfit ? totalProfit.toFixed(2) : '0.00',
+          profitPercent: backtest.results.summary?.totalReturn 
+            ? backtest.results.summary.totalReturn.toFixed(2) + '%' 
+            : '0.00%',
+          status: ''
+        };
+        
+        trades.push(summary);
+        
+        // Create CSV
+        const fields = ['symbol', 'entryDate', 'exitDate', 'entryPrice', 'exitPrice', 'quantity', 'profit', 'profitPercent', 'status'];
+        const parser = new Parser({ fields });
+        csvData = parser.parse(trades);
+      } catch (err) {
+        console.error('Error formatting CSV data:', err);
+        return res.status(500).json({ message: 'Error generating CSV export' });
+      }
+      
+      // Set response headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // Send the CSV data
+      res.send(csvData);
+    } catch (error) {
+      console.error('Export backtest error:', error);
+      res.status(500).json({ message: 'Error exporting backtest' });
+    }
+  });
+  
+  // Export Backtest as JSON
+  app.get('/api/backtests/:id/export/json', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const backtest = await storage.getBacktest(id);
+      
+      if (!backtest) {
+        return res.status(404).json({ message: 'Backtest not found' });
+      }
+      
+      if (backtest.userId !== req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: Not your backtest' });
+      }
+      
+      // Check if backtest is completed
+      if (backtest.status !== 'completed') {
+        return res.status(400).json({ message: 'Cannot export incomplete backtest' });
+      }
+      
+      // Check if results exist
+      if (!backtest.results) {
+        return res.status(400).json({ message: 'No results available for this backtest' });
+      }
+      
+      const strategy = await storage.getStrategy(backtest.strategyId);
+      const strategyName = strategy?.name || 'Unknown Strategy';
+      const filename = `${strategyName}_backtest_${id}_${new Date().toISOString().slice(0, 10)}.json`;
+      
+      // Format data for export (remove any circular references)
+      const exportData = {
+        backtest: {
+          id: backtest.id,
+          name: backtest.name || `${strategyName} Backtest`,
+          strategyName: strategyName,
+          strategyId: backtest.strategyId,
+          configuration: backtest.configuration,
+          results: backtest.results,
+          createdAt: backtest.createdAt
+        }
+      };
+      
+      // Set response headers
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // Send the JSON data
+      res.json(exportData);
+    } catch (error) {
+      console.error('Export backtest error:', error);
+      res.status(500).json({ message: 'Error exporting backtest' });
+    }
+  });
+  
+  // Export Backtest as PDF - this returns data for frontend rendering
+  app.get('/api/backtests/:id/export/pdf', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const backtest = await storage.getBacktest(id);
+      
+      if (!backtest) {
+        return res.status(404).json({ message: 'Backtest not found' });
+      }
+      
+      if (backtest.userId !== req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: Not your backtest' });
+      }
+      
+      // Check if backtest is completed
+      if (backtest.status !== 'completed') {
+        return res.status(400).json({ message: 'Cannot export incomplete backtest' });
+      }
+      
+      // Check if results exist
+      if (!backtest.results) {
+        return res.status(400).json({ message: 'No results available for this backtest' });
+      }
+      
+      const strategy = await storage.getStrategy(backtest.strategyId);
+      const strategyName = strategy?.name || 'Unknown Strategy';
+      
+      // Format data for PDF export
+      const pdfData = {
+        backtest: {
+          id: backtest.id,
+          name: backtest.name || `${strategyName} Backtest`,
+          strategyName: strategyName,
+          strategyId: backtest.strategyId,
+          configuration: backtest.configuration,
+          results: backtest.results,
+          createdAt: backtest.createdAt
+        },
+        // Add additional formatted data for easier PDF rendering
+        summary: {
+          initialCapital: backtest.configuration.initialCapital.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }),
+          finalValue: backtest.results.summary?.totalReturn 
+            ? (backtest.configuration.initialCapital * (1 + backtest.results.summary.totalReturn / 100)).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD'
+              })
+            : 'N/A',
+          totalReturn: backtest.results.summary?.totalReturn 
+            ? (backtest.results.summary.totalReturn > 0 ? '+' : '') + 
+              backtest.results.summary.totalReturn.toFixed(2) + '%'
+            : 'N/A',
+          timeframe: `${new Date(backtest.configuration.startDate).toLocaleDateString()} - ${new Date(backtest.configuration.endDate).toLocaleDateString()}`
+        }
+      };
+      
+      // Since PDF generation is complex, we'll return the data in a format suitable for frontend rendering
+      // The frontend will use a PDF library to generate the PDF
+      res.json(pdfData);
+    } catch (error) {
+      console.error('Export backtest error:', error);
+      res.status(500).json({ message: 'Error exporting backtest' });
     }
   });
 

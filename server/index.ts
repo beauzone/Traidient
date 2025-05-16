@@ -100,8 +100,25 @@ app.use((req, res, next) => {
   }
 
   // Use PORT environment variable with fallback to port 5000
-  // This needs to match the port specified in .replit configuration
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+  // Replit expects this port to be used in the default configuration
+  let port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+  
+  // Make sure any existing server is properly closed
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      log(`Port ${port} is already in use. This may be due to a previous instance still running.`);
+      log('Trying to start on the same port after a short delay...');
+      
+      setTimeout(() => {
+        server.close();
+        server.listen(port, "0.0.0.0");
+      }, 1000);
+    } else {
+      console.error(`Server error: ${err.message}`);
+    }
+  });
+  
+  // Start the server on the configured port
   server.listen(port, "0.0.0.0", () => {
     log(`Server listening on port ${port} (Replit will map this externally)`);
   });

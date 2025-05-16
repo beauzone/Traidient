@@ -1291,9 +1291,43 @@ def handle_data(context, data):
                           Download your backtest results for further analysis in your preferred software.
                         </p>
                         <div className="flex space-x-4 mt-6">
-                          <Button variant="outline">Export as CSV</Button>
-                          <Button variant="outline">Export as JSON</Button>
-                          <Button variant="outline">Export as PDF</Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              if (currentBacktest?.id) {
+                                // Using window.open to trigger download in new tab
+                                window.open(`/api/backtests/${currentBacktest.id}/export/csv`, '_blank');
+                              }
+                            }}
+                            disabled={!currentBacktest?.id || currentBacktest?.status !== 'completed'}
+                          >
+                            Export as CSV
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              if (currentBacktest?.id) {
+                                window.open(`/api/backtests/${currentBacktest.id}/export/json`, '_blank');
+                              }
+                            }}
+                            disabled={!currentBacktest?.id || currentBacktest?.status !== 'completed'}
+                          >
+                            Export as JSON
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              if (currentBacktest?.id) {
+                                // For PDF, we'll need to handle this client-side
+                                // We'll fetch the data and then use a client-side PDF library
+                                // For now, just fetch the formatted data
+                                window.open(`/api/backtests/${currentBacktest.id}/export/pdf`, '_blank');
+                              }
+                            }}
+                            disabled={!currentBacktest?.id || currentBacktest?.status !== 'completed'}
+                          >
+                            Export as PDF
+                          </Button>
                         </div>
                       </div>
                     </TabsContent>
