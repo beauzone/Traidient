@@ -1377,41 +1377,47 @@ def handle_data(context, data):
                               if (currentBacktest?.id) {
                                 // Create a link with authentication token
                                 const token = localStorage.getItem('token');
+                                
+                                toast({
+                                  title: "Generating PDF",
+                                  description: "Creating PDF report, please wait...",
+                                });
+                                
                                 fetch(`/api/backtests/${currentBacktest.id}/export/pdf`, {
                                   headers: {
                                     'Authorization': `Bearer ${token}`
                                   }
                                 })
-                                .then(response => response.json())
-                                .then(data => {
-                                  // For PDF, we're getting structured data and generating it client-side
-                                  // This is a simpler approach since we don't have server-side PDF generation
-                                  console.log('PDF data received:', data);
-                                  toast({
-                                    title: "PDF Export",
-                                    description: "PDF data received. Downloading PDF export...",
-                                  });
-                                  
-                                  // In a real implementation, we would use a library like jsPDF to generate a PDF
-                                  // here, but for now we'll just download the JSON data
-                                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                                .then(response => {
+                                  if (!response.ok) {
+                                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                                  }
+                                  return response.blob();
+                                })
+                                .then(blob => {
+                                  // Create a download link for the PDF blob
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
                                   a.style.display = 'none';
                                   a.href = url;
-                                  a.download = `backtest_${currentBacktest.id}_report.json`;
+                                  a.download = `backtest_${currentBacktest.id}_report.pdf`;
                                   document.body.appendChild(a);
                                   a.click();
                                   
                                   // Clean up
                                   window.URL.revokeObjectURL(url);
                                   document.body.removeChild(a);
+                                  
+                                  toast({
+                                    title: "PDF Export Complete",
+                                    description: "Your PDF report has been downloaded.",
+                                  });
                                 })
                                 .catch(error => {
-                                  console.error('Error downloading PDF data:', error);
+                                  console.error('Error downloading PDF:', error);
                                   toast({
                                     title: "Export Error",
-                                    description: "Failed to download PDF data. Please try again.",
+                                    description: "Failed to generate PDF report. Please try again.",
                                     variant: "destructive"
                                   });
                                 });
