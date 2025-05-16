@@ -79,7 +79,19 @@ import { z } from "zod";
 // Get query params from URL
 const useQueryParams = () => {
   const [location] = useLocation();
-  return new URLSearchParams(location.split("?")[1]);
+  
+  // Add debug logs
+  console.log("Full URL path:", location);
+  
+  // Check if we have query params
+  const queryString = location.split("?")[1];
+  console.log("Query string:", queryString);
+  
+  // Parse and return the params
+  const params = new URLSearchParams(queryString || "");
+  console.log("All URL parameters:", Object.fromEntries(params.entries()));
+  
+  return params;
 };
 
 interface Strategy {
