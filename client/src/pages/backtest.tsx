@@ -80,15 +80,28 @@ import { z } from "zod";
 const useQueryParams = () => {
   const [location] = useLocation();
   
+  // Get the full browser URL
+  const fullUrl = window.location.href;
+  console.log("Browser location:", fullUrl);
+  
   // Add debug logs
-  console.log("Full URL path:", location);
+  console.log("Wouter path:", location);
   
-  // Check if we have query params
-  const queryString = location.split("?")[1];
-  console.log("Query string:", queryString);
+  // Check if we have query params in the browser URL
+  const queryString = fullUrl.includes('?') ? fullUrl.split('?')[1] : null;
+  console.log("Query string from browser URL:", queryString);
   
-  // Parse and return the params
-  const params = new URLSearchParams(queryString || "");
+  // Parse using the browser URL first if available
+  let params;
+  if (queryString) {
+    params = new URLSearchParams(queryString);
+  } else {
+    // Fall back to wouter location
+    const wouterQueryString = location.split("?")[1];
+    console.log("Query string from wouter:", wouterQueryString);
+    params = new URLSearchParams(wouterQueryString || "");
+  }
+  
   console.log("All URL parameters:", Object.fromEntries(params.entries()));
   
   return params;
@@ -302,19 +315,35 @@ const BacktestPage = () => {
   // State to track if the form has been initialized with the strategy from URL
   const [isFormInitialized, setIsFormInitialized] = useState(false);
   
-  // Create a reference to the currently selected strategy
+  // Create state to keep track of the currently selected strategy ID
+  const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null);
+  
+  // Select strategy based on URL param or local state
   const selectedStrategy = React.useMemo(() => {
     if (!strategies.length) return null;
     
-    // If we have a strategy ID from URL, use that first
-    if (parsedStrategyId) {
-      const strategyFromUrl = strategies.find(s => s.id === parsedStrategyId);
-      if (strategyFromUrl) return strategyFromUrl;
+    // First try to use our local selected strategy ID state
+    if (selectedStrategyId) {
+      const strategyFromState = strategies.find(s => s.id === selectedStrategyId);
+      if (strategyFromState) return strategyFromState;
     }
     
-    // If no valid strategy from URL, return the first one or null
+    // Then try to use strategy ID from URL
+    if (parsedStrategyId) {
+      const strategyFromUrl = strategies.find(s => s.id === parsedStrategyId);
+      if (strategyFromUrl) {
+        // Update our local state
+        setSelectedStrategyId(parsedStrategyId);
+        return strategyFromUrl;
+      }
+    }
+    
+    // If neither, return the first one
+    if (selectedStrategyId !== strategies[0]?.id) {
+      setSelectedStrategyId(strategies[0]?.id || null);
+    }
     return strategies[0] || null;
-  }, [strategies, parsedStrategyId]);
+  }, [strategies, parsedStrategyId, selectedStrategyId]);
   
   // Enhanced debugging logs
   console.log("Selected strategy ID from URL:", parsedStrategyId);
@@ -361,6 +390,8 @@ def handle_data(context, data):
   useEffect(() => {
     // Only run this if strategies are loaded and form hasn't been initialized yet
     if (strategies.length > 0 && !isFormInitialized && selectedStrategy) {
+      console.log("Initializing form with strategy:", selectedStrategy.name);
+      
       // Set the strategy ID
       form.setValue("strategyId", selectedStrategy.id);
       
@@ -371,8 +402,23 @@ def handle_data(context, data):
       
       // Mark form as initialized so we don't keep resetting values
       setIsFormInitialized(true);
+      
+      // Update our local state
+      setSelectedStrategyId(selectedStrategy.id);
     }
   }, [strategies, selectedStrategy, form, isFormInitialized]);
+  
+  // Also update the form when selected strategy changes
+  useEffect(() => {
+    if (selectedStrategy && isFormInitialized) {
+      console.log("Updating form with new selected strategy:", selectedStrategy.name, "ID:", selectedStrategy.id);
+      form.setValue("strategyId", selectedStrategy.id);
+      
+      if (selectedStrategy.configuration && selectedStrategy.configuration.assets) {
+        form.setValue("assets", selectedStrategy.configuration.assets);
+      }
+    }
+  }, [selectedStrategy?.id, isFormInitialized, form]);
 
   // Run backtest mutation
   const runBacktest = useMutation({
@@ -581,6 +627,9 @@ def handle_data(context, data):
                         onValueChange={(value) => {
                           const strategyId = parseInt(value);
                           field.onChange(strategyId);
+                          
+                          // Update our local state for selected strategy
+                          setSelectedStrategyId(strategyId);
                           
                           // Update assets when strategy changes
                           const strategy = strategies.find(s => s.id === strategyId);

@@ -359,13 +359,12 @@ const StrategiesPage = () => {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.preventDefault();
-                              // Create a direct HTML anchor and simulate a click
-                              const link = document.createElement('a');
-                              link.href = `/backtest?strategyId=${strategy.id}`;
-                              link.setAttribute('data-strategy-id', strategy.id.toString());
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
+                              
+                              // Log the strategy we're trying to select
+                              console.log("Selecting strategy for backtest:", strategy.name, "ID:", strategy.id);
+                              
+                              // Use window.location.href for direct navigation
+                              window.location.href = `/backtest?strategyId=${strategy.id}`;
                             }}
                           >
                             <div className="flex items-center">
