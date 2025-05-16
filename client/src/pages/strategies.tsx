@@ -356,8 +356,12 @@ const StrategiesPage = () => {
                           <DropdownMenuItem onClick={() => cloneStrategy.mutate(strategy.id)}>
                             <Copy className="mr-2 h-4 w-4" /> Clone
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/backtest?strategyId=${strategy.id}`)}>
-                            <TestTube2 className="mr-2 h-4 w-4" /> Backtest
+                          <DropdownMenuItem>
+                            <Link href={`/backtest?strategyId=${strategy.id}`}>
+                              <div className="flex items-center">
+                                <TestTube2 className="mr-2 h-4 w-4" /> Backtest
+                              </div>
+                            </Link>
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
