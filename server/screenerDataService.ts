@@ -10,7 +10,7 @@ import yahooFinance from 'yahoo-finance2';
  * @param symbols List of stock symbols to fetch data for
  * @returns An object mapping symbols to their data
  */
-export async function getScreenerData(symbols: string[]): Promise<Record<string, any>> {
+export async function getScreenerData(symbols: string[], days: number = 90): Promise<Record<string, any>> {
   console.log(`ScreenerDataService: Fetching data for ${symbols.length} symbols`);
   
   // Initialize result object
@@ -29,7 +29,7 @@ export async function getScreenerData(symbols: string[]): Promise<Record<string,
         
         // Get historical data from Yahoo Finance - critical for technical indicators
         const historyResult = await yahooFinance.historical(symbol, {
-          period1: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago 
+          period1: new Date(Date.now() - days * 24 * 60 * 60 * 1000), // Use the specified number of days
           period2: new Date(),
           interval: '1d'
         });

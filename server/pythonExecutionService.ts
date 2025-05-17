@@ -252,7 +252,7 @@ def screen_stocks(data_dict):
     # Process each stock in the data dictionary
     for symbol, data in data_dict.items():
         # Skip if no historical data is available
-        if not data.get('historical') or len(data['historical']) < 20:
+        if not data.get('historicalData') or len(data['historicalData']) < 20:
             continue
             
         try:
@@ -338,7 +338,7 @@ def screen_stocks(data_dict):
     // Get market data with historical bars for technical indicators
     // We need at least 90 days for proper RSI calculations and other indicators
     // Some technical indicators like RSI(14) need at least 14+30 days of data
-    marketData = await getScreenerData(symbols, 90);
+    marketData = await getScreenerData(symbols);
     
     // Log a sample of the data fetched
     const sampleSymbols = Object.keys(marketData).slice(0, 3);
