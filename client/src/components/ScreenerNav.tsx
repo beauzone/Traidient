@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ListFilter, Code, Filter } from 'lucide-react';
+import { ListFilter, Code, Filter, Settings } from 'lucide-react';
 
 export function ScreenerNav() {
   const [location] = useLocation();
@@ -38,6 +38,17 @@ export function ScreenerNav() {
         <Link href="/screen-builder">
           <Code className="mr-2 h-4 w-4" />
           Screen Builder
+        </Link>
+      </Button>
+
+      <Button
+        variant={location === '/screener-settings' ? "default" : "outline"}
+        size="sm"
+        asChild
+      >
+        <Link href="/screener-settings">
+          <Settings className="mr-2 h-4 w-4" />
+          Settings
         </Link>
       </Button>
     </div>

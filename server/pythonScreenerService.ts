@@ -178,6 +178,32 @@ export class PythonScreenerService {
   clearCache(): void {
     this.dataService.clearCache();
   }
+  
+  /**
+   * Get the provider that was used for the last data fetch
+   * @returns The name of the last used provider or null if none used yet
+   */
+  getLastUsedProvider(): string | null {
+    return this.dataService.getLastUsedProvider();
+  }
+  
+  /**
+   * Set the preferred order for data providers
+   * @param providerOrder Array of provider names in preferred order
+   * @returns Boolean indicating success or failure
+   */
+  setProviderOrder(providerOrder: string[]): boolean {
+    return this.dataService.setProviderOrder(providerOrder);
+  }
+  
+  /**
+   * Check if a specific provider is ready for use
+   * @param providerName The name of the provider to check
+   * @returns Boolean indicating if the provider is ready
+   */
+  isProviderReady(providerName: string): boolean {
+    return this.dataService.isProviderReady(providerName);
+  }
 }
 
 export default PythonScreenerService;
