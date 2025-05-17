@@ -4,24 +4,21 @@
  * and Python for running technical analysis screeners.
  */
 
-import PythonExecutionService from './PythonExecutionService';
+import { executeScreener } from './pythonExecutionService';
 import { ScreenerDataService } from './screenerDataService';
 import { storage } from './storage';
 
 export class PythonScreenerService {
-  private pythonExecutor: PythonExecutionService;
   private dataService: ScreenerDataService;
   
   /**
    * Initialize the Python screener service
-   * @param pythonExecutor Optional PythonExecutionService instance
    * @param dataService Optional ScreenerDataService instance
    */
   constructor(
-    pythonExecutor?: PythonExecutionService,
+    _unused?: any, // Keep for backward compatibility
     dataService?: ScreenerDataService
   ) {
-    this.pythonExecutor = pythonExecutor || new PythonExecutionService();
     this.dataService = dataService || new ScreenerDataService();
   }
   
@@ -66,7 +63,7 @@ export class PythonScreenerService {
       // Use the data directly as it's already standardized
       
       // Execute the Python code with the data
-      const result = await this.pythonExecutor.executeScreener(code, marketData);
+      const result = await executeScreener(code, marketData);
       
       // Add metadata about the screening
       const metadata = {

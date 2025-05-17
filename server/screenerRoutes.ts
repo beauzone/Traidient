@@ -101,12 +101,18 @@ router.post('/run', async (req: Request, res: Response) => {
 // Run a saved screener by ID
 router.post('/run/:id', async (req: Request, res: Response) => {
   try {
-    const screenerId = parseInt(req.params.id);
-    const { provider } = req.body;
-    
-    if (isNaN(screenerId)) {
-      return res.status(400).json({ error: 'Invalid screener ID' });
+    // Ensure we have a valid integer ID
+    let screenerId: number;
+    try {
+      screenerId = parseInt(req.params.id);
+      if (isNaN(screenerId)) {
+        return res.status(400).json({ error: 'Invalid screener ID' });
+      }
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid screener ID format' });
     }
+    
+    const { provider } = req.body;
     
     // Run the screener
     const result = await screenerService.runScreenerById(screenerId, provider);
