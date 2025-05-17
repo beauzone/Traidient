@@ -227,6 +227,27 @@ export class ScreenerDataService {
   }
   
   /**
+   * Set the preferred order for data providers
+   * @param providerOrder Array of provider names in preferred order
+   * @returns Boolean indicating if the order was successfully set
+   */
+  setProviderOrder(providerOrder: string[]): boolean {
+    // Verify all providers exist
+    const validProviders = providerOrder.filter(name => this.providers.has(name));
+    
+    if (validProviders.length === 0) {
+      console.error('No valid providers specified in provider order');
+      return false;
+    }
+    
+    // Update the provider order
+    this.options.providerOrder = validProviders;
+    console.log(`Provider order updated: ${validProviders.join(' → ')}`);
+    
+    return true;
+  }
+  
+  /**
    * Get all available symbols across all ready providers
    * @returns Array of symbols
    */
