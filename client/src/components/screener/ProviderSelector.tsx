@@ -88,7 +88,23 @@ export function ProviderSelector() {
   // Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/screeners/clear-cache', {});
+      // Use direct fetch to avoid issues with the apiRequest wrapper
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/screeners/clear-cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify({}),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to clear cache: ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({

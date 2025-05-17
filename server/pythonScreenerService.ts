@@ -101,16 +101,24 @@ export class PythonScreenerService {
       
       console.log(`Running screen "${screen.name}" (ID: ${screenerId})`);
       
-      // Extract any symbols from the screen configuration
-      let symbols: string[] = [];
+      // Extract symbols from the screener code first
+      let symbols: string[] = await this.extractSymbolsFromCode(screen.source?.content || '');
       
-      // If the screen has a defined universe, use that
-      if (screen.universe && Array.isArray(screen.universe)) {
-        symbols = screen.universe;
+      // If we still don't have symbols, use a default set of popular stocks
+      if (!symbols || symbols.length === 0) {
+        console.log('No symbols found in code, using default symbol universe');
+        symbols = [
+          'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 
+          'INTC', 'JPM', 'V', 'MA', 'BAC', 'WMT', 'PG', 'KO', 'PEP', 'DIS', 
+          'NFLX', 'CSCO', 'VZ', 'T', 'PFE', 'MRK', 'JNJ', 'UNH', 'HD', 'CVX',
+          'XOM', 'CAT', 'BA', 'MMM', 'GE', 'F', 'GM', 'SPY', 'QQQ', 'IWM'
+        ];
       }
       
+      console.log(`Using ${symbols.length} symbols for screening: ${symbols.slice(0, 5).join(', ')}...`);
+      
       // Run the screener
-      const result = await this.runScreener(screen.code, symbols, preferredProvider);
+      const result = await this.runScreener(screen.source?.content || '', symbols, preferredProvider);
       
       // Update the last run time
       await storage.updateScreenLastRun(screenerId);
