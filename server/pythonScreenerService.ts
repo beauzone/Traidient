@@ -110,13 +110,18 @@ export class PythonScreenerService {
         'XOM', 'CAT', 'BA', 'MMM', 'GE', 'F', 'GM', 'SPY', 'QQQ', 'IWM'
       ];
       
-      // Use symbols from screen universe if available, otherwise try extracting from code, 
+      // Use symbols from screen configuration if available, otherwise try extracting from code, 
       // or fall back to default symbols
       let symbols: string[] = [];
       
-      if (screen.universe && Array.isArray(screen.universe) && screen.universe.length > 0) {
-        console.log(`Using ${screen.universe.length} symbols from screen's universe configuration`);
-        symbols = screen.universe;
+      // Check if screen has configuration with universe property
+      if (screen.configuration && 
+          typeof screen.configuration === 'object' && 
+          screen.configuration.universe && 
+          Array.isArray(screen.configuration.universe) && 
+          screen.configuration.universe.length > 0) {
+        console.log(`Using ${screen.configuration.universe.length} symbols from screen's configuration`);
+        symbols = screen.configuration.universe;
       } else {
         try {
           const extractedSymbols = await this.extractSymbolsFromCode(screen.source?.content || '');
