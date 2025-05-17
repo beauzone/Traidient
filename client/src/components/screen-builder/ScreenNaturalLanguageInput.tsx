@@ -43,28 +43,41 @@ export const ScreenNaturalLanguageInput: React.FC<ScreenNaturalLanguageInputProp
     try {
       console.log("Sending screen generation request with prompt:", prompt);
       
-      const result = await apiRequest('/api/screen-builder/generate', {
+      // Create a proper request body with the prompt field
+      const body = JSON.stringify({ prompt: prompt.trim() });
+      
+      const result = await fetch('/api/screen-builder/generate', {
         method: 'POST',
-        data: { prompt }
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: body
       });
       
-      console.log("Received screen generation result:", result);
+      if (!result.ok) {
+        const errorText = await result.text();
+        throw new Error(errorText || `Server error: ${result.status}`);
+      }
       
-      if (result && result.screenCode) {
+      const data = await result.json();
+      console.log("Received screen generation result:", data);
+      
+      if (data && data.screenCode) {
         toast({
           title: "Screen Generated",
           description: "Your screen has been generated successfully. Review and save it.",
         });
         
         onScreenGenerated({
-          screenCode: result.screenCode,
-          explanation: result.explanation || '',
-          defaultName: result.name || 'My Generated Screen',
-          defaultDescription: result.description || '',
-          configuration: result.configuration || {}
+          screenCode: data.screenCode,
+          explanation: data.explanation || '',
+          defaultName: data.name || 'My Generated Screen',
+          defaultDescription: data.description || '',
+          configuration: data.configuration || {}
         });
       } else {
-        console.error("Invalid server response structure:", result);
+        console.error("Invalid server response structure:", data);
         throw new Error("Invalid response from the server. Missing required fields.");
       }
     } catch (err: any) {
