@@ -395,6 +395,84 @@ export class AlpacaAPI {
   }
 
   /**
+   * Get historical bars for multiple symbols at once
+   * @param symbols List of stock symbols to fetch data for
+   * @param timeframe The timeframe for the data (e.g., "1Day")
+   * @param options Additional options including limit, start, and end dates
+   * @returns Market data for all requested symbols
+   */
+  async getMultiBars(
+    symbols: string[],
+    timeframe: string = "1Day",
+    options: {
+      limit?: number;
+      start?: string;
+      end?: string;
+    } = {}
+  ): Promise<Record<string, any[]>> {
+    try {
+      if (!symbols || symbols.length === 0) {
+        throw new Error("No symbols provided");
+      }
+
+      // Convert timeframe to Alpaca format
+      const timeframeMap: Record<string, string> = {
+        "1m": "1Min",
+        "5m": "5Min",
+        "15m": "15Min",
+        "30m": "30Min",
+        "1h": "1Hour",
+        "day": "1Day",
+        "1d": "1Day",
+        "1w": "1Week",
+        "1M": "1Month"
+      };
+      
+      // Map our standard timeframe to Alpaca's format
+      const alpacaTimeframe = timeframeMap[timeframe.toLowerCase()] || timeframe;
+      
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("symbols", symbols.join(','));
+      queryParams.append("timeframe", alpacaTimeframe);
+      
+      if (options.limit) {
+        queryParams.append("limit", options.limit.toString());
+      }
+      
+      if (options.start) {
+        queryParams.append("start", options.start);
+      }
+      
+      if (options.end) {
+        queryParams.append("end", options.end);
+      }
+      
+      // Make the API request
+      const response = await fetch(`${this.dataBaseUrl}/stocks/bars?${queryParams.toString()}`, {
+        method: "GET",
+        headers: {
+          "APCA-API-KEY-ID": this.apiKey,
+          "APCA-API-SECRET-KEY": this.apiSecret
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Return the bars by symbol
+      return data.bars || {};
+    } catch (error) {
+      console.error(`Error fetching multi-bar data:`, error);
+      throw new Error(`Failed to fetch market data: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * Checks if the US stock market is currently open
    * @returns Promise with boolean indicating if the market is open
    */

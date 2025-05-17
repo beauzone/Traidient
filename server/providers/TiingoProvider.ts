@@ -5,6 +5,7 @@
 import { IScreenerDataProvider } from './IScreenerDataProvider';
 import TiingoAPI from '../tiingo';
 import { storage } from '../storage';
+import { ApiIntegration } from '@shared/schema';
 
 export class TiingoProvider implements IScreenerDataProvider {
   name = 'Tiingo';
@@ -28,10 +29,12 @@ export class TiingoProvider implements IScreenerDataProvider {
   private async initializeTiingo() {
     try {
       // First try to use integration from the database
-      const integrations = await storage.getIntegrationsByProvider('Tiingo');
-      if (integrations && integrations.length > 0) {
+      const integrations = await storage.getApiIntegrations();
+      const tiingoIntegrations = integrations.filter((i: ApiIntegration) => i.provider === 'Tiingo');
+      
+      if (tiingoIntegrations && tiingoIntegrations.length > 0) {
         // Find the first active integration
-        const integration = integrations.find(i => i.isActive);
+        const integration = tiingoIntegrations.find((i: ApiIntegration) => i.isActive);
         if (integration) {
           this.tiingo = new TiingoAPI(integration);
           this.ready = this.tiingo.isValid;
@@ -42,7 +45,10 @@ export class TiingoProvider implements IScreenerDataProvider {
       
       // Fall back to environment variables
       if (process.env.TIINGO_API_KEY) {
-        this.tiingo = new TiingoAPI(process.env.TIINGO_API_KEY);
+        const credentials = {
+          apiKey: process.env.TIINGO_API_KEY
+        };
+        this.tiingo = new TiingoAPI({ credentials } as any);
         this.ready = this.tiingo.isValid;
         console.log(`TiingoProvider: Initialized with environment variables, valid: ${this.ready}`);
         return;

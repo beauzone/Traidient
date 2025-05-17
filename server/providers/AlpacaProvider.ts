@@ -3,8 +3,9 @@
  */
 
 import { IScreenerDataProvider } from './IScreenerDataProvider';
-import AlpacaAPI from '../alpaca';
+import { AlpacaAPI } from '../alpaca';
 import { storage } from '../storage';
+import { ApiIntegration } from '@shared/schema';
 
 export class AlpacaProvider implements IScreenerDataProvider {
   name = 'Alpaca';
@@ -28,10 +29,12 @@ export class AlpacaProvider implements IScreenerDataProvider {
   private async initializeAlpaca() {
     try {
       // First try to use integration from the database
-      const integrations = await storage.getIntegrationsByProvider('Alpaca');
-      if (integrations && integrations.length > 0) {
+      const integrations = await storage.getApiIntegrations();
+      const alpacaIntegrations = integrations.filter((i: ApiIntegration) => i.provider === 'Alpaca');
+      
+      if (alpacaIntegrations && alpacaIntegrations.length > 0) {
         // Find the first active integration
-        const integration = integrations.find(i => i.isActive);
+        const integration = alpacaIntegrations.find((i: ApiIntegration) => i.isActive);
         if (integration) {
           this.alpaca = new AlpacaAPI(integration);
           this.ready = this.alpaca.isValid;
@@ -42,10 +45,11 @@ export class AlpacaProvider implements IScreenerDataProvider {
       
       // Fall back to environment variables
       if (process.env.ALPACA_API_KEY && process.env.ALPACA_API_SECRET) {
-        this.alpaca = new AlpacaAPI({
+        const credentials = {
           apiKey: process.env.ALPACA_API_KEY,
           apiSecret: process.env.ALPACA_API_SECRET
-        });
+        };
+        this.alpaca = new AlpacaAPI({ credentials } as any);
         this.ready = this.alpaca.isValid;
         console.log(`AlpacaProvider: Initialized with environment variables, valid: ${this.ready}`);
         return;
