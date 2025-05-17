@@ -1,51 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRoute } from 'wouter';
+import { useRoute, Link } from 'wouter';
 import MainLayout from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { ScreenerNav } from '@/components/ScreenerNav';
 import { ScreenForm } from '@/components/screen-builder/ScreenForm';
-import { Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const EditScreen: React.FC = () => {
   const [, params] = useRoute('/edit-screen/:id');
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [screenData, setScreenData] = useState<any>(null);
-  const screennerId = params?.id ? parseInt(params.id) : null;
+  const screenerId = params?.id ? parseInt(params.id) : null;
 
-  useEffect(() => {
-    const fetchScreenData = async () => {
-      if (!screennerId) {
-        setError('Invalid screen ID');
-        setIsLoading(false);
-        return;
+  // Use React Query for data fetching instead of custom useState/useEffect
+  const { 
+    data: screenData, 
+    isLoading, 
+    error 
+  } = useQuery({
+    queryKey: ['/api/screeners', screenerId],
+    queryFn: async () => {
+      if (!screenerId) {
+        throw new Error('Invalid screen ID');
       }
-
-      try {
-        const response = await apiRequest(`/api/screeners/${screennerId}`, {
-          method: 'GET'
-        });
-        
-        setScreenData(response);
-      } catch (err) {
-        console.error('Failed to fetch screen data:', err);
-        setError('Failed to load screen data. Please try again.');
-        toast({
-          title: 'Error',
-          description: 'Failed to load screen data',
-          variant: 'destructive'
-        });
-      } finally {
-        setIsLoading(false);
+      
+      const response = await fetch(`/api/screeners/${screenerId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch screen data');
       }
-    };
-
-    fetchScreenData();
-  }, [screennerId, toast]);
+      
+      return response.json();
+    },
+    enabled: !!screenerId,
+    retry: 1,
+    refetchOnWindowFocus: false
+  });
 
   return (
     <MainLayout title="Edit Screen">
@@ -56,27 +53,49 @@ const EditScreen: React.FC = () => {
       
       <ScreenerNav />
 
+      <div className="mb-6">
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/screens" className="flex items-center">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Screens
+          </Link>
+        </Button>
+      </div>
+
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading screen data...</p>
         </div>
       ) : error ? (
-        <div className="text-center p-8 text-destructive">
-          <p>{error}</p>
-        </div>
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : 'Failed to load screen data. Please try again.'}
+            <div className="mt-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/screens">Return to Screens</Link>
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       ) : screenData ? (
         <ScreenForm
-          screenCode={screenData.source.content}
+          screenCode={screenData.source?.content || ''}
           explanation={screenData.explanation || ''}
           configuration={screenData.configuration || {}}
-          defaultName={screenData.name}
-          defaultDescription={screenData.description}
+          defaultName={screenData.name || ''}
+          defaultDescription={screenData.description || ''}
           isNew={false}
           id={screenData.id}
         />
       ) : (
         <div className="text-center p-8">
-          <p>Screen not found</p>
+          <p className="text-muted-foreground mb-4">Screen not found</p>
+          <Button variant="outline" asChild>
+            <Link to="/screens">Return to Screens</Link>
+          </Button>
         </div>
       )}
     </MainLayout>

@@ -112,7 +112,11 @@ function AppRoutes() {
       
       {/* Screen Editing */}
       <Route path="/edit-screen/:id">
-        <ProtectedRoute component={lazy(() => import('./pages/edit-screen'))} />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>}>
+          <ProtectedRoute component={lazy(() => import('./pages/edit-screen'))} />
+        </Suspense>
       </Route>
       
       {/* Backtesting */}
