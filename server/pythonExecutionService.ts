@@ -463,6 +463,9 @@ def prepare_dataframes_with_indicators(data_dict):
             # Convert historical data to DataFrame
             df = pd.DataFrame(hist_data)
             
+            # Fix column capitalization issues - ensure lowercase column names
+            df.columns = [col.lower() for col in df.columns]
+            
             # Set date as index and ensure proper sorting
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
