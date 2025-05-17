@@ -256,8 +256,13 @@ export class ScreenerDataService {
     days: number = 365,
     preferredProvider?: string
   ): Promise<Record<string, any>> {
-    const data = await this.getDataForSymbols(symbols, preferredProvider, days);
-    return this.standardizeDataFormat(data);
+    const response = await this.getDataForSymbols(symbols, preferredProvider, days);
+    
+    // Track the provider that was used
+    this.lastUsedProvider = response.provider;
+    
+    // Return the standardized data
+    return this.standardizeDataFormat(response.data);
   }
   
   /**

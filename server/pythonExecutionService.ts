@@ -6,6 +6,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Screener } from '@shared/schema';
+import { ScreenerDataService } from './screenerDataService';
 
 // Constants for script execution
 const TEMP_SCRIPT_DIR = path.join(process.cwd(), 'tmp', 'python-scripts');

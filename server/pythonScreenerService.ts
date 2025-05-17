@@ -48,34 +48,33 @@ export class PythonScreenerService {
       console.log(`Running screener on ${symbolsToUse.length} symbols using ${preferredProvider || 'default'} provider`);
       
       // Fetch market data using our enhanced multi-provider service
-      const { data, provider, missingSymbols } = await this.dataService.getDataForSymbols(
+      // Use the dedicated screener data method which already handles standardization
+      const marketData = await this.dataService.getScreenerData(
         symbolsToUse,
+        90, // Use 90 days of data for reliable technical indicators
         preferredProvider
       );
       
-      if (Object.keys(data).length === 0) {
+      if (Object.keys(marketData).length === 0) {
         throw new Error('Failed to fetch market data from any provider');
       }
       
-      // Log which provider was used and any missing symbols
-      console.log(`Using market data from ${provider} provider`);
-      if (missingSymbols.length > 0) {
-        console.log(`Could not fetch data for symbols: ${missingSymbols.join(', ')}`);
-      }
+      // Log which provider was used
+      const usedProvider = this.dataService.getLastUsedProvider() || 'Unknown';
+      console.log(`Using market data from ${usedProvider} provider`);
       
-      // Standardize the data format to ensure consistent column names
-      const standardizedData = this.dataService.standardizeDataFormat(data);
+      // Use the data directly as it's already standardized
       
       // Execute the Python code with the data
-      const result = await this.pythonExecutor.executeScreener(code, standardizedData);
+      const result = await this.pythonExecutor.executeScreener(code, marketData);
       
       // Add metadata about the screening
       const metadata = {
         timestamp: new Date().toISOString(),
-        provider,
+        provider: usedProvider,
         symbolsRequested: symbolsToUse.length,
-        symbolsRetrieved: Object.keys(data).length,
-        missingSymbols
+        symbolsRetrieved: Object.keys(marketData).length,
+        missingSymbols: symbolsToUse.filter(s => !Object.keys(marketData).includes(s))
       };
       
       return {
