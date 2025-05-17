@@ -50,6 +50,7 @@ export class ScreenerDataService {
   private defaultProviderOrder: string[] = ['Alpaca', 'Tiingo', 'Yahoo Finance'];
   private cacheEnabled: boolean = true;
   private cacheTtl: number = 15 * 60 * 1000; // 15 minutes by default
+  private lastUsedProvider: string | null = null;
 
   /**
    * Initialize the screener data service
@@ -217,6 +218,14 @@ export class ScreenerDataService {
     console.log('Screener data cache cleared');
   }
 
+  /**
+   * Get the name of the last provider successfully used to fetch data
+   * @returns Provider name or null if no provider has been used
+   */
+  getLastUsedProvider(): string | null {
+    return this.lastUsedProvider;
+  }
+  
   /**
    * Get all available symbols across all ready providers
    * @returns Array of symbols

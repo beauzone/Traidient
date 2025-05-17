@@ -317,12 +317,17 @@ def screen_stocks(data_dict):
 `;
   }
   
-  // Get real market data using our premium Alpaca data service (preferred)
-  // We'll fall back to Yahoo Finance if Alpaca fails
+  // Get real market data using our multi-provider system (with fallback)
   
-  // Import both data services
-  const { getAlpacaHistoricalData, getExtendedStockUniverse } = await import('./alpacaScreenerService');
-  const { getScreenerData, getDefaultScreenerSymbols } = await import('./screenerDataService');
+  // Import the screener data service
+  const { ScreenerDataService, getDefaultScreenerSymbols } = await import('./screenerDataService');
+  
+  // Initialize the data service
+  const screenerDataService = new ScreenerDataService({
+    // Configure to prefer Alpaca, then fall back to Tiingo, then Yahoo Finance
+    providerOrder: ['Alpaca', 'Tiingo', 'Yahoo Finance'],
+    enableCaching: true
+  });
   
   // Get an extended universe of symbols for more comprehensive screening
   // Use a smaller, but reliable set of symbols to ensure we get proper data
@@ -339,12 +344,12 @@ def screen_stocks(data_dict):
     // Get market data with historical bars for technical indicators
     // We need at least 90 days for proper RSI calculations and other indicators
     // Some technical indicators like RSI(14) need at least 14+30 days of data
-    marketData = await getScreenerData(symbols);
+    marketData = await screenerDataService.getScreenerData(symbols, 90, 'Alpaca');
     
     // Log a sample of the data fetched
     const sampleSymbols = Object.keys(marketData).slice(0, 3);
     for (const symbol of sampleSymbols) {
-      console.log(`Sample Alpaca data - ${symbol}: price=${marketData[symbol].price}, bars=${marketData[symbol].historicalData?.length || 0}`);
+      console.log(`Sample Alpaca data - ${symbol}: price=${marketData[symbol]?.price || 'N/A'}, bars=${marketData[symbol]?.historical?.length || 0}`);
     }
     
     console.log(`Successfully fetched Alpaca data for ${Object.keys(marketData).length} symbols`);
@@ -352,18 +357,18 @@ def screen_stocks(data_dict):
     console.error(`Failed to fetch Alpaca market data:`, alpacaError);
     console.log(`Falling back to Yahoo Finance data service...`);
     
-    // Fall back to Yahoo Finance if Alpaca fails
+    // Fall back to Tiingo or Yahoo Finance provider via our multi-provider system
     try {
-      // Get market data directly using our Yahoo Finance service
-      marketData = await getScreenerData(symbols);
+      // Get market data using our screener data service with fallback to other providers
+      marketData = await screenerDataService.getScreenerData(symbols, 90, 'Tiingo');
       
       // Log a sample of the data fetched
       const sampleSymbols = Object.keys(marketData).slice(0, 3);
       for (const symbol of sampleSymbols) {
-        console.log(`Sample Yahoo data - ${symbol}: price=${marketData[symbol].price}, company=${marketData[symbol].company}`);
+        console.log(`Sample fallback data - ${symbol}: price=${marketData[symbol]?.price || 'N/A'}, bars=${marketData[symbol]?.historical?.length || 0}`);
       }
       
-      console.log(`Fetched Yahoo Finance data for ${Object.keys(marketData).length} symbols`);
+      console.log(`Fetched fallback data for ${Object.keys(marketData).length} symbols from provider: ${screenerDataService.getLastUsedProvider() || 'Unknown'}`);
     } catch (yahooError) {
       console.error(`Failed to fetch Yahoo Finance data:`, yahooError);
       
