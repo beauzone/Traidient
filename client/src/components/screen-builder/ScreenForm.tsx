@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Save, Loader2 } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ScreenCodeEditor } from './ScreenCodeEditor';
 
 interface ScreenFormProps {
@@ -103,12 +103,18 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
         );
       }
       
+      // Invalidate the screeners query cache to ensure the list is refreshed
+      queryClient.invalidateQueries({ queryKey: ['/api/screeners'] });
+      
       toast({
         title: "Success",
         description: isNew ? "Screen created successfully." : "Screen updated successfully.",
       });
       
-      navigate("/screens");
+      // Wait a moment for the cache invalidation to take effect
+      setTimeout(() => {
+        navigate("/screeners");
+      }, 500);
     } catch (error) {
       console.error("Failed to save screen:", error);
       toast({
