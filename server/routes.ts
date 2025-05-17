@@ -18,6 +18,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
+import screenerRoutes from './screenerRoutes';
 import { Parser } from 'json2csv';
 // For Python script execution
 import * as childProcess from 'child_process';
