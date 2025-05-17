@@ -29,6 +29,20 @@ export interface ScreenerDataServiceOptions {
   cacheTtl?: number;
 }
 
+/**
+ * Get a list of default stock symbols for screeners
+ * @returns Array of default stock symbols
+ */
+export function getDefaultScreenerSymbols(): string[] {
+  return [
+    'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META',
+    'TSLA', 'NVDA', 'JPM', 'V', 'JNJ',
+    'PG', 'UNH', 'HD', 'BAC', 'MA',
+    'DIS', 'PYPL', 'NFLX', 'ADBE', 'CRM',
+    'INTC', 'VZ', 'T', 'PFE', 'MRK'
+  ];
+}
+
 export class ScreenerDataService {
   private providers: Map<string, IScreenerDataProvider> = new Map();
   private dataCache: Map<string, { data: any, timestamp: number }> = new Map();
@@ -210,13 +224,31 @@ export class ScreenerDataService {
   getAllAvailableSymbols(): string[] {
     const allSymbols = new Set<string>();
     
-    for (const provider of this.providers.values()) {
+    // Fixed issue with iterator by manually iterating
+    this.providers.forEach(provider => {
       if (provider.isReady()) {
-        provider.getAvailableSymbols().forEach(symbol => allSymbols.add(symbol));
+        provider.getAvailableSymbols().forEach((symbol: string) => allSymbols.add(symbol));
       }
-    }
+    });
     
     return Array.from(allSymbols);
+  }
+  
+  /**
+   * Get screener data for the requested symbols
+   * This is the main method to use when you need data for Python screeners
+   * @param symbols List of stock symbols
+   * @param days Number of days of historical data (default: 365)
+   * @param preferredProvider Optional preferred data provider
+   * @returns Standardized data for the screener
+   */
+  async getScreenerData(
+    symbols: string[] = getDefaultScreenerSymbols(),
+    days: number = 365,
+    preferredProvider?: string
+  ): Promise<Record<string, any>> {
+    const data = await this.getDataForSymbols(symbols, preferredProvider, days);
+    return this.standardizeDataFormat(data);
   }
   
   /**

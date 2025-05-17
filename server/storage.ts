@@ -48,10 +48,22 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
+  
+  // For compatibility with screener service
+  getScreenById(id: number): Promise<Screener | undefined>;
+  getScreens(userId?: number): Promise<Screener[]>;
+  createScreen(screen: InsertScreener): Promise<Screener>;
+  updateScreen(id: number, screenData: Partial<Screener>): Promise<Screener | undefined>;
+  deleteScreen(id: number): Promise<boolean>;
+  updateScreenLastRun(id: number, results?: any): Promise<Screener | undefined>;
+  
+  // API Integration methods for our multi-provider system
+  getApiIntegrations(): Promise<ApiIntegration[]>;
   verifyAuthToken(token: string): Promise<{ userId: number }>; // Added for webhook auth
 
   // API Integrations
   getApiIntegration(id: number): Promise<ApiIntegration | undefined>;
+  getApiIntegrations(): Promise<ApiIntegration[]>;
   getApiIntegrationsByUser(userId: number): Promise<ApiIntegration[]>;
   getApiIntegrationByProviderAndUser(userId: number, provider: string): Promise<ApiIntegration | undefined>;
   createApiIntegration(integration: InsertApiIntegration): Promise<ApiIntegration>;
@@ -199,6 +211,10 @@ export class DatabaseStorage implements IStorage {
 
   async getApiIntegrationsByUser(userId: number): Promise<ApiIntegration[]> {
     return await db.select().from(apiIntegrations).where(eq(apiIntegrations.userId, userId));
+  }
+  
+  async getApiIntegrations(): Promise<ApiIntegration[]> {
+    return await db.select().from(apiIntegrations);
   }
 
   async getApiIntegrationByProviderAndUser(userId: number, provider: string): Promise<ApiIntegration | undefined> {
@@ -597,9 +613,24 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select().from(screeners).where(eq(screeners.id, id));
     return result.length > 0 ? result[0] : undefined;
   }
+  
+  // Alias for compatibility with the new screener interface
+  async getScreenById(id: number): Promise<Screener | undefined> {
+    return this.getScreener(id);
+  }
 
   async getScreenersByUser(userId: number): Promise<Screener[]> {
     return await db.select().from(screeners).where(eq(screeners.userId, userId));
+  }
+  
+  // Method to get all screeners (with optional userId filter)
+  // This implements the getScreens method in the interface
+  async getScreens(userId?: number): Promise<Screener[]> {
+    if (userId) {
+      return this.getScreenersByUser(userId);
+    } else {
+      return await db.select().from(screeners);
+    }
   }
 
   async createScreener(screener: InsertScreener): Promise<Screener> {
@@ -613,6 +644,11 @@ export class DatabaseStorage implements IStorage {
     }).returning();
     return newScreener;
   }
+  
+  // Alias for compatibility with the new screener interface
+  async createScreen(screener: InsertScreener): Promise<Screener> {
+    return this.createScreener(screener);
+  }
 
   async updateScreener(id: number, screenerData: Partial<Screener>): Promise<Screener | undefined> {
     const now = new Date();
@@ -625,10 +661,20 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updatedScreener;
   }
+  
+  // Alias for compatibility with the new screener interface
+  async updateScreen(id: number, screenerData: Partial<Screener>): Promise<Screener | undefined> {
+    return this.updateScreener(id, screenerData);
+  }
 
   async deleteScreener(id: number): Promise<boolean> {
     const result = await db.delete(screeners).where(eq(screeners.id, id));
     return result.count > 0;
+  }
+  
+  // Alias for compatibility with the new screener interface
+  async deleteScreen(id: number): Promise<boolean> {
+    return this.deleteScreener(id);
   }
 
   async runScreener(id: number): Promise<Screener | undefined> {
@@ -710,6 +756,33 @@ export class DatabaseStorage implements IStorage {
         .where(eq(screeners.id, id))
         .returning();
       
+      return updatedScreener;
+    }
+  }
+  
+  // Alias for compatibility with the new screener interface
+  async updateScreenLastRun(id: number, results?: any): Promise<Screener | undefined> {
+    const now = new Date();
+    if (results) {
+      // We have results to update
+      const [updatedScreener] = await db.update(screeners)
+        .set({
+          results,
+          lastRunAt: now,
+          updatedAt: now
+        })
+        .where(eq(screeners.id, id))
+        .returning();
+      return updatedScreener;
+    } else {
+      // Just update the last run timestamp
+      const [updatedScreener] = await db.update(screeners)
+        .set({
+          lastRunAt: now,
+          updatedAt: now
+        })
+        .where(eq(screeners.id, id))
+        .returning();
       return updatedScreener;
     }
   }
