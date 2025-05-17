@@ -76,9 +76,17 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
           type: 'code',
           content: code,
           language: 'python'
+        },
+        // Add configuration field which is required by the server
+        configuration: configuration || {
+          // Default configuration if none provided
+          assets: [],
+          period: '1y',
+          interval: '1d'
         }
-        // assets field removed - universe should be defined in the code itself
       };
+      
+      console.log("Saving screen with data:", screenData);
       
       let response;
       if (isNew) {
