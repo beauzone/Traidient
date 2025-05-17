@@ -41,6 +41,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
   const [activeTab, setActiveTab] = useState('code');
   const [saving, setSaving] = useState(false);
   const [currentExplanation, setCurrentExplanation] = useState<string>(explanation || '');
+  const [generatingExplanation, setGeneratingExplanation] = useState(false);
   
   // Assets selection has been removed - universe is defined in the code itself
 
@@ -69,6 +70,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
       const screenData = {
         name,
         description,
+        explanation: currentExplanation,  // Include explanation in the save data
         type: 'python',
         source: {
           type: 'code',
@@ -121,6 +123,9 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
       return;
     }
     
+    // Set the loading state to true
+    setGeneratingExplanation(true);
+    
     try {
       // Fix: Pass code as the third parameter
       const result = await apiRequest('/api/screen-builder/explain', 
@@ -148,6 +153,9 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
         description: "There was an error explaining the screen code. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      // Always set the loading state back to false when done
+      setGeneratingExplanation(false);
     }
   };
 
@@ -216,8 +224,16 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
                   variant="outline" 
                   className="mt-4"
                   onClick={handleExplainScreen}
+                  disabled={generatingExplanation}
                 >
-                  Generate Explanation
+                  {generatingExplanation ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Explanation...
+                    </>
+                  ) : (
+                    "Generate Explanation"
+                  )}
                 </Button>
               )}
             </CardContent>
