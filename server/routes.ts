@@ -4370,6 +4370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = Number(req.params.id);
       const userId = req.user?.id;
+      const { provider } = req.body;
       
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -4387,17 +4388,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'You do not have permission to run this screener' });
       }
       
-      // Run the screener
-      const result = await storage.runScreener(id);
+      // Import the screener service dynamically to avoid circular dependencies
+      const { PythonScreenerService } = await import('./pythonScreenerService');
+      const { ScreenerDataService } = await import('./screenerDataService');
       
-      if (result) {
-        return res.status(200).json(result);
-      } else {
-        return res.status(500).json({ message: 'Failed to run screener' });
-      }
+      // Initialize the services
+      const dataService = new ScreenerDataService();
+      const screenerService = new PythonScreenerService(undefined, dataService);
+      
+      // Run the screener with the multi-provider system
+      const result = await screenerService.runScreenerById(id, provider);
+      
+      // Update the screener with the results
+      const now = new Date();
+      const screenResults = {
+        matches: result.results?.matches || [],
+        lastRun: now.toISOString(),
+        executionTime: 0,
+        details: result.results?.details || {}
+      };
+      
+      // Update in database
+      await db.update(screeners)
+        .set({
+          results: screenResults,
+          lastRunAt: now,
+          updatedAt: now
+        })
+        .where(eq(screeners.id, id));
+      
+      return res.status(200).json({
+        ...result,
+        id,
+        name: existingScreener.name,
+        description: existingScreener.description
+      });
     } catch (error) {
       console.error('Error running screener:', error);
-      return res.status(500).json({ message: 'Internal server error', error: (error as Error).message });
+      return res.status(500).json({ 
+        message: 'Internal server error', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
     }
   });
 
