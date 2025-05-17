@@ -132,6 +132,14 @@ export async function generateScreen(prompt: string): Promise<{
   configuration: any;
 }> {
   try {
+    console.log("Generating screen with prompt:", prompt);
+    
+    // Check if OpenAI API key is properly configured
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "demo-api-key") {
+      console.error("OpenAI API key is not properly configured");
+      throw new Error("OpenAI API key is not configured. Please add your API key to the environment.");
+    }
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -149,20 +157,36 @@ export async function generateScreen(prompt: string): Promise<{
           content: prompt
         }
       ],
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
+      max_tokens: 4000,
+      temperature: 0.7
     });
 
     const content = response.choices[0].message.content ?? '{}';
-    const result = JSON.parse(content);
+    console.log("Received response from OpenAI. Parsing content...");
     
-    return {
-      screen: result.screen || '',
-      explanation: result.explanation || '',
-      configuration: result.configuration || {}
-    };
+    try {
+      const result = JSON.parse(content);
+      
+      // Validate the response has the required fields
+      if (!result.screen) {
+        console.error("OpenAI response missing 'screen' field:", result);
+        throw new Error("The generated response is incomplete. Missing 'screen' field.");
+      }
+      
+      return {
+        screen: result.screen || '',
+        explanation: result.explanation || '',
+        configuration: result.configuration || {}
+      };
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI response:", parseError);
+      console.error("Raw content:", content);
+      throw new Error("Failed to parse the AI response. Please try again.");
+    }
   } catch (error) {
     console.error("Error generating screen:", error);
-    throw new Error("Failed to generate screen with OpenAI: " + (error as Error).message);
+    throw new Error("Failed to generate screen with AI: " + (error instanceof Error ? error.message : String(error)));
   }
 }
 

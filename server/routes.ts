@@ -1132,19 +1132,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Prompt is required' });
       }
       
-      const result = await generateScreen(prompt);
+      console.log(`Generating screen for user ${req.user.id} with prompt: ${prompt.substring(0, 50)}...`);
       
-      // Format the response in the expected structure
-      res.json({
-        screenCode: result.screen,
-        explanation: result.explanation,
-        name: `Generated Screen - ${new Date().toLocaleDateString()}`,
-        description: prompt.length > 100 ? `${prompt.substring(0, 100)}...` : prompt,
-        configuration: {
-          ...result.configuration,
-          assets: result.configuration?.assets || []
+      try {
+        const result = await generateScreen(prompt);
+        
+        // Validate response has necessary fields
+        if (!result.screen) {
+          console.error("Missing screen field in generated result");
+          return res.status(500).json({ 
+            message: 'The AI generated an invalid response. Please try again with a different description.'
+          });
         }
-      });
+        
+        // Format the response in the expected structure
+        return res.json({
+          screenCode: result.screen,
+          explanation: result.explanation,
+          name: `Generated Screen - ${new Date().toLocaleDateString()}`,
+          description: prompt.length > 100 ? `${prompt.substring(0, 100)}...` : prompt,
+          configuration: {
+            ...result.configuration,
+            assets: result.configuration?.assets || []
+          }
+        });
+      } catch (aiError) {
+        console.error("AI generation error:", aiError);
+        return res.status(500).json({ 
+          message: `Failed to generate screen: ${aiError instanceof Error ? aiError.message : String(aiError)}`
+        });
+      }
     } catch (error) {
       console.error('Generate screen error:', error);
       res.status(500).json({ 

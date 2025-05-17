@@ -41,10 +41,14 @@ export const ScreenNaturalLanguageInput: React.FC<ScreenNaturalLanguageInputProp
     setError(null);
     
     try {
+      console.log("Sending screen generation request with prompt:", prompt);
+      
       const result = await apiRequest('/api/screen-builder/generate', {
         method: 'POST',
         data: { prompt }
       });
+      
+      console.log("Received screen generation result:", result);
       
       if (result && result.screenCode) {
         toast({
@@ -60,14 +64,24 @@ export const ScreenNaturalLanguageInput: React.FC<ScreenNaturalLanguageInputProp
           configuration: result.configuration || {}
         });
       } else {
-        throw new Error("Invalid response from the server");
+        console.error("Invalid server response structure:", result);
+        throw new Error("Invalid response from the server. Missing required fields.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating screen:", err);
-      setError("Failed to generate screen. Please try a different description or try again later.");
+      
+      // Extract the most helpful error message
+      let errorMessage = "Failed to generate screen. Please try a different description or try again later.";
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       toast({
         title: "Generation Failed",
-        description: "There was an error generating your screen. Please try again.",
+        description: "There was an error generating your screen. Please try again with a different description.",
         variant: "destructive",
       });
     } finally {
