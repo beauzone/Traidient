@@ -558,6 +558,7 @@ export const screeners = pgTable("screeners", {
   userId: integer("user_id").notNull().references(() => users.id),
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description").notNull(),
+  explanation: text("explanation"),  // Added explanation field
   type: varchar("type", { length: 20 }).notNull(), // 'python', 'javascript', 'visual-builder', 'ai-generated'
   
   source: jsonb("source").$type<{
@@ -598,6 +599,7 @@ export const insertScreenerSchema = createInsertSchema(screeners).pick({
   userId: true,
   name: true,
   description: true,
+  explanation: true,  // Added explanation field
   type: true,
   source: true,
   configuration: true,
