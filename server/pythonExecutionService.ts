@@ -257,7 +257,7 @@ def screen_stocks(data_dict):
             
         try:
             # Convert historical data to DataFrame
-            df = pd.DataFrame(data['historical'])
+            df = pd.DataFrame(data['historicalData'])
             
             # Ensure the data is properly sorted by date
             df['date'] = pd.to_datetime(df['date'])
@@ -343,7 +343,7 @@ def screen_stocks(data_dict):
     // Log a sample of the data fetched
     const sampleSymbols = Object.keys(marketData).slice(0, 3);
     for (const symbol of sampleSymbols) {
-      console.log(`Sample Alpaca data - ${symbol}: price=${marketData[symbol].price}, bars=${marketData[symbol].historical?.length || 0}`);
+      console.log(`Sample Alpaca data - ${symbol}: price=${marketData[symbol].price}, bars=${marketData[symbol].historicalData?.length || 0}`);
     }
     
     console.log(`Successfully fetched Alpaca data for ${Object.keys(marketData).length} symbols`);
