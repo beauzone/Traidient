@@ -566,9 +566,9 @@ try:
     # Print the result with special markers for easy extraction
     # Added crucial flush step to ensure output is captured before process exits
     import sys
-    print("RESULT_JSON_START")
+    print("\\n--- RESULT START ---")
     print(json.dumps(result))
-    print("RESULT_JSON_END")
+    print("--- RESULT END ---")
     sys.stdout.flush()
 except Exception as e:
     # Print the error with the special markers
@@ -577,13 +577,13 @@ except Exception as e:
     
     # Make sure to include stdout flush in error case too
     import sys
-    print("RESULT_JSON_START")
+    print("\\n--- RESULT START ---")
     print(json.dumps({
         "matches": [],
         "details": {},
         "errors": error_msg
     }))
-    print("RESULT_JSON_END")
+    print("--- RESULT END ---")
     sys.stdout.flush()
 `;
 
@@ -668,8 +668,9 @@ async function runPythonScript(scriptPath: string): Promise<any> {
               const result = JSON.parse(jsonData.trim());
               console.log(`Successfully parsed JSON data from captured stream`);
               return resolve(result);
-            } catch (jsonError) {
-              console.error(`Error parsing captured JSON: ${jsonError.message}`);
+            } catch (error) {
+              const errorObj = error as Error;
+              console.error(`Error parsing captured JSON: ${errorObj.message}`);
               // Fall through to backup extraction method
             }
           }
