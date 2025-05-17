@@ -1071,10 +1071,13 @@ const Screeners = () => {
   const { 
     data: screeners, 
     isLoading, 
-    error 
+    error,
+    refetch
   } = useQuery({
     queryKey: ['/api/screeners'],
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0, // Always consider data stale to ensure fresh data on page load
   });
 
   // Delete mutation

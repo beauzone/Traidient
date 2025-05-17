@@ -103,18 +103,16 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
         );
       }
       
-      // Invalidate the screeners query cache to ensure the list is refreshed
-      queryClient.invalidateQueries({ queryKey: ['/api/screeners'] });
+      // Force a direct refetch instead of just invalidating the cache
+      await queryClient.refetchQueries({ queryKey: ['/api/screeners'] });
       
       toast({
         title: "Success",
         description: isNew ? "Screen created successfully." : "Screen updated successfully.",
       });
       
-      // Wait a moment for the cache invalidation to take effect
-      setTimeout(() => {
-        navigate("/screeners");
-      }, 500);
+      // Navigate to the screeners page after the data has been refetched
+      navigate("/screeners");
     } catch (error) {
       console.error("Failed to save screen:", error);
       toast({
