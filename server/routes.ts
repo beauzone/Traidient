@@ -4750,6 +4750,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register bot routes
   app.use('/api/bots', authMiddleware, botRoutes);
   
+  // Register screener routes
+  app.use('/api/screeners', screenerRoutes);
+  
   // Register SnapTrade routes
   // Create a separate router for public SnapTrade endpoints
   const publicSnapTradeRoutes = Router();

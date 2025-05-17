@@ -32,6 +32,15 @@ interface Provider {
   isReady: boolean;
 }
 
+interface ProviderResponse {
+  providers: Provider[];
+}
+
+interface LastProviderResponse {
+  lastProvider: string;
+  availableProviders: string[];
+}
+
 /**
  * Data provider selector component for screeners
  * Allows users to view and manage data provider preferences
@@ -43,13 +52,13 @@ export function ProviderSelector() {
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
 
   // Fetch available providers and last used provider
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<LastProviderResponse>({
     queryKey: ['/api/screeners/last-provider'],
     refetchInterval: 60000, // Refresh every minute
   });
 
   // Fetch available providers
-  const { data: providersData } = useQuery({
+  const { data: providersData } = useQuery<ProviderResponse>({
     queryKey: ['/api/screeners/providers'],
   });
 
@@ -59,7 +68,7 @@ export function ProviderSelector() {
       const response = await apiRequest('POST', '/api/screeners/provider-order', {
         providerOrder: newOrder,
       });
-      return response.json();
+      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -80,8 +89,8 @@ export function ProviderSelector() {
   // Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/screeners/clear-cache');
-      return response.json();
+      const response = await apiRequest('POST', '/api/screeners/clear-cache', {});
+      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -100,12 +109,12 @@ export function ProviderSelector() {
 
   // Initialize state when data is loaded
   useEffect(() => {
-    if (data && data.availableProviders) {
-      setProviderOrder(data.availableProviders);
+    if (data) {
+      setProviderOrder(data.availableProviders || []);
       
       if (data.lastProvider && data.lastProvider !== 'None') {
         setSelectedProvider(data.lastProvider);
-      } else if (data.availableProviders.length > 0) {
+      } else if (data.availableProviders && data.availableProviders.length > 0) {
         setSelectedProvider(data.availableProviders[0]);
       }
     }
