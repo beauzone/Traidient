@@ -87,6 +87,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize WebSocket server on a different path than Vite's HMR
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
+  // Register the screener routes
+  app.use('/api/screeners', screenerRoutes);
+  
   // Initialize the Yahoo Finance API
   const yahooFinance = new YahooFinanceAPI();
   
