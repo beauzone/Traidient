@@ -33,6 +33,12 @@ export async function getAlpacaHistoricalData(
     console.error("AlpacaScreenerService: Invalid Alpaca credentials - cannot fetch market data");
     throw new Error("Cannot fetch market data: Missing or invalid Alpaca API credentials");
   }
+  
+  // If no symbols provided, return an empty result
+  if (!symbols || symbols.length === 0) {
+    console.warn("AlpacaScreenerService: No symbols provided to fetch data for");
+    return {};
+  }
 
   // Process in small batches to avoid overwhelming the API
   const batchSize = 10;

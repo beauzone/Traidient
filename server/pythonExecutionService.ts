@@ -324,8 +324,9 @@ def screen_stocks(data_dict):
   const { getScreenerData, getDefaultScreenerSymbols } = await import('./screenerDataService');
   
   // Get an extended universe of symbols for more comprehensive screening
-  const symbols = getExtendedStockUniverse();
-  console.log(`Using extended stock universe with ${symbols.length} symbols`);
+  // Use a smaller, but reliable set of symbols to ensure we get proper data
+  const symbols = getDefaultScreenerSymbols().slice(0, 20); // Use the first 20 symbols
+  console.log(`Using focused stock universe with ${symbols.length} symbols`);
   
   // Fetch real-time market data with historical data for technical indicators
   let marketData: Record<string, any> = {};
@@ -337,7 +338,7 @@ def screen_stocks(data_dict):
     // Get market data with historical bars for technical indicators
     // We need at least 90 days for proper RSI calculations and other indicators
     // Some technical indicators like RSI(14) need at least 14+30 days of data
-    marketData = await getAlpacaHistoricalData(symbols, '1Day', 90);
+    marketData = await getScreenerData(symbols, 90);
     
     // Log a sample of the data fetched
     const sampleSymbols = Object.keys(marketData).slice(0, 3);
@@ -472,11 +473,36 @@ try:
     # Pass both the raw data_dict and the processed dataframes with indicators
     result = screen_stocks(data_dict)
     
+    # Handle different result types (dictionary, list, or string)
+    if isinstance(result, str):
+        # String result means there might be an issue, convert to proper format
+        print(f"Received string result: {result}")
+        result = {"matches": [], "details": {}, "message": result}
+    elif isinstance(result, list):
+        # List result means just symbol matches without details
+        print(f"Received list result with {len(result)} items")
+        result = {"matches": result, "details": {}}
+    elif not isinstance(result, dict):
+        # Unknown result type, create empty result
+        print(f"Received unexpected result type: {type(result)}")
+        result = {"matches": [], "details": {}}
+    
+    # Ensure there's a matches key for the output
+    if isinstance(result, dict) and 'matches' not in result:
+        print("Adding missing 'matches' key to result")
+        result['matches'] = []
+    
     # If the function doesn't accept the dataframes parameter, that's okay
     # We'll update the result with additional technical info
     if isinstance(result, dict) and 'matches' in result:
         # Add technical analysis details to matches
         for symbol in result['matches']:
+            if not result.get('details'):
+                result['details'] = {}
+                
+            if symbol not in result.get('details', {}):
+                result['details'][symbol] = {"reason": "Matched by screen criteria"}
+                
             if symbol in dataframes:
                 df = dataframes[symbol]
                 last_row = df.iloc[-1]
@@ -485,14 +511,17 @@ try:
                 if symbol in result.get('details', {}) and isinstance(result['details'][symbol], dict):
                     # Only add technical data if not already present
                     if 'technical_data' not in result['details'][symbol]:
-                        result['details'][symbol]['technical_data'] = {
-                            'rsi': float(last_row['rsi']) if 'rsi' in last_row and not pd.isna(last_row['rsi']) else None,
-                            'sma20': float(last_row['sma20']) if 'sma20' in last_row and not pd.isna(last_row['sma20']) else None,
-                            'sma50': float(last_row['sma50']) if 'sma50' in last_row and not pd.isna(last_row['sma50']) else None,
-                            'trend': last_row['trend'] if 'trend' in last_row and not pd.isna(last_row['trend']) else None,
-                            'close': float(last_row['close']) if 'close' in last_row else None,
-                            'data_provider': 'alpaca'
-                        }
+                        try:
+                            result['details'][symbol]['technical_data'] = {
+                                'rsi': float(last_row['rsi']) if 'rsi' in last_row and not pd.isna(last_row['rsi']) else None,
+                                'sma20': float(last_row['sma20']) if 'sma20' in last_row and not pd.isna(last_row['sma20']) else None,
+                                'sma50': float(last_row['sma50']) if 'sma50' in last_row and not pd.isna(last_row['sma50']) else None,
+                                'trend': last_row['trend'] if 'trend' in last_row and not pd.isna(last_row['trend']) else None,
+                                'close': float(last_row['close']) if 'close' in last_row else None,
+                                'data_provider': 'alpaca'
+                            }
+                        except Exception as e:
+                            print(f"Error adding technical data for {symbol}: {e}")
     
     print(f"screen_stocks function returned result of type: {type(result)}")
     
