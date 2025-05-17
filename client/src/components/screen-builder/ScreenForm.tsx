@@ -197,8 +197,8 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
             </CardHeader>
             <CardContent>
               {currentExplanation ? (
-                <div className="prose prose-sm max-w-none">
-                  <p>{currentExplanation}</p>
+                <div className="max-w-none p-4 bg-muted rounded-md whitespace-pre-wrap text-foreground">
+                  <p className="text-sm leading-relaxed">{currentExplanation}</p>
                 </div>
               ) : (
                 <Alert>
@@ -247,8 +247,10 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
                 </TabsContent>
                 
                 <TabsContent value="explanation">
-                  <div className="prose prose-sm max-w-none p-4 bg-secondary/50 rounded-md">
-                    <p>{currentExplanation || "No explanation available. Click 'Generate Explanation' to analyze this screen."}</p>
+                  <div className="max-w-none p-4 bg-muted rounded-md whitespace-pre-wrap text-foreground">
+                    <p className="text-sm leading-relaxed">
+                      {currentExplanation || "No explanation available. Click 'Generate Explanation' to analyze this screen."}
+                    </p>
                   </div>
                 </TabsContent>
               </Tabs>
