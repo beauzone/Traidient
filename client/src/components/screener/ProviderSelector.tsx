@@ -65,9 +65,23 @@ export function ProviderSelector() {
   // Set provider order mutation
   const setProviderOrderMutation = useMutation({
     mutationFn: async (newOrder: string[]) => {
-      return await apiRequest('POST', '/api/screeners/provider-order', {
-        providerOrder: newOrder,
+      // Use direct fetch to avoid issues with the apiRequest wrapper
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/screeners/provider-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify({ providerOrder: newOrder }),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update provider order: ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
