@@ -11,6 +11,9 @@ import { ScreenerDataService } from './screenerDataService';
 // Constants for script execution
 const TEMP_SCRIPT_DIR = path.join(process.cwd(), 'tmp', 'python-scripts');
 
+// Initialize the ScreenerDataService for market data fetching
+const screenerDataService = new ScreenerDataService();
+
 /**
  * Initialize the Python environment for screeners
  */

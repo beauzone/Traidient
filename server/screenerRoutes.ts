@@ -212,4 +212,51 @@ router.post('/clear-cache', (req: Request, res: Response) => {
   res.json({ message: 'Cache cleared successfully' });
 });
 
+// Get the last used provider
+router.get('/last-provider', (req: Request, res: Response) => {
+  const lastProvider = dataService.getLastUsedProvider();
+  res.json({ 
+    lastProvider: lastProvider || 'None',
+    availableProviders: screenerService.getAvailableProviders()
+  });
+});
+
+// Set provider preferences
+router.post('/provider-order', (req: Request, res: Response) => {
+  try {
+    const { providerOrder } = req.body;
+    
+    if (!providerOrder || !Array.isArray(providerOrder)) {
+      return res.status(400).json({ 
+        error: 'Invalid provider order. Must be an array of provider names' 
+      });
+    }
+    
+    // Verify that all providers exist
+    const availableProviders = screenerService.getAvailableProviders();
+    const invalidProviders = providerOrder.filter(p => !availableProviders.includes(p));
+    
+    if (invalidProviders.length > 0) {
+      return res.status(400).json({ 
+        error: `Invalid providers: ${invalidProviders.join(', ')}`,
+        availableProviders
+      });
+    }
+    
+    // Set the provider order (note: this only affects the current session)
+    // A production version would save this to user preferences
+    dataService.setProviderOrder(providerOrder);
+    
+    res.json({ 
+      message: 'Provider order updated successfully',
+      providerOrder
+    });
+  } catch (error) {
+    console.error('Error setting provider order:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
