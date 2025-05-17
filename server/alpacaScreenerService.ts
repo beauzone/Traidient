@@ -4,13 +4,10 @@
  */
 
 import { AlpacaAPI } from './alpaca';
-import { AlpacaDataProviderAdapter } from './alpacaDataProviderAdapter';
+import { getDefaultScreenerSymbols } from './screenerDataService';
 
 // Create an instance of AlpacaAPI for direct API access
 const alpaca = new AlpacaAPI();
-
-// Create an instance of the data provider adapter for additional functionality
-const alpacaAdapter = new AlpacaDataProviderAdapter();
 
 /**
  * Fetch historical price data for a list of symbols
@@ -31,7 +28,7 @@ export async function getAlpacaHistoricalData(
   // Initialize result object
   const result: Record<string, any> = {};
   
-  // Check if we have valid credentials
+  // Check if we have valid credentials - Alpaca.isValid is a property, not a method
   if (!alpaca.isValid) {
     console.error("AlpacaScreenerService: Invalid Alpaca credentials - cannot fetch market data");
     throw new Error("Cannot fetch market data: Missing or invalid Alpaca API credentials");
@@ -46,66 +43,35 @@ export async function getAlpacaHistoricalData(
       try {
         console.log(`AlpacaScreenerService: Fetching historical data for ${symbol}`);
         
-        // Get the historical bars from Alpaca
-        const period = '3mo'; // Equivalent to ~90 days for technical indicators
-        const interval = '1d'; 
-
-        // Try using the adapter first (more features)
-        let historicalData = [];
-
-        try {
-          // Use the data provider adapter to get historical data
-          const params = {
-            symbols: [symbol],
-            period: period,
-            interval: interval,
-            limit: limit,
-            adjustForSplits: true,
-            adjustForDividends: true
-          };
-          
-          const adapterResult = await alpacaAdapter.getHistoricalData(params);
-          
-          if (adapterResult[symbol] && adapterResult[symbol].length > 0) {
-            // Convert to our standardized format
-            historicalData = adapterResult[symbol].map(bar => ({
-              date: bar.timestamp.toISOString().split('T')[0],
-              open: parseFloat(String(bar.open)),
-              high: parseFloat(String(bar.high)),
-              low: parseFloat(String(bar.low)),
-              close: parseFloat(String(bar.close)),
-              volume: parseInt(String(bar.volume), 10),
-              vw: bar.vwap ? parseFloat(String(bar.vwap)) : 0
-            }));
-          }
-        } catch (adapterError) {
-          console.log(`Adapter failed for ${symbol}, trying direct API: ${adapterError}`);
-          
-          // Fallback to direct API call
-          const marketData = await alpaca.getMarketData(symbol, timeframe, limit);
-          
-          if (marketData?.bars && marketData.bars.length > 0) {
-            // Format the bars data
-            historicalData = marketData.bars.map(bar => ({
-              date: bar.t.split('T')[0], // Extract just the date part
-              open: parseFloat(bar.o),
-              high: parseFloat(bar.h),
-              low: parseFloat(bar.l),
-              close: parseFloat(bar.c),
-              volume: parseInt(bar.v, 10),
-              vw: bar.vw ? parseFloat(bar.vw) : 0
-            }));
-          }
-        }
+        // Use the Alpaca API to get market data
+        const marketData = await alpaca.getMarketData(
+          symbol, 
+          timeframe,
+          limit,
+          undefined,  // startDate - using default (will fetch enough data)
+          undefined   // endDate - using default (up to latest)
+        );
         
-        // If we have historical data, add it to the result
-        if (historicalData.length > 0) {
+        // Process the bars if available
+        if (marketData?.bars && marketData.bars.length > 0) {
+          // Format the bars data for technical indicators
+          const historicalData = marketData.bars.map((bar: any) => ({
+            date: bar.t.split('T')[0], // Extract just the date part
+            open: parseFloat(bar.o),
+            high: parseFloat(bar.h),
+            low: parseFloat(bar.l),
+            close: parseFloat(bar.c),
+            volume: parseInt(bar.v, 10),
+            vw: bar.vw ? parseFloat(bar.vw) : 0
+          }));
+          
           // Get the latest quote for additional data
           let quote = null;
           try {
-            quote = await alpaca.getQuote(symbol);
+            const quoteData = await alpaca.getQuote(symbol);
+            quote = quoteData.quote || null;
           } catch (e) {
-            console.log(`Error getting quote for ${symbol}, using historical data only`);
+            console.log(`Error getting quote for ${symbol}, using historical data only: ${e}`);
           }
           
           // Get the last bar for prices if quote fails
@@ -114,15 +80,15 @@ export async function getAlpacaHistoricalData(
           // Store both historical and current data
           result[symbol] = {
             // Current data
-            price: (quote?.last || lastBar.close),
-            volume: (quote?.size || lastBar.volume),
+            price: (quote?.p || lastBar.close),
+            volume: (quote?.s || lastBar.volume),
             company: symbol, // Alpaca doesn't provide company names
             
             // Historical data for technical indicators
             historical: historicalData,
             
             // Metadata
-            hasHistoricalData: "True", // String format for Python compatibility
+            hasHistoricalData: historicalData.length > 0 ? "True" : "False", // String format for Python compatibility
             dataPoints: historicalData.length,
             dataProvider: "alpaca",
             is_placeholder: "False" // Not using fallback data
@@ -155,60 +121,23 @@ export async function getAlpacaHistoricalData(
  * @returns Array of stock symbols
  */
 export function getExtendedStockUniverse(): string[] {
-  // Return a much larger set of symbols for screening
-  return [
-    // Major indices
-    "SPY", "QQQ", "DIA", "IWM", "VTI", "VOO",
-    
-    // Mega cap tech
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "NVDA", 
-    
-    // Large tech
-    "AMD", "INTC", "CSCO", "IBM", "ORCL", "CRM", "ADBE", "PYPL", "NFLX", "UBER", "SHOP",
-    
-    // Semiconductors
-    "TSM", "AVGO", "QCOM", "TXN", "MU", "AMAT", "KLAC", "LRCX", "MRVL", "ON", "ADI", "SMCI",
-    
-    // Financial
-    "JPM", "BAC", "WFC", "C", "GS", "MS", "AXP", "V", "MA", "BLK", "SCHW", "CME", "ICE",
-    
-    // Consumer
-    "WMT", "TGT", "COST", "HD", "LOW", "MCD", "SBUX", "KO", "PEP", "DIS", "CMCSA", "NKE",
-    
-    // Healthcare
-    "UNH", "JNJ", "PFE", "ABBV", "MRK", "BMY", "AMGN", "GILD", "MDT", "CVS", "LLY", "TMO",
-    
-    // Energy
-    "XOM", "CVX", "COP", "EOG", "SLB", "PSX", "MPC", "OXY",
-    
-    // Industrial
-    "BA", "GE", "MMM", "CAT", "DE", "LMT", "RTX", "HON", "UPS", "FDX", "URI",
-    
-    // Retail/eCommerce
-    "LULU", "ETSY", "BABA", "JD", "MELI", "CHWY",
-    
-    // Communications
-    "T", "VZ", "TMUS",
-    
-    // Media & Entertainment
-    "NFLX", "DIS", "ROKU", "WBD", "PARA",
-    
-    // Social Media
-    "META", "SNAP", "PINS", "TWTR",
-    
-    // Cloud/SaaS
-    "CRM", "WDAY", "NOW", "TEAM", "ZS", "CRWD", "NET", "DDOG", "SNOW",
-    
-    // Utilities
-    "NEE", "DUK", "SO", "D", "EXC",
-    
-    // Real Estate
-    "AMT", "PLD", "SPG", "O", "WELL",
-    
-    // Transportation
-    "DAL", "LUV", "UAL", "AAL", "FDX", "UPS", "UNP", "CSX",
-    
-    // Materials
-    "FCX", "NEM", "SCCO", "NUE", "DOW", "DD"
-  ];
+  // Use the existing function from screenerDataService
+  return getDefaultScreenerSymbols();
+}
+
+/**
+ * Get market data for a specific set of stocks and provide
+ * properly formatted data for technical indicators
+ * 
+ * @param symbols Array of stock symbols to screen
+ * @param days Number of days of historical data to fetch
+ * @returns Formatted data for screener
+ */
+export async function getScreenerData(symbols: string[], days: number = 90): Promise<Record<string, any>> {
+  // Calculate the appropriate limit based on desired days
+  // Alpaca returns daily bars, so limit = days
+  const limit = Math.max(days, 90); // Ensure at least 90 days of data for indicators
+  
+  // Fetch historical data using Alpaca
+  return await getAlpacaHistoricalData(symbols, '1Day', limit);
 }
