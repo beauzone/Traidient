@@ -4408,14 +4408,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: result.results?.details || {}
       };
       
-      // Update in database
-      await db.update(screeners)
-        .set({
-          results: screenResults,
-          lastRunAt: now,
-          updatedAt: now
-        })
-        .where(eq(screeners.id, id));
+      // Update in database using storage interface
+      await storage.updateScreenResults(id, screenResults);
       
       return res.status(200).json({
         ...result,
