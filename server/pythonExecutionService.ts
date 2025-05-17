@@ -408,6 +408,36 @@ data_dict = ${marketDataJson}
 
 print(f"data_dict contains {len(data_dict)} stocks with real market data")
 
+# Intercept and prevent any attempts to download data from Yahoo Finance
+# This is needed because custom screeners often try to fetch data directly
+import builtins
+original_import = builtins.__import__
+
+def patched_import(name, *args, **kwargs):
+    # If trying to import yfinance, print a warning
+    if name == 'yfinance':
+        print("WARNING: Detected import of yfinance. Using pre-fetched data instead.")
+        # Return the original module but override its download function
+        module = original_import(name, *args, **kwargs)
+        original_download = module.download
+        
+        # Replace download function with our version that uses pre-fetched data
+        def mock_download(*args, **kwargs):
+            print("WARNING: Intercepted call to yfinance.download(). Using pre-fetched data instead.")
+            return None
+            
+        module.download = mock_download
+        return module
+    return original_import(name, *args, **kwargs)
+
+# Replace the built-in import function with our patched version
+builtins.__import__ = patched_import
+
+# Define a replacement for common data loading functions found in user screeners
+def load_data(symbols, period='1y', interval='1d'):
+    print("WARNING: load_data() called. Using pre-fetched data instead of downloading fresh data.")
+    return data_dict
+
 # Helper function to convert market data to DataFrames with indicators
 def prepare_dataframes_with_indicators(data_dict):
     """
@@ -422,9 +452,16 @@ def prepare_dataframes_with_indicators(data_dict):
     dfs = {}
     
     for symbol, data in data_dict.items():
-        if data.get('historicalData') and len(data['historicalData']) > 0:
+        # Handle field name discrepancies in market data
+        hist_data = None
+        if 'historicalData' in data and len(data['historicalData']) > 0:
+            hist_data = data['historicalData']
+        elif 'historical' in data and len(data['historical']) > 0:
+            hist_data = data['historical']
+            
+        if hist_data:
             # Convert historical data to DataFrame
-            df = pd.DataFrame(data['historicalData'])
+            df = pd.DataFrame(hist_data)
             
             # Set date as index and ensure proper sorting
             df['date'] = pd.to_datetime(df['date'])
@@ -577,12 +614,36 @@ async function runPythonScript(scriptPath: string): Promise<any> {
     // Special markers for extracting the JSON result
     const startMarker = 'RESULT_JSON_START';
     const endMarker = 'RESULT_JSON_END';
+    let jsonCapturing = false;
+    let jsonData = '';
     
     pythonProcess.stdout.on('data', (data) => {
       const chunk = data.toString();
       // Log raw output for debugging (truncated to avoid huge logs)
       console.log(`[Python stdout] ${chunk.substring(0, 200)}${chunk.length > 200 ? '...' : ''}`);
       outputData += chunk;
+      
+      // Check for JSON result markers in the output stream and capture data between them
+      if (chunk.includes(startMarker)) {
+        jsonCapturing = true;
+        const startIdx = chunk.indexOf(startMarker) + startMarker.length;
+        // Only add data after the marker
+        jsonData += chunk.substring(startIdx);
+        return;
+      }
+      
+      if (jsonCapturing && chunk.includes(endMarker)) {
+        jsonCapturing = false;
+        const endIdx = chunk.indexOf(endMarker);
+        // Only add data before the end marker
+        jsonData += chunk.substring(0, endIdx);
+        return;
+      }
+      
+      // If we're currently capturing JSON data, add this chunk to it
+      if (jsonCapturing) {
+        jsonData += chunk;
+      }
     });
     
     pythonProcess.stderr.on('data', (data) => {
@@ -600,7 +661,20 @@ async function runPythonScript(scriptPath: string): Promise<any> {
           console.log(`Output length: ${outputData.length} characters`);
           console.log(`Output excerpt (first 500 chars): ${outputData.substring(0, 500)}`);
           
-          // First look for our special markers "RESULT_JSON_START" and "RESULT_JSON_END"
+          // Check if we captured JSON data between markers using our streaming approach
+          if (jsonData) {
+            console.log(`Using directly captured JSON data (${jsonData.length} chars)`);
+            try {
+              const result = JSON.parse(jsonData.trim());
+              console.log(`Successfully parsed JSON data from captured stream`);
+              return resolve(result);
+            } catch (jsonError) {
+              console.error(`Error parsing captured JSON: ${jsonError.message}`);
+              // Fall through to backup extraction method
+            }
+          }
+          
+          // Backup method: look for our special markers in the full output
           const resultStartMarker = "RESULT_JSON_START";
           const resultEndMarker = "RESULT_JSON_END";
           
