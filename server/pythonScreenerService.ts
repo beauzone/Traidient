@@ -31,16 +31,17 @@ export class PythonScreenerService {
    */
   async runScreener(
     code: string,
-    symbols?: string[],
+    symbols: string[] = [],
     preferredProvider?: string
   ): Promise<any> {
     try {
-      // Get the symbols to use
-      const symbolsToUse = symbols || await this.extractSymbolsFromCode(code);
+      // Default symbols to use if none are provided
+      const defaultSymbols = [
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD'
+      ];
       
-      if (!symbolsToUse || symbolsToUse.length === 0) {
-        throw new Error('No symbols provided or found in screener code');
-      }
+      // Use the provided symbols or fall back to defaults
+      const symbolsToUse = symbols && symbols.length > 0 ? symbols : defaultSymbols;
       
       console.log(`Running screener on ${symbolsToUse.length} symbols using ${preferredProvider || 'default'} provider`);
       
@@ -101,24 +102,46 @@ export class PythonScreenerService {
       
       console.log(`Running screen "${screen.name}" (ID: ${screenerId})`);
       
-      // Extract symbols from the screener code first
-      let symbols: string[] = await this.extractSymbolsFromCode(screen.source?.content || '');
+      // Default list of popular symbols to use for screening
+      const defaultSymbols = [
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 
+        'INTC', 'JPM', 'V', 'MA', 'BAC', 'WMT', 'PG', 'KO', 'PEP', 'DIS', 
+        'NFLX', 'CSCO', 'VZ', 'T', 'PFE', 'MRK', 'JNJ', 'UNH', 'HD', 'CVX',
+        'XOM', 'CAT', 'BA', 'MMM', 'GE', 'F', 'GM', 'SPY', 'QQQ', 'IWM'
+      ];
       
-      // If we still don't have symbols, use a default set of popular stocks
-      if (!symbols || symbols.length === 0) {
-        console.log('No symbols found in code, using default symbol universe');
-        symbols = [
-          'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 
-          'INTC', 'JPM', 'V', 'MA', 'BAC', 'WMT', 'PG', 'KO', 'PEP', 'DIS', 
-          'NFLX', 'CSCO', 'VZ', 'T', 'PFE', 'MRK', 'JNJ', 'UNH', 'HD', 'CVX',
-          'XOM', 'CAT', 'BA', 'MMM', 'GE', 'F', 'GM', 'SPY', 'QQQ', 'IWM'
-        ];
+      // Use symbols from screen universe if available, otherwise try extracting from code, 
+      // or fall back to default symbols
+      let symbols: string[] = [];
+      
+      if (screen.universe && Array.isArray(screen.universe) && screen.universe.length > 0) {
+        console.log(`Using ${screen.universe.length} symbols from screen's universe configuration`);
+        symbols = screen.universe;
+      } else {
+        try {
+          const extractedSymbols = await this.extractSymbolsFromCode(screen.source?.content || '');
+          if (extractedSymbols && extractedSymbols.length > 0) {
+            console.log(`Found ${extractedSymbols.length} symbols in the screen code`);
+            symbols = extractedSymbols;
+          }
+        } catch (error) {
+          console.log('Error extracting symbols from code:', error);
+        }
+        
+        // If no symbols found from universe or code, use default symbols
+        if (symbols.length === 0) {
+          console.log(`No symbols found in screen or code, using ${defaultSymbols.length} default symbols`);
+          symbols = defaultSymbols;
+        }
       }
       
       console.log(`Using ${symbols.length} symbols for screening: ${symbols.slice(0, 5).join(', ')}...`);
       
-      // Run the screener
-      const result = await this.runScreener(screen.source?.content || '', symbols, preferredProvider);
+      // Run the screener with the provided source content (code)
+      const content = screen.source?.content || '';
+      console.log(`Screen content length: ${content.length} characters`);
+      
+      const result = await this.runScreener(content, symbols, preferredProvider);
       
       // Update the last run time
       await storage.updateScreenLastRun(screenerId);
