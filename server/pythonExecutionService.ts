@@ -252,42 +252,57 @@ def screen_stocks(data_dict):
 `;
   }
   
-  // Get real market data from our dedicated screener data service
-  // Import the screener data service
+  // Get real market data using our premium Alpaca data service (preferred)
+  // We'll fall back to Yahoo Finance if Alpaca fails
+  
+  // Import both data services
+  const { getAlpacaHistoricalData, getExtendedStockUniverse } = await import('./alpacaScreenerService');
   const { getScreenerData, getDefaultScreenerSymbols } = await import('./screenerDataService');
   
-  // Get the default symbols for screeners
-  const symbols = getDefaultScreenerSymbols();
+  // Get an extended universe of symbols for more comprehensive screening
+  const symbols = getExtendedStockUniverse();
+  console.log(`Using extended stock universe with ${symbols.length} symbols`);
   
-  // Fetch real-time market data
+  // Fetch real-time market data with historical data for technical indicators
   let marketData: Record<string, any> = {};
+  
+  // First try Alpaca as the premium data source
   try {
-    console.log(`Fetching real market data for ${symbols.length} symbols...`);
+    console.log(`Fetching high-quality market data from Alpaca for ${symbols.length} symbols...`);
     
-    // Get market data directly using our specialized service
-    marketData = await getScreenerData(symbols);
+    // Get market data with historical bars for technical indicators
+    // We need at least 100 days for proper RSI calculations and other indicators
+    marketData = await getAlpacaHistoricalData(symbols, '1Day', 100);
     
     // Log a sample of the data fetched
     const sampleSymbols = Object.keys(marketData).slice(0, 3);
     for (const symbol of sampleSymbols) {
-      console.log(`Sample data - ${symbol}: price=${marketData[symbol].price}, company=${marketData[symbol].company}`);
+      console.log(`Sample Alpaca data - ${symbol}: price=${marketData[symbol].price}, bars=${marketData[symbol].historical?.length || 0}`);
     }
     
-    console.log(`Fetched real market data for ${Object.keys(marketData).length} symbols`);
-  } catch (error) {
-    console.error(`Failed to fetch market data:`, error);
-    console.log(`Using a fallback data approach for screeners WITH WARNING FLAG`);
+    console.log(`Successfully fetched Alpaca data for ${Object.keys(marketData).length} symbols`);
+  } catch (alpacaError) {
+    console.error(`Failed to fetch Alpaca market data:`, alpacaError);
+    console.log(`Falling back to Yahoo Finance data service...`);
     
-    // If we can't get real data, use fallback data (but with a warning flag)
-    marketData = symbols.reduce((data, symbol) => {
-      data[symbol] = {
-        price: 100.0,  // Clearly artificial price
-        volume: 100000,
-        company: symbol,
-        is_placeholder: "True",  // Using string for Python compatibility - indicates not real data
-      };
-      return data;
-    }, {} as Record<string, any>);
+    // Fall back to Yahoo Finance if Alpaca fails
+    try {
+      // Get market data directly using our Yahoo Finance service
+      marketData = await getScreenerData(symbols);
+      
+      // Log a sample of the data fetched
+      const sampleSymbols = Object.keys(marketData).slice(0, 3);
+      for (const symbol of sampleSymbols) {
+        console.log(`Sample Yahoo data - ${symbol}: price=${marketData[symbol].price}, company=${marketData[symbol].company}`);
+      }
+      
+      console.log(`Fetched Yahoo Finance data for ${Object.keys(marketData).length} symbols`);
+    } catch (yahooError) {
+      console.error(`Failed to fetch Yahoo Finance data:`, yahooError);
+      
+      // Cannot proceed without real market data - screeners need actual data to function
+      throw new Error(`Cannot run screeners: Failed to fetch market data from any provider`);
+    }
   }
   
   // Convert the market data to a JSON string to be embedded in the Python script
