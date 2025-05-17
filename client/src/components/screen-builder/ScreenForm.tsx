@@ -40,6 +40,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
   const [code, setCode] = useState(screenCode);
   const [activeTab, setActiveTab] = useState('code');
   const [saving, setSaving] = useState(false);
+  const [currentExplanation, setCurrentExplanation] = useState<string>(explanation || '');
   
   // Assets selection has been removed - universe is defined in the code itself
 
@@ -119,13 +120,25 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
     }
     
     try {
-      const result = await apiRequest('/api/screen-builder/explain', {
-        method: 'POST',
-        data: { code }
-      });
+      // Fix: Pass code as the third parameter
+      const result = await apiRequest('/api/screen-builder/explain', 
+        { method: 'POST' },
+        { code }
+      );
       
-      // Create a new screen with the explained code
-      setActiveTab('explanation');
+      if (result && result.explanation) {
+        // Update the explanation state
+        setExplanation(result.explanation);
+        // Switch to the explanation tab
+        setActiveTab('explanation');
+        
+        toast({
+          title: "Explanation Generated",
+          description: "The explanation for your screen code has been generated successfully.",
+        });
+      } else {
+        throw new Error("Invalid response format");
+      }
     } catch (error) {
       console.error("Failed to explain screen:", error);
       toast({
