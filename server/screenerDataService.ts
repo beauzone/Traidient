@@ -265,6 +265,14 @@ export class ScreenerDataService {
   }
   
   /**
+   * Get the current provider order preference
+   * @returns Array of provider names in preferred order
+   */
+  getProviderOrder(): string[] {
+    return this.options.providerOrder || this.defaultProviderOrder;
+  }
+  
+  /**
    * Get screener data for the requested symbols
    * This is the main method to use when you need data for Python screeners
    * @param symbols List of stock symbols

@@ -65,10 +65,9 @@ export function ProviderSelector() {
   // Set provider order mutation
   const setProviderOrderMutation = useMutation({
     mutationFn: async (newOrder: string[]) => {
-      const response = await apiRequest('POST', '/api/screeners/provider-order', {
+      return await apiRequest('POST', '/api/screeners/provider-order', {
         providerOrder: newOrder,
       });
-      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -89,8 +88,7 @@ export function ProviderSelector() {
   // Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/screeners/clear-cache', {});
-      return await response.json();
+      return await apiRequest('POST', '/api/screeners/clear-cache', {});
     },
     onSuccess: () => {
       toast({

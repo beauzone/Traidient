@@ -25,6 +25,51 @@ router.get('/providers', (req: Request, res: Response) => {
   res.json({ providers: availableProviders });
 });
 
+// Get last used provider and available provider order
+router.get('/last-provider', (req: Request, res: Response) => {
+  const lastProvider = screenerService.getLastUsedProvider();
+  const availableProviders = screenerService.getProviderOrder();
+  
+  res.json({ 
+    lastProvider: lastProvider || 'None',
+    availableProviders 
+  });
+});
+
+// Set provider order
+router.post('/provider-order', (req: Request, res: Response) => {
+  try {
+    const { providerOrder } = req.body;
+    
+    if (!Array.isArray(providerOrder)) {
+      return res.status(400).json({ error: 'Provider order must be an array' });
+    }
+    
+    screenerService.setProviderOrder(providerOrder);
+    res.json({ success: true, message: 'Provider order updated' });
+  } catch (error) {
+    console.error('Error setting provider order:', error);
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      success: false 
+    });
+  }
+});
+
+// Clear market data cache
+router.post('/clear-cache', (req: Request, res: Response) => {
+  try {
+    dataService.clearCache();
+    res.json({ success: true, message: 'Cache cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      success: false
+    });
+  }
+});
+
 // Get available symbols
 router.get('/symbols', (req: Request, res: Response) => {
   const symbols = screenerService.getAllAvailableSymbols();

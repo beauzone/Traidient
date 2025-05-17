@@ -204,6 +204,14 @@ export class PythonScreenerService {
   isProviderReady(providerName: string): boolean {
     return this.dataService.isProviderReady(providerName);
   }
+  
+  /**
+   * Get the current provider order preference
+   * @returns Array of provider names in preferred order
+   */
+  getProviderOrder(): string[] {
+    return this.dataService.getProviderOrder();
+  }
 }
 
 export default PythonScreenerService;
