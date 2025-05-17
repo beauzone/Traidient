@@ -80,15 +80,17 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
       
       let response;
       if (isNew) {
-        response = await apiRequest('/api/screeners', {
-          method: 'POST',
-          data: screenData
-        });
+        response = await apiRequest(
+          '/api/screeners', 
+          { method: 'POST' },
+          screenData
+        );
       } else {
-        response = await apiRequest(`/api/screeners/${id}`, {
-          method: 'PUT',
-          data: screenData
-        });
+        response = await apiRequest(
+          `/api/screeners/${id}`, 
+          { method: 'PUT' },
+          screenData
+        );
       }
       
       toast({
@@ -127,8 +129,8 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
       );
       
       if (result && result.explanation) {
-        // Update the explanation state
-        setExplanation(result.explanation);
+        // Update the explanation state with the generated explanation
+        setCurrentExplanation(result.explanation);
         // Switch to the explanation tab
         setActiveTab('explanation');
         
@@ -194,9 +196,9 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {explanation ? (
+              {currentExplanation ? (
                 <div className="prose prose-sm max-w-none">
-                  <p>{explanation}</p>
+                  <p>{currentExplanation}</p>
                 </div>
               ) : (
                 <Alert>
@@ -209,7 +211,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
                 </Alert>
               )}
               
-              {!explanation && (
+              {!currentExplanation && (
                 <Button 
                   variant="outline" 
                   className="mt-4"
@@ -246,7 +248,7 @@ export const ScreenForm: React.FC<ScreenFormProps> = ({
                 
                 <TabsContent value="explanation">
                   <div className="prose prose-sm max-w-none p-4 bg-secondary/50 rounded-md">
-                    <p>{explanation || "No explanation available. Click 'Generate Explanation' to analyze this screen."}</p>
+                    <p>{currentExplanation || "No explanation available. Click 'Generate Explanation' to analyze this screen."}</p>
                   </div>
                 </TabsContent>
               </Tabs>
