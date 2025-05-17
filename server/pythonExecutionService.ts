@@ -233,6 +233,7 @@ async function generatePythonScript(screener: any): Promise<string> {
     // For non-code sources, create a basic screener
     console.log(`No code source found, using auto-generated screener template`);
     userCode = `
+# Important: This screener uses the market data already provided - DO NOT download data externally
 def screen_stocks(data_dict):
     """
     Auto-generated screener based on description: ${screener.description || 'No description'}
@@ -325,8 +326,8 @@ def screen_stocks(data_dict):
   
   // Get an extended universe of symbols for more comprehensive screening
   // Use a smaller, but reliable set of symbols to ensure we get proper data
-  const symbols = getDefaultScreenerSymbols().slice(0, 20); // Use the first 20 symbols
-  console.log(`Using focused stock universe with ${symbols.length} symbols`);
+  const symbols = getDefaultScreenerSymbols().slice(0, 10); // Use just 10 reliable symbols to avoid rate limits
+  console.log(`Using small, focused stock universe with ${symbols.length} symbols for reliable screening`);
   
   // Fetch real-time market data with historical data for technical indicators
   let marketData: Record<string, any> = {};
@@ -421,9 +422,9 @@ def prepare_dataframes_with_indicators(data_dict):
     dfs = {}
     
     for symbol, data in data_dict.items():
-        if data.get('historical') and len(data['historical']) > 0:
+        if data.get('historicalData') and len(data['historicalData']) > 0:
             # Convert historical data to DataFrame
-            df = pd.DataFrame(data['historical'])
+            df = pd.DataFrame(data['historicalData'])
             
             # Set date as index and ensure proper sorting
             df['date'] = pd.to_datetime(df['date'])
