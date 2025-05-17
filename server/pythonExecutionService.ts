@@ -236,14 +236,78 @@ async function generatePythonScript(screener: any): Promise<string> {
 def screen_stocks(data_dict):
     """
     Auto-generated screener based on description: ${screener.description || 'No description'}
+    
+    This screener looks for stocks with:
+    1. RSI below 30 (oversold condition)
+    2. Price below the 50-day moving average (downtrend)
+    3. Recent price increase (potential reversal)
     """
-    # Create a simple example result
-    matches = ["AAPL", "MSFT", "GOOGL"]
-    details = {
-        "AAPL": {"reason": "Auto-generated example match"},
-        "MSFT": {"reason": "Auto-generated example match"},
-        "GOOGL": {"reason": "Auto-generated example match"}
-    }
+    import pandas as pd
+    import numpy as np
+    
+    # Initialize results
+    matches = []
+    details = {}
+    
+    # Process each stock in the data dictionary
+    for symbol, data in data_dict.items():
+        # Skip if no historical data is available
+        if not data.get('historical') or len(data['historical']) < 20:
+            continue
+            
+        try:
+            # Convert historical data to DataFrame
+            df = pd.DataFrame(data['historical'])
+            
+            # Ensure the data is properly sorted by date
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+            
+            # Calculate technical indicators
+            
+            # RSI - Relative Strength Index (14-period)
+            delta = df['close'].diff()
+            gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+            loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+            rs = gain / loss
+            df['rsi'] = 100 - (100 / (1 + rs))
+            
+            # Simple Moving Averages
+            df['sma20'] = df['close'].rolling(window=20).mean()
+            df['sma50'] = df['close'].rolling(window=50).mean()
+            
+            # Get the latest data point
+            latest = df.iloc[-1]
+            
+            # Check if we have enough data for our indicators
+            if pd.isna(latest['rsi']) or pd.isna(latest['sma50']):
+                continue
+                
+            # Get the price change over the last 5 days
+            if len(df) >= 5:
+                price_5d_ago = df.iloc[-5]['close']
+                price_change_5d = (latest['close'] - price_5d_ago) / price_5d_ago * 100
+            else:
+                price_change_5d = 0
+            
+            # Screening criteria
+            rsi_oversold = latest['rsi'] < 30
+            below_ma50 = latest['close'] < latest['sma50']
+            price_rising = price_change_5d > 1.0  # 1% increase in last 5 days
+            
+            # Final screening condition
+            if rsi_oversold and below_ma50 and price_rising:
+                matches.append(symbol)
+                details[symbol] = {
+                    "reason": f"Potential reversal: RSI={latest['rsi']:.2f} (oversold), Below MA50, Recent 5-day change: {price_change_5d:.2f}%",
+                    "rsi": float(latest['rsi']),
+                    "ma50": float(latest['sma50']),
+                    "price": float(latest['close']),
+                    "price_change_5d": float(price_change_5d)
+                }
+        except Exception as e:
+            # Skip any stocks that cause errors
+            continue
     
     return {
         'matches': matches,
@@ -271,8 +335,9 @@ def screen_stocks(data_dict):
     console.log(`Fetching high-quality market data from Alpaca for ${symbols.length} symbols...`);
     
     // Get market data with historical bars for technical indicators
-    // We need at least 100 days for proper RSI calculations and other indicators
-    marketData = await getAlpacaHistoricalData(symbols, '1Day', 100);
+    // We need at least 90 days for proper RSI calculations and other indicators
+    // Some technical indicators like RSI(14) need at least 14+30 days of data
+    marketData = await getAlpacaHistoricalData(symbols, '1Day', 90);
     
     // Log a sample of the data fetched
     const sampleSymbols = Object.keys(marketData).slice(0, 3);
@@ -325,7 +390,9 @@ print(f"Current working directory: {os.getcwd()}")
 try:
     import pandas as pd
     import numpy as np
-    print("Successfully imported pandas and numpy")
+    # Import pandas_ta for technical indicators
+    import pandas_ta as ta
+    print("Successfully imported pandas, numpy, and pandas_ta for indicators")
 except ImportError as e:
     print(f"WARNING: Failed to import core libraries: {str(e)}")
 
@@ -339,11 +406,93 @@ data_dict = ${marketDataJson}
 
 print(f"data_dict contains {len(data_dict)} stocks with real market data")
 
+# Helper function to convert market data to DataFrames with indicators
+def prepare_dataframes_with_indicators(data_dict):
+    """
+    Convert the market data into pandas DataFrames with technical indicators
+    
+    Args:
+        data_dict: Dictionary containing market data from Alpaca or Yahoo Finance
+        
+    Returns:
+        dict: Dictionary with symbol keys and pandas DataFrame values with indicators
+    """
+    dfs = {}
+    
+    for symbol, data in data_dict.items():
+        if data.get('historical') and len(data['historical']) > 0:
+            # Convert historical data to DataFrame
+            df = pd.DataFrame(data['historical'])
+            
+            # Set date as index and ensure proper sorting
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+            df.set_index('date', inplace=True)
+            
+            # Calculate common technical indicators
+            # RSI - Relative Strength Index
+            if len(df) >= 14:  # Need at least 14 periods for RSI
+                df['rsi'] = ta.rsi(df['close'], length=14)
+                
+                # Moving Averages
+                df['sma20'] = ta.sma(df['close'], length=20)
+                df['sma50'] = ta.sma(df['close'], length=50)
+                df['ema9'] = ta.ema(df['close'], length=9)
+                
+                # MACD - Moving Average Convergence Divergence
+                macd = ta.macd(df['close'])
+                df = pd.concat([df, macd], axis=1)
+                
+                # Bollinger Bands
+                bbands = ta.bbands(df['close'])
+                df = pd.concat([df, bbands], axis=1)
+                
+                # Determine trend based on SMA
+                if 'sma20' in df.columns and 'sma50' in df.columns:
+                    df['trend'] = np.where(df['sma20'] > df['sma50'], 'bullish', 'bearish')
+            
+            # Store the DataFrame with indicators
+            dfs[symbol] = df
+    
+    return dfs
+
+# Create DataFrames with technical indicators
+print("Preparing DataFrames with technical indicators...")
+try:
+    dataframes = prepare_dataframes_with_indicators(data_dict)
+    print(f"Successfully created {len(dataframes)} DataFrames with indicators")
+except Exception as e:
+    print(f"Warning: Error preparing indicator DataFrames: {e}")
+    dataframes = {}
+
 # Execute the user code in a try-except block to catch any errors
 try:
     print("Calling screen_stocks function...")
     # Call the screen_stocks function which is now directly defined above
+    # Pass both the raw data_dict and the processed dataframes with indicators
     result = screen_stocks(data_dict)
+    
+    # If the function doesn't accept the dataframes parameter, that's okay
+    # We'll update the result with additional technical info
+    if isinstance(result, dict) and 'matches' in result:
+        # Add technical analysis details to matches
+        for symbol in result['matches']:
+            if symbol in dataframes:
+                df = dataframes[symbol]
+                last_row = df.iloc[-1]
+                
+                # Add technical analysis details if not already provided
+                if symbol in result.get('details', {}) and isinstance(result['details'][symbol], dict):
+                    # Only add technical data if not already present
+                    if 'technical_data' not in result['details'][symbol]:
+                        result['details'][symbol]['technical_data'] = {
+                            'rsi': float(last_row['rsi']) if 'rsi' in last_row and not pd.isna(last_row['rsi']) else None,
+                            'sma20': float(last_row['sma20']) if 'sma20' in last_row and not pd.isna(last_row['sma20']) else None,
+                            'sma50': float(last_row['sma50']) if 'sma50' in last_row and not pd.isna(last_row['sma50']) else None,
+                            'trend': last_row['trend'] if 'trend' in last_row and not pd.isna(last_row['trend']) else None,
+                            'close': float(last_row['close']) if 'close' in last_row else None,
+                            'data_provider': 'alpaca'
+                        }
     
     print(f"screen_stocks function returned result of type: {type(result)}")
     
