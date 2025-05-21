@@ -2075,6 +2075,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // MARKET DATA ROUTES
+  
+  // Yahoo Finance direct quote endpoint for real market data
+  app.get('/api/market-data/yahoo/:symbol', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { symbol } = req.params;
+      if (!symbol) {
+        return res.status(400).json({ message: 'Symbol is required' });
+      }
+      
+      try {
+        // Get detailed quote data directly from Yahoo Finance
+        const yahooQuote = await yahooFinance.quote(symbol);
+        
+        // Format the data for our frontend
+        const marketData = {
+          symbol: symbol,
+          name: yahooQuote.shortName || yahooQuote.longName || symbol,
+          price: yahooQuote.regularMarketPrice || 0,
+          change: yahooQuote.regularMarketChange || 0,
+          changePercent: yahooQuote.regularMarketChangePercent || 0,
+          open: yahooQuote.regularMarketOpen || 0,
+          previousClose: yahooQuote.regularMarketPreviousClose || 0,
+          dayLow: yahooQuote.regularMarketDayLow || 0,
+          dayHigh: yahooQuote.regularMarketDayHigh || 0,
+          volume: yahooQuote.regularMarketVolume || 0,
+          avgVolume: yahooQuote.averageDailyVolume10Day || 0,
+          marketCap: yahooQuote.marketCap ? (yahooQuote.marketCap / 1e9) : 0, // Convert to billions
+          pe: yahooQuote.trailingPE || 0,
+          yearHigh: yahooQuote.fiftyTwoWeekHigh || 0,
+          yearLow: yahooQuote.fiftyTwoWeekLow || 0,
+          dataSource: "yahoo"
+        };
+        
+        console.log(`Yahoo Finance data retrieved for ${symbol}:`, { 
+          price: marketData.price, 
+          volume: marketData.volume, 
+          avgVolume: marketData.avgVolume,
+          marketCap: marketData.marketCap
+        });
+        
+        res.json(marketData);
+      } catch (error) {
+        console.error(`Yahoo Finance API error for ${symbol}:`, error);
+        res.status(500).json({ 
+          message: 'Error fetching Yahoo Finance data', 
+          error: error.message 
+        });
+      }
+    } catch (error) {
+      console.error(`Error in Yahoo data endpoint for ${req.params.symbol}:`, error);
+      res.status(500).json({ 
+        message: 'Error processing request', 
+        error: error.message 
+      });
+    }
+  });
   app.get('/api/market-data/quote/:symbol', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {

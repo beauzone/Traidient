@@ -40,123 +40,52 @@ function Quote() {
     }
   }, []);
 
-  // Get quote data from primary provider (Alpaca)
-  const { data: alpacaQuoteData, isLoading: isLoadingAlpacaQuote } = useQuery({
-    queryKey: ['/api/market-data/quote', symbol],
-    queryFn: async () => {
-      const data = await fetchData(`/api/market-data/quote/${symbol}`);
-      console.log("Alpaca quote data fetched:", data);
-      
-      // Add some derived fields for display based on Alpaca API structure
-      if (data?.quote) {
-        // Calculate some supplemental fields based on available Alpaca quote data
-        data.open = data.quote.op || data.quote.ap;
-        data.previousClose = data.quote.ap || data.quote.bp || 0;
-        data.dayLow = data.quote.l || (data.quote.bp ? data.quote.bp * 0.98 : 0);
-        data.dayHigh = data.quote.h || (data.quote.ap ? data.quote.ap * 1.02 : 0);
-        
-        // For 52-week range, use reasonable estimates based on current price
-        const currentPrice = data.quote.ap || data.quote.bp || 0;
-        data.yearLow = data.symbol === 'FUBO' ? 2.14 : (currentPrice * 0.65); 
-        data.yearHigh = data.symbol === 'FUBO' ? 4.06 : (currentPrice * 1.3);
-        
-        // For volume data, ensure we always have realistic values
-        const baseVolume = data.symbol === 'FUBO' ? 16578000 : 
-                         (data.symbol === 'CRWD' ? 8990000 : 
-                         (data.symbol === 'CAKE' ? 2350000 : 1000000));
-                         
-        data.volume = data.quote.v || baseVolume;
-        data.avgVolume = data.quote.vw ? Math.round(data.quote.vw) : baseVolume * 0.8;
-        
-        // Estimated market cap based on typical market cap for the stock
-        if (data.symbol === 'FUBO') {
-          data.marketCap = 0.01; // $10M (in billions)
-        } else if (data.symbol === 'CRWD') {
-          data.marketCap = 105; // $105B
-        } else if (data.symbol === 'CAKE') {
-          data.marketCap = 2.3; // $2.3B
-        } else if (data.symbol === 'DE') {
-          data.marketCap = 152; // $152B
-        } else {
-          // Default fallback based on price
-          data.marketCap = (data.quote.ap || 0) * 25000000 / 1e9;
-        }
-        
-        data.pe = data.symbol === 'FUBO' ? 44.5 : 
-                (data.symbol === 'CRWD' ? 102.7 : 
-                (data.symbol === 'CAKE' ? 15.2 : 
-                (data.symbol === 'DE' ? 13.7 : 35.8)));
-      }
-      
-      return data;
-    },
-    enabled: !!symbol,
-  });
-  
-  // Get quote data from Yahoo Finance as fallback/supplementary data
-  const { data: yahooQuoteData, isLoading: isLoadingYahooQuote } = useQuery({
-    queryKey: ['/api/yahoo/quote', symbol],
+  // Get real-time quote data directly from Yahoo Finance
+  const { data: quoteData, isLoading: isLoadingQuote } = useQuery({
+    queryKey: ['/api/market-data/yahoo', symbol],
     queryFn: async () => {
       try {
-        const data = await fetchData(`/api/market-data/historical/${symbol}?range=1d&interval=1m`);
-        console.log("Yahoo Finance data fetched:", data);
-        
-        if (data?.symbol) {
-          // Map the data to the expected format
-          return {
-            symbol: data.symbol,
-            price: data.bars && data.bars.length > 0 ? data.bars[data.bars.length - 1].c : null,
-            change: data.bars && data.bars.length > 0 ? data.bars[data.bars.length - 1].c - data.bars[0].o : 0,
-            changePercent: data.bars && data.bars.length > 0 ? ((data.bars[data.bars.length - 1].c - data.bars[0].o) / data.bars[0].o) * 100 : 0,
-            timestamp: data.bars && data.bars.length > 0 ? data.bars[data.bars.length - 1].t : new Date().toISOString(),
-            open: data.bars && data.bars.length > 0 ? data.bars[0].o : null,
-            previousClose: data.bars && data.bars.length > 0 ? data.bars[0].o : null,
-            dayLow: data.bars && data.bars.length > 0 ? Math.min(...data.bars.map(bar => bar.l)) : null,
-            dayHigh: data.bars && data.bars.length > 0 ? Math.max(...data.bars.map(bar => bar.h)) : null,
-            volume: data.bars ? data.bars.reduce((sum, bar) => sum + bar.v, 0) : 0,
-            yahooData: true
-          };
-        }
-        return null;
+        // Get accurate data from Yahoo Finance
+        const data = await fetchData(`/api/market-data/yahoo/${symbol}`);
+        console.log("Yahoo Finance real-time data fetched:", data);
+        return data;
       } catch (error) {
-        console.warn("Error fetching Yahoo Finance data:", error);
-        return null;
+        console.error("Error fetching accurate Yahoo Finance data:", error);
+        
+        // Try the Alpaca quote as a backup in case Yahoo fails
+        try {
+          console.log("Trying Alpaca as fallback for market data");
+          const alpacaData = await fetchData(`/api/market-data/quote/${symbol}`);
+          console.log("Alpaca quote data fetched:", alpacaData);
+          
+          // Only process Alpaca data if we actually have it
+          if (alpacaData?.quote) {
+            // Map to the expected format
+            return {
+              symbol: alpacaData.symbol,
+              price: alpacaData.quote.ap || alpacaData.quote.bp || 0,
+              change: 0, // No change data from Alpaca
+              changePercent: 0,
+              open: alpacaData.quote.op || alpacaData.quote.ap || 0,
+              previousClose: alpacaData.quote.ap || alpacaData.quote.bp || 0,
+              dayLow: alpacaData.quote.l || (alpacaData.quote.bp ? alpacaData.quote.bp * 0.98 : 0),
+              dayHigh: alpacaData.quote.h || (alpacaData.quote.ap ? alpacaData.quote.ap * 1.02 : 0),
+              volume: 0, // We'll let the component handle this
+              avgVolume: 0,
+              marketCap: 0,
+              pe: 0,
+              dataSource: "alpaca"
+            };
+          }
+          return null;
+        } catch (alpacaError) {
+          console.error("Both Yahoo and Alpaca data sources failed:", alpacaError);
+          return null;
+        }
       }
     },
     enabled: !!symbol,
   });
-  
-  // Combine data from both sources, prioritizing Alpaca but filling gaps with Yahoo data
-  const quoteData = (() => {
-    if (!alpacaQuoteData && !yahooQuoteData) return null;
-    
-    // If we have Alpaca data with actual price
-    if (alpacaQuoteData?.quote?.ap) {
-      const combined = { ...alpacaQuoteData };
-      
-      // If we also have Yahoo data, use it to fill in missing information
-      if (yahooQuoteData) {
-        if (!combined.price) combined.price = yahooQuoteData.price;
-        if (!combined.open) combined.open = yahooQuoteData.open;
-        if (!combined.previousClose) combined.previousClose = yahooQuoteData.previousClose;
-        if (!combined.dayLow) combined.dayLow = yahooQuoteData.dayLow;
-        if (!combined.dayHigh) combined.dayHigh = yahooQuoteData.dayHigh;
-        if (!combined.volume) combined.volume = yahooQuoteData.volume;
-      }
-      
-      return combined;
-    }
-    
-    // If no good Alpaca data but we have Yahoo data
-    if (yahooQuoteData) {
-      return yahooQuoteData;
-    }
-    
-    // Fallback to whatever we have
-    return alpacaQuoteData;
-  })();
-  
-  const isLoadingQuote = isLoadingAlpacaQuote || isLoadingYahooQuote;
 
   // Get positions related to this symbol
   const { data: positions = [], isLoading: isLoadingPositions } = useQuery({
