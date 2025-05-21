@@ -24,6 +24,34 @@ const timePeriods = [
   { label: "All", value: "All" },
 ];
 
+// Helper function to format market cap values
+function formatMarketCap(marketCap: number): string {
+  if (!marketCap || isNaN(marketCap)) return "$0.00";
+  
+  // Format as trillions
+  if (marketCap >= 1_000_000_000_000) {
+    return `$${(marketCap / 1_000_000_000_000).toFixed(2)}T`;
+  }
+  
+  // Format as billions
+  if (marketCap >= 1_000_000_000) {
+    return `$${(marketCap / 1_000_000_000).toFixed(2)}B`;
+  }
+  
+  // Format as millions
+  if (marketCap >= 1_000_000) {
+    return `$${(marketCap / 1_000_000).toFixed(2)}M`;
+  }
+  
+  // Format as thousands
+  if (marketCap >= 1_000) {
+    return `$${(marketCap / 1_000).toFixed(2)}K`;
+  }
+  
+  // Just format as dollars
+  return `$${marketCap.toFixed(2)}`;
+};
+
 function Quote() {
   const [symbol, setSymbol] = useState("");
   const [timeRange, setTimeRange] = useState("1D");
@@ -189,11 +217,11 @@ function Quote() {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               {symbol} 
               <Badge variant="outline" className="text-xs">
-                {quoteData?.exchange || "Loading..."}
+                {isLoadingQuote ? "Loading..." : (quoteData?.exchange || "N/A")}
               </Badge>
             </h1>
             <h2 className="text-lg font-medium text-muted-foreground">
-              {quoteData?.name || "Loading..."}
+              {isLoadingQuote ? "Loading..." : (quoteData?.name || symbol)}
             </h2>
           </div>
 
@@ -356,7 +384,7 @@ function Quote() {
                 {quoteData?.quote?.ap && symbolPositions[0]?.quantity ? 
                   `$${((quoteData.quote.ap * symbolPositions[0].quantity) / 1e6).toFixed(2)}M` : 
                   (quoteData?.marketCap ? 
-                    `$${(quoteData.marketCap / 1e9).toFixed(2)}B` : 
+                    formatMarketCap(quoteData.marketCap) : 
                     "-")}
               </p>
             </CardContent>

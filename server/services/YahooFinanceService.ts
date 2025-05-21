@@ -42,7 +42,7 @@ export class YahooFinanceService {
         volume: quoteResult.regularMarketVolume || 0,
         avgVolume: summaryResult?.summaryDetail?.averageVolume || 0,
         marketCap: summaryResult?.summaryDetail?.marketCap 
-          ? Number((summaryResult.summaryDetail.marketCap / 1_000_000_000).toFixed(2)) // Convert to billions and round
+          ? summaryResult.summaryDetail.marketCap // Keep the original full number
           : 0,
         pe: summaryResult?.summaryDetail?.trailingPE || 0,
         yearHigh: summaryResult?.summaryDetail?.fiftyTwoWeekHigh || 0,
