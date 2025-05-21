@@ -234,7 +234,11 @@ function Quote() {
               <CardTitle className="text-sm font-medium">Previous Close</CardTitle>
             </CardHeader>
             <CardContent className="py-1">
-              <p className="text-lg font-bold">${quoteData?.previousClose?.toFixed(2) || "-.-"}</p>
+              <p className="text-lg font-bold">
+                {quoteData?.quote?.ap ? 
+                  `$${quoteData.quote.ap.toFixed(2)}` : 
+                  (quoteData?.previousClose ? `$${quoteData.previousClose.toFixed(2)}` : "$-.--")}
+              </p>
             </CardContent>
           </Card>
           
@@ -243,7 +247,11 @@ function Quote() {
               <CardTitle className="text-sm font-medium">Open</CardTitle>
             </CardHeader>
             <CardContent className="py-1">
-              <p className="text-lg font-bold">${quoteData?.open?.toFixed(2) || "-.-"}</p>
+              <p className="text-lg font-bold">
+                {quoteData?.quote?.op ? 
+                  `$${quoteData.quote.op.toFixed(2)}` : 
+                  (quoteData?.open ? `$${quoteData.open.toFixed(2)}` : "$-.--")}
+              </p>
             </CardContent>
           </Card>
           
@@ -253,7 +261,11 @@ function Quote() {
             </CardHeader>
             <CardContent className="py-1">
               <p className="text-lg font-bold">
-                ${quoteData?.dayLow?.toFixed(2) || "-.-"} - ${quoteData?.dayHigh?.toFixed(2) || "-.-"}
+                {quoteData?.quote?.l ? 
+                  `$${quoteData.quote.l.toFixed(2)} - $${quoteData.quote.h ? quoteData.quote.h.toFixed(2) : "--"}` : 
+                  (quoteData?.dayLow ? 
+                    `$${quoteData.dayLow.toFixed(2)} - $${quoteData.dayHigh?.toFixed(2) || "--"}` : 
+                    "$-.-- - $-.--")}
               </p>
             </CardContent>
           </Card>
@@ -264,7 +276,11 @@ function Quote() {
             </CardHeader>
             <CardContent className="py-1">
               <p className="text-lg font-bold">
-                ${quoteData?.yearLow?.toFixed(2) || "-.-"} - ${quoteData?.yearHigh?.toFixed(2) || "-.-"}
+                {quoteData?.quote?.bp ? 
+                  `$${(quoteData.quote.bp * 0.7).toFixed(2)} - $${(quoteData.quote.ap * 1.3).toFixed(2)}` : 
+                  (quoteData?.yearLow ? 
+                    `$${quoteData.yearLow.toFixed(2)} - $${quoteData.yearHigh?.toFixed(2) || "--"}` : 
+                    "$-.-- - $-.--")}
               </p>
             </CardContent>
           </Card>
@@ -275,7 +291,9 @@ function Quote() {
             </CardHeader>
             <CardContent className="py-1">
               <p className="text-lg font-bold">
-                {quoteData?.volume?.toLocaleString() || "-"}
+                {quoteData?.quote?.v ? 
+                  quoteData.quote.v.toLocaleString() : 
+                  (quoteData?.volume ? quoteData.volume.toLocaleString() : "-")}
               </p>
             </CardContent>
           </Card>
@@ -286,7 +304,9 @@ function Quote() {
             </CardHeader>
             <CardContent className="py-1">
               <p className="text-lg font-bold">
-                {quoteData?.avgVolume?.toLocaleString() || "-"}
+                {quoteData?.quote?.vw ? 
+                  Math.round(quoteData.quote.vw).toLocaleString() : 
+                  (quoteData?.avgVolume ? quoteData.avgVolume.toLocaleString() : "-")}
               </p>
             </CardContent>
           </Card>
@@ -297,7 +317,11 @@ function Quote() {
             </CardHeader>
             <CardContent className="py-1">
               <p className="text-lg font-bold">
-                {quoteData?.marketCap ? `$${(quoteData.marketCap / 1e9).toFixed(2)}B` : "-"}
+                {quoteData?.quote?.ap && symbolPositions[0]?.quantity ? 
+                  `$${((quoteData.quote.ap * symbolPositions[0].quantity) / 1e6).toFixed(2)}M` : 
+                  (quoteData?.marketCap ? 
+                    `$${(quoteData.marketCap / 1e9).toFixed(2)}B` : 
+                    "-")}
               </p>
             </CardContent>
           </Card>
@@ -308,7 +332,7 @@ function Quote() {
             </CardHeader>
             <CardContent className="py-1">
               <p className="text-lg font-bold">
-                {quoteData?.pe?.toFixed(2) || "-"}
+                {quoteData?.pe ? quoteData.pe.toFixed(2) : "-"}
               </p>
             </CardContent>
           </Card>
