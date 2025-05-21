@@ -28,6 +28,16 @@ export class YahooFinanceService {
         modules: ['summaryDetail', 'defaultKeyStatistics', 'price']
       });
       
+      // Log the raw market cap value for debugging
+      console.log(`Raw market cap value for ${symbol}:`, summaryResult?.summaryDetail?.marketCap);
+      
+      // Get market cap and ensure it's a valid number
+      let marketCapValue = 0;
+      if (summaryResult?.summaryDetail?.marketCap) {
+        marketCapValue = Number(summaryResult.summaryDetail.marketCap);
+        console.log(`Converted market cap for ${symbol}:`, marketCapValue);
+      }
+      
       // Format the data into a consistent structure for our frontend
       const formattedData = {
         symbol: symbol,
@@ -41,13 +51,12 @@ export class YahooFinanceService {
         dayHigh: quoteResult.regularMarketDayHigh || 0,
         volume: quoteResult.regularMarketVolume || 0,
         avgVolume: summaryResult?.summaryDetail?.averageVolume || 0,
-        marketCap: summaryResult?.summaryDetail?.marketCap 
-          ? summaryResult.summaryDetail.marketCap // Keep the original full number
-          : 0,
+        marketCap: marketCapValue, // Use our validated number
         pe: summaryResult?.summaryDetail?.trailingPE || 0,
         yearHigh: summaryResult?.summaryDetail?.fiftyTwoWeekHigh || 0,
         yearLow: summaryResult?.summaryDetail?.fiftyTwoWeekLow || 0,
-        dataSource: "yahoo"
+        dataSource: "yahoo",
+        exchange: quoteResult.fullExchangeName || "N/A"
       };
       
       console.log(`YahooFinanceService: Successfully retrieved data for ${symbol}`);
