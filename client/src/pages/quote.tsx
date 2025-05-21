@@ -132,12 +132,17 @@ function Quote() {
 
           <div className="flex flex-col items-end">
             <div className="text-3xl font-bold">
-              ${quoteData?.price?.toFixed(2) || "-.--"}
+              ${quoteData?.quote?.ap ? quoteData.quote.ap.toFixed(2) : quoteData?.price?.toFixed(2) || "-.--"}
             </div>
             {quoteData && (
-              <div className={`text-sm font-medium flex items-center ${quoteData.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {quoteData.change >= 0 ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
-                {quoteData.change.toFixed(2)} ({quoteData.changePercent.toFixed(2)}%)
+              <div className={`text-sm font-medium flex items-center ${
+                (quoteData.change >= 0 || (quoteData.quote && quoteData.quote.ap > quoteData.quote.bp)) ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {(quoteData.change >= 0 || (quoteData.quote && quoteData.quote.ap > quoteData.quote.bp)) ? 
+                  <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
+                {quoteData.change !== undefined ? 
+                  `${quoteData.change.toFixed(2)} (${quoteData.changePercent.toFixed(2)}%)` : 
+                  "Market Price"}
               </div>
             )}
             <div className="text-xs text-muted-foreground flex items-center mt-1">
