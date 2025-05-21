@@ -180,13 +180,13 @@ function Quote() {
 
           <div className="flex flex-col items-end">
             <div className="text-3xl font-bold">
-              ${quoteData?.quote?.ap ? quoteData.quote.ap.toFixed(2) : quoteData?.price?.toFixed(2) || "-.--"}
+              ${quoteData?.price ? quoteData.price.toFixed(2) : "-.--"}
             </div>
             {quoteData && (
               <div className={`text-sm font-medium flex items-center ${
-                (quoteData.change >= 0 || (quoteData.quote && quoteData.quote.ap > quoteData.quote.bp)) ? 'text-green-500' : 'text-red-500'
+                quoteData.change >= 0 ? 'text-green-500' : 'text-red-500'
               }`}>
-                {(quoteData.change >= 0 || (quoteData.quote && quoteData.quote.ap > quoteData.quote.bp)) ? 
+                {quoteData.change >= 0 ? 
                   <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
                 {quoteData.change !== undefined ? 
                   `${quoteData.change.toFixed(2)} (${quoteData.changePercent.toFixed(2)}%)` : 
@@ -194,30 +194,7 @@ function Quote() {
               </div>
             )}
             <div className="text-xs text-muted-foreground flex items-center mt-1">
-              <Clock className="w-3 h-3 mr-1" /> Last updated {
-                quoteData ? (
-                  quoteData.quote?.t ? 
-                    (() => {
-                      try {
-                        // Handle ISO format string with milliseconds
-                        const timestamp = quoteData.quote.t.includes('.') ? 
-                          quoteData.quote.t.split('.')[0] : quoteData.quote.t;
-                        return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
-                      } catch (e) {
-                        return "recently";
-                      }
-                    })() : 
-                    (quoteData.timestamp ? 
-                      (() => {
-                        try {
-                          return formatDistanceToNow(new Date(quoteData.timestamp), { addSuffix: true });
-                        } catch (e) {
-                          return "recently";
-                        }
-                      })() : 
-                      "recently")
-                ) : "recently"
-              }
+              <Clock className="w-3 h-3 mr-1" /> Last updated recently
             </div>
           </div>
         </div>
