@@ -62,7 +62,15 @@ function Quote() {
   // Get news for this symbol
   const { data: news = [], isLoading: isLoadingNews } = useQuery({
     queryKey: ['/api/market-data/news', symbol],
-    queryFn: () => fetchData(`/api/market-data/news?symbol=${symbol}&limit=5`),
+    queryFn: async () => {
+      try {
+        const newsData = await fetchData(`/api/market-data/news?symbol=${symbol}&limit=5`);
+        return Array.isArray(newsData) ? newsData : [];
+      } catch (error) {
+        console.warn("Error fetching news:", error);
+        return [];
+      }
+    },
     enabled: !!symbol,
   });
 
@@ -146,7 +154,30 @@ function Quote() {
               </div>
             )}
             <div className="text-xs text-muted-foreground flex items-center mt-1">
-              <Clock className="w-3 h-3 mr-1" /> Last updated {quoteData ? formatDistanceToNow(new Date(quoteData.timestamp), { addSuffix: true }) : "recently"}
+              <Clock className="w-3 h-3 mr-1" /> Last updated {
+                quoteData ? (
+                  quoteData.quote?.t ? 
+                    (() => {
+                      try {
+                        // Handle ISO format string with milliseconds
+                        const timestamp = quoteData.quote.t.includes('.') ? 
+                          quoteData.quote.t.split('.')[0] : quoteData.quote.t;
+                        return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+                      } catch (e) {
+                        return "recently";
+                      }
+                    })() : 
+                    (quoteData.timestamp ? 
+                      (() => {
+                        try {
+                          return formatDistanceToNow(new Date(quoteData.timestamp), { addSuffix: true });
+                        } catch (e) {
+                          return "recently";
+                        }
+                      })() : 
+                      "recently")
+                ) : "recently"
+              }
             </div>
           </div>
         </div>
