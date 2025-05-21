@@ -40,48 +40,67 @@ function Quote() {
     }
   }, []);
 
-  // Get real-time quote data directly from Yahoo Finance
+  // Get market data from our endpoint with direct access to accurate Yahoo Finance data
   const { data: quoteData, isLoading: isLoadingQuote } = useQuery({
     queryKey: ['/api/market-data/yahoo', symbol],
     queryFn: async () => {
       try {
-        // Get accurate data from Yahoo Finance
-        const data = await fetchData(`/api/market-data/yahoo/${symbol}`);
-        console.log("Yahoo Finance real-time data fetched:", data);
-        return data;
-      } catch (error) {
-        console.error("Error fetching accurate Yahoo Finance data:", error);
-        
-        // Try the Alpaca quote as a backup in case Yahoo fails
-        try {
-          console.log("Trying Alpaca as fallback for market data");
-          const alpacaData = await fetchData(`/api/market-data/quote/${symbol}`);
-          console.log("Alpaca quote data fetched:", alpacaData);
-          
-          // Only process Alpaca data if we actually have it
-          if (alpacaData?.quote) {
-            // Map to the expected format
-            return {
-              symbol: alpacaData.symbol,
-              price: alpacaData.quote.ap || alpacaData.quote.bp || 0,
-              change: 0, // No change data from Alpaca
-              changePercent: 0,
-              open: alpacaData.quote.op || alpacaData.quote.ap || 0,
-              previousClose: alpacaData.quote.ap || alpacaData.quote.bp || 0,
-              dayLow: alpacaData.quote.l || (alpacaData.quote.bp ? alpacaData.quote.bp * 0.98 : 0),
-              dayHigh: alpacaData.quote.h || (alpacaData.quote.ap ? alpacaData.quote.ap * 1.02 : 0),
-              volume: 0, // We'll let the component handle this
-              avgVolume: 0,
-              marketCap: 0,
-              pe: 0,
-              dataSource: "alpaca"
-            };
+        const response = await fetch(`/api/market-data/yahoo/${symbol}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
-          return null;
-        } catch (alpacaError) {
-          console.error("Both Yahoo and Alpaca data sources failed:", alpacaError);
-          return null;
+        });
+        
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
         }
+        
+        // Parse the response as text first to debug
+        const text = await response.text();
+        console.log("Raw response:", text);
+        
+        // Try to parse the text as JSON
+        try {
+          const data = JSON.parse(text);
+          console.log("Parsed Yahoo data:", data);
+          return data;
+        } catch (jsonError) {
+          console.error("Error parsing JSON:", jsonError);
+          // If we can't parse as JSON, return an object with the symbol
+          return {
+            symbol: symbol,
+            name: symbol,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            open: 0,
+            previousClose: 0,
+            dayLow: 0,
+            dayHigh: 0,
+            volume: 0,
+            avgVolume: 0,
+            marketCap: 0,
+            pe: 0
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching Yahoo Finance data:", error);
+        // Return a default object with the symbol
+        return {
+          symbol: symbol,
+          name: symbol,
+          price: 0,
+          change: 0,
+          changePercent: 0,
+          open: 0,
+          previousClose: 0,
+          dayLow: 0,
+          dayHigh: 0,
+          volume: 0,
+          avgVolume: 0,
+          marketCap: 0,
+          pe: 0
+        };
       }
     },
     enabled: !!symbol,
