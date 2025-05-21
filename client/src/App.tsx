@@ -138,6 +138,11 @@ function AppRoutes() {
         <ProtectedRoute component={Bots} />
       </Route>
       
+      {/* Stock Quote Page */}
+      <Route path="/quote">
+        <ProtectedRoute component={lazy(() => import('./pages/quote'))} />
+      </Route>
+      
       {/* Live Trading Monitor */}
       <Route path="/live-trading">
         <ProtectedRoute component={LiveTrading} />

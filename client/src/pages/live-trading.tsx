@@ -27,6 +27,7 @@ function LiveTrading() {
   const [selectedStock, setSelectedStock] = useState('AAPL');
   const [activeTab, setActiveTab] = useState("positions");
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | undefined>(undefined);
+  const [, navigate] = useLocation();
   
   // Parse URL parameters on component mount
   useEffect(() => {
@@ -79,7 +80,8 @@ function LiveTrading() {
 
   // Handle stock selection from various components
   const handleSelectStock = (symbol: string) => {
-    setSelectedStock(symbol);
+    // Navigate to the Quote page instead of updating selected stock
+    navigate(`/quote?symbol=${symbol}`);
   };
 
   // Handle tab change

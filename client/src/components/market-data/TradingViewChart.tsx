@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 interface TradingViewChartProps {
   symbol: string;
   interval?: string;
+  timeRange?: string;
+  timeInterval?: string;
   theme?: 'light' | 'dark';
   autosize?: boolean;
   height?: number | string;
@@ -13,6 +15,8 @@ interface TradingViewChartProps {
 export default function TradingViewChart({
   symbol,
   interval = 'D',
+  timeRange,
+  timeInterval,
   theme = 'dark',
   autosize = true,
   height = 500,
@@ -34,12 +38,15 @@ export default function TradingViewChart({
     script.type = 'text/javascript';
     script.async = true;
 
+    // Use timeInterval if provided, otherwise use interval
+    const chartInterval = timeInterval || interval;
+    
     // Create the widget configuration
     const widgetConfig = {
       autosize: autosize,
       height: height,
       symbol: symbol,
-      interval: interval,
+      interval: chartInterval,
       timezone: "America/New_York",
       theme: theme,
       style: "1",
@@ -57,7 +64,9 @@ export default function TradingViewChart({
       show_popup_button: true,
       popup_width: "1000",
       popup_height: "650",
-      support_host: "https://www.tradingview.com"
+      support_host: "https://www.tradingview.com",
+      // Add time range support if provided
+      range: timeRange || undefined
     };
 
     // Convert the configuration to JSON and assign it to the script's inner HTML
@@ -84,7 +93,7 @@ export default function TradingViewChart({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [symbol, interval, theme, autosize, height]);
+  }, [symbol, interval, timeInterval, timeRange, theme, autosize, height]);
 
   return (
     <div 

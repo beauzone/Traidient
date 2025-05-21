@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { TradeDialog } from "./TradeDialog";
+import { useLocation } from "wouter";
 
 interface Position {
   symbol: string;
@@ -33,6 +34,7 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
   const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
   const [tradeAction, setTradeAction] = useState<"modify" | "exit" | null>(null);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Fetch positions data
   const { data: positions = [], isLoading } = useQuery({
@@ -120,7 +122,14 @@ const PositionsTable = ({ onSymbolSelect }: PositionsTableProps) => {
                     <TableCell>
                       <div 
                         className="font-medium cursor-pointer hover:text-primary transition-colors"
-                        onClick={() => onSymbolSelect && onSymbolSelect(position.symbol)}
+                        onClick={() => {
+                          if (onSymbolSelect) {
+                            onSymbolSelect(position.symbol);
+                          } else {
+                            // Navigate to the new Quote page
+                            navigate(`/quote?symbol=${position.symbol}`);
+                          }
+                        }}
                       >
                         {position.symbol}
                       </div>

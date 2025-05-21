@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
   });
   const [watchlistWithHistory, setWatchlistWithHistory] = useState<WatchlistItem[]>([]);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Query to fetch watchlist items
   const { data: watchlist = [], isLoading } = useQuery({
@@ -295,7 +297,14 @@ const WatchlistTable = ({ onSelectStock }: WatchlistTableProps) => {
                 <div 
                   key={item.id} 
                   className="px-4 py-3 hover:bg-gray-900 cursor-pointer"
-                  onClick={() => onSelectStock && onSelectStock(item.symbol)}
+                  onClick={() => {
+                    if (onSelectStock) {
+                      onSelectStock(item.symbol);
+                    } else {
+                      // Navigate to the Quote page if no custom handler is provided
+                      navigate(`/quote?symbol=${item.symbol}`);
+                    }
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     {/* Symbol and Company Info */}

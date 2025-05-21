@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { fetchData } from "@/lib/api";
 import { WatchlistItem } from "../../types";
+import { useLocation } from "wouter";
 
 interface SearchResult {
   symbol: string;
@@ -22,13 +23,20 @@ const StockSearch = ({ onSymbolSelect, onSelectStock, watchlist = [] }: StockSea
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const debouncedSearch = useDebounce(searchQuery, 300);
+  const [, navigate] = useLocation();
 
   const handleSelectSymbol = (symbol: string) => {
-    if (onSymbolSelect) {
-      onSymbolSelect(symbol);
-    }
-    if (onSelectStock) {
-      onSelectStock(symbol);
+    // Navigate to the Quote page unless explicit handlers are provided
+    if (!onSymbolSelect && !onSelectStock) {
+      navigate(`/quote?symbol=${symbol}`);
+    } else {
+      // For backward compatibility, call existing handlers
+      if (onSymbolSelect) {
+        onSymbolSelect(symbol);
+      }
+      if (onSelectStock) {
+        onSelectStock(symbol);
+      }
     }
     setSearchQuery("");
     setSearchResults([]);

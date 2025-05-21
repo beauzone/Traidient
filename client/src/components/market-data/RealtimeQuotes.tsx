@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
 
 interface RealtimeQuotesProps {
   initialSymbols?: string[];
@@ -22,6 +23,7 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
     unsubscribeFromSymbols 
   } = useMarketData();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Subscribe to initial symbols when the component mounts
   useEffect(() => {
@@ -101,7 +103,14 @@ export function RealtimeQuotes({ initialSymbols = [], onSymbolSelect }: Realtime
                 <div
                   key={symbol}
                   className="flex justify-between items-center p-3 bg-card border rounded-md hover:bg-accent/50 cursor-pointer"
-                  onClick={() => onSymbolSelect && onSymbolSelect(symbol)}
+                  onClick={() => {
+                    if (onSymbolSelect) {
+                      onSymbolSelect(symbol);
+                    } else {
+                      // Navigate to the Quote page if no custom handler is provided
+                      navigate(`/quote?symbol=${symbol}`);
+                    }
+                  }}
                 >
                   <div className="flex items-center space-x-3">
                     <Badge variant="outline" className="font-mono">
