@@ -2089,154 +2089,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        // Get up-to-date reference data for NKE based on real Yahoo Finance data
-        if (symbol === 'NKE') {
-          const nikeData = {
-            symbol: "NKE",
-            name: "Nike, Inc.",
-            price: 59.96,
-            change: -0.77,
-            changePercent: -1.27,
-            open: 61.17,
-            previousClose: 60.73,
-            dayLow: 59.88,
-            dayHigh: 61.75,
-            volume: 14920000,
-            avgVolume: 20200000,
-            marketCap: 88.53, // in billions
-            pe: 19.93,
-            yearHigh: 98.04,
-            yearLow: 52.28,
-            dataSource: "yahoo"
-          };
-          
-          console.log(`NKE market data: Volume=${nikeData.volume}, Avg Volume=${nikeData.avgVolume}, Market Cap=${nikeData.marketCap}B`);
-          return res.json(nikeData);
-        }
+        // Import our Yahoo Finance Service
+        const { yahooFinanceService } = await import('./services/YahooFinanceService');
         
-        // Get reference data for DE for guaranteed data
-        if (symbol === 'DE') {
-          const deereData = {
-            symbol: "DE",
-            name: "Deere & Company",
-            price: 514.66,
-            change: -0.40,
-            changePercent: -0.08,
-            open: 515.02,
-            previousClose: 515.06,
-            dayLow: 514.20,
-            dayHigh: 515.30,
-            volume: 1204600,
-            avgVolume: 1526800,
-            marketCap: 152.13, // in billions
-            pe: 13.7,
-            yearHigh: 517.30,
-            yearLow: 345.80,
-            dataSource: "yahoo"
-          };
-          
-          console.log(`DE market data: Volume=${deereData.volume}, Avg Volume=${deereData.avgVolume}`);
-          return res.json(deereData);
-        }
+        console.log(`Fetching real-time quote data for ${symbol} from Yahoo Finance API`);
         
-        // Get reference data for CAKE for guaranteed data
-        if (symbol === 'CAKE') {
-          const cakeData = {
-            symbol: "CAKE",
-            name: "The Cheesecake Factory Incorporated",
-            price: 52.10,
-            change: 0.11,
-            changePercent: 0.21,
-            open: 52.05,
-            previousClose: 51.99,
-            dayLow: 51.95,
-            dayHigh: 52.25,
-            volume: 791200,
-            avgVolume: 882600,
-            marketCap: 2.32, // in billions
-            pe: 15.2,
-            yearHigh: 52.40,
-            yearLow: 38.25,
-            dataSource: "yahoo"
-          };
-          
-          console.log(`CAKE market data: Volume=${cakeData.volume}, Avg Volume=${cakeData.avgVolume}`);
-          return res.json(cakeData);
-        }
+        // Use our service to get real data from Yahoo Finance
+        const marketData = await yahooFinanceService.getQuote(symbol);
         
-        // Get reference data for FUBO for guaranteed data
-        if (symbol === 'FUBO') {
-          const fuboData = {
-            symbol: "FUBO",
-            name: "fuboTV Inc.",
-            price: 3.10,
-            change: -0.02,
-            changePercent: -0.64,
-            open: 3.12,
-            previousClose: 3.12,
-            dayLow: 3.06,
-            dayHigh: 3.18,
-            volume: 16578000,
-            avgVolume: 14256000,
-            marketCap: 0.91, // in billions
-            pe: 0,
-            yearHigh: 4.06,
-            yearLow: 2.14,
-            dataSource: "yahoo"
-          };
-          
-          console.log(`FUBO market data: Volume=${fuboData.volume}, Avg Volume=${fuboData.avgVolume}`);
-          return res.json(fuboData);
-        }
+        console.log(`Successfully fetched real data for ${symbol} from Yahoo Finance: Volume=${marketData.volume}, Avg Volume=${marketData.avgVolume}, Market Cap=${marketData.marketCap}B, P/E=${marketData.pe}`);
         
-        // For all other symbols, use a generic placeholder template but with realistic volume
-        const defaultData = {
-          symbol: symbol,
-          name: symbol,
-          price: 100.00,
-          change: 1.25,
-          changePercent: 1.25,
-          open: 99.00,
-          previousClose: 98.75,
-          dayLow: 98.50,
-          dayHigh: 101.25,
-          volume: 8500000,
-          avgVolume: 7200000,
-          marketCap: 150.5, // in billions
-          pe: 25.4,
-          yearHigh: 110.50,
-          yearLow: 85.75,
-          dataSource: "yahoo"
-        };
-        
-        console.log(`Generic market data for ${symbol}: Volume=${defaultData.volume}, Avg Volume=${defaultData.avgVolume}`);
-        res.json(defaultData);
+        return res.json(marketData);
         
       } catch (error) {
-        console.error(`Error in Yahoo Finance API for ${symbol}:`, error);
+        console.error(`Error fetching Yahoo Finance data for ${symbol}:`, error);
         
-        // If Yahoo Finance fails, return realistic stock data
-        const fallbackData = {
-          symbol: symbol,
-          name: symbol,
-          price: 100.00,
-          change: 1.25,
-          changePercent: 1.25,
-          open: 99.00,
-          previousClose: 98.75,
-          dayLow: 98.50,
-          dayHigh: 101.25,
-          volume: 8500000,
-          avgVolume: 7200000,
-          marketCap: 150.5, // in billions
-          pe: 25.4,
-          yearHigh: 110.50,
-          yearLow: 85.75,
-          dataSource: "yahoo"
-        };
-        
-        console.log(`Using fallback data for ${symbol}`);
-        res.json(fallbackData);
+        // If the API call fails, we should inform the client so they can take appropriate action
+        return res.status(500).json({ 
+          message: 'Error fetching market data from Yahoo Finance API',
+          error: error.message 
+        });
       }
     } catch (error) {
       console.error(`Error in Yahoo data endpoint for ${req.params.symbol}:`, error);
