@@ -29,6 +29,7 @@ import BrokerConfiguration from "@/pages/broker-configuration";
 import NotFound from "@/pages/not-found";
 import DebugPage from "@/pages/debug";
 import Webhooks from "@/pages/webhooks";
+import Quote from "@/pages/quote";
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -140,7 +141,7 @@ function AppRoutes() {
       
       {/* Stock Quote Page */}
       <Route path="/quote">
-        <ProtectedRoute component={lazy(() => import('./pages/quote'))} />
+        <ProtectedRoute component={Quote} />
       </Route>
       
       {/* Live Trading Monitor */}

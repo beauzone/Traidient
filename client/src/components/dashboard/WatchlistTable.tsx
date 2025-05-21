@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 import {
   Table,
   TableBody,
@@ -60,6 +61,7 @@ const WatchlistTable = () => {
     type: "stock"
   });
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   // Query to fetch watchlist items
   const { data: watchlist = [], isLoading } = useQuery({
@@ -247,7 +249,10 @@ const WatchlistTable = () => {
                 {watchlist.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <div className="flex items-center">
+                      <div 
+                        className="flex items-center cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => navigate(`/quote?symbol=${item.symbol}`)}
+                      >
                         <div className="text-sm font-medium">{item.symbol}</div>
                         <div className="ml-2 text-xs">{item.name}</div>
                       </div>

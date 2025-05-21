@@ -270,8 +270,8 @@ const PositionsTable = ({ passedPositions, isLoading: passedIsLoading }: Positio
                         <div 
                           className="font-medium cursor-pointer hover:text-primary transition-colors"
                           onClick={() => {
-                            // Navigate to the symbol on the live trading page
-                            window.location.href = `/live-trading?symbol=${position.symbol}`;
+                            // Navigate to the symbol on the quote page
+                            window.location.href = `/quote?symbol=${position.symbol}`;
                           }}
                         >
                           {position.symbol}
