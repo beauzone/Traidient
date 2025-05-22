@@ -436,6 +436,9 @@ function Quote() {
           </Card>
         </div>
 
+        {/* News Section - Yahoo Finance Style */}
+        <NewsSection symbol={symbol} />
+
         {/* Position & Orders Section */}
         <Tabs defaultValue="positions" className="w-full">
           <TabsList>
