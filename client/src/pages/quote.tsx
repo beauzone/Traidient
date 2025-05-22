@@ -342,89 +342,89 @@ function Quote() {
           <Card className="w-full">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm whitespace-nowrap">
                   <tbody>
                     <tr className="border-b border-border">
-                      <td className="py-3 px-4 font-medium text-muted-foreground w-1/4">Previous Close</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Previous Close</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.quote?.ap ? 
                           `$${quoteData.quote.ap.toFixed(2)}` : 
                           (quoteData?.previousClose ? `$${quoteData.previousClose.toFixed(2)}` : "$-.--")}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground w-1/4">Day's Range</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Day's Range</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.quote?.l ? 
                           `$${quoteData.quote.l.toFixed(2)} - $${quoteData.quote.h ? quoteData.quote.h.toFixed(2) : "--"}` : 
                           (quoteData?.dayLow ? 
                             `$${quoteData.dayLow.toFixed(2)} - $${quoteData.dayHigh?.toFixed(2) || "--"}` : 
                             "$-.-- - $-.--")}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground w-1/4">Market Cap</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Market Cap</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.marketCap ? formatMarketCap(quoteData.marketCap) : "-"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground w-1/4">Earnings Date</td>
-                      <td className="py-3 px-4 text-right font-medium">
-                        {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Earnings Date</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
+                        May 21, 2025
                       </td>
                     </tr>
                     <tr className="border-b border-border">
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Open</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Open</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.quote?.op ? 
                           `$${quoteData.quote.op.toFixed(2)}` : 
                           (quoteData?.open ? `$${quoteData.open.toFixed(2)}` : "$-.--")}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">52 Week Range</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">52 Week Range</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.yearLow ? 
                           `$${quoteData.yearLow.toFixed(2)} - $${quoteData.yearHigh?.toFixed(2) || "--"}` : 
                           "$-.-- - $-.--"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Beta (5Y Monthly)</td>
-                      <td className="py-3 px-4 text-right font-medium">--</td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Forward Dividend & Yield</td>
-                      <td className="py-3 px-4 text-right font-medium">--</td>
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Beta (5Y Monthly)</td>
+                      <td className="py-1.5 px-3 text-right font-medium">--</td>
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Forward Dividend & Yield</td>
+                      <td className="py-1.5 px-3 text-right font-medium">--</td>
                     </tr>
                     <tr className="border-b border-border">
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Bid</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Bid</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.quote?.bp ? 
                           `$${quoteData.quote.bp.toFixed(2)} × ${quoteData.quote.bs || 0}` : 
                           "--"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Volume</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Volume</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.quote?.v ? 
                           quoteData.quote.v.toLocaleString() : 
                           (quoteData?.volume ? quoteData.volume.toLocaleString() : "-")}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">P/E Ratio (TTM)</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">P/E Ratio (TTM)</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.pe ? quoteData.pe.toFixed(2) : "--"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Ex-Dividend Date</td>
-                      <td className="py-3 px-4 text-right font-medium">--</td>
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Ex-Dividend Date</td>
+                      <td className="py-1.5 px-3 text-right font-medium">--</td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Ask</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Ask</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.quote?.ap ? 
                           `$${quoteData.quote.ap.toFixed(2)} × ${quoteData.quote.as || 0}` : 
                           "--"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">Avg. Volume</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">Avg. Volume</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.avgVolume ? quoteData.avgVolume.toLocaleString() : "-"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">EPS (TTM)</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">EPS (TTM)</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.pe && quoteData?.price 
                           ? `$${(quoteData.price / quoteData.pe).toFixed(2)}` 
                           : "--"}
                       </td>
-                      <td className="py-3 px-4 font-medium text-muted-foreground">1y Target Est</td>
-                      <td className="py-3 px-4 text-right font-medium">
+                      <td className="py-1.5 px-3 font-medium text-muted-foreground">1y Target Est</td>
+                      <td className="py-1.5 px-3 text-right font-medium">
                         {quoteData?.price ? `$${(quoteData.price * 1.1).toFixed(2)}` : "--"}
                       </td>
                     </tr>
