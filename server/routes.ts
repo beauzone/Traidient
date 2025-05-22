@@ -20,6 +20,7 @@ import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
 import screenerRoutes from './screenerRoutes';
 import { Parser } from 'json2csv';
+import { getNewsForSymbol } from './newsService';
 // For Python script execution
 import * as childProcess from 'child_process';
 import { 
