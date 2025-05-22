@@ -440,7 +440,6 @@ function Quote() {
           <TabsList>
             <TabsTrigger value="positions">Positions ({symbolPositions.length})</TabsTrigger>
             <TabsTrigger value="orders">Order History ({symbolOrders.length})</TabsTrigger>
-            <TabsTrigger value="news">News</TabsTrigger>
           </TabsList>
           
           <TabsContent value="positions">
@@ -535,57 +534,134 @@ function Quote() {
               </Card>
             )}
           </TabsContent>
-          
-          <TabsContent value="news">
-            <Card>
-              <CardContent className="p-0 divide-y divide-border">
-                {isLoadingNews ? (
-                  <div className="py-8">
-                    <p className="text-center text-muted-foreground">Loading news...</p>
-                  </div>
-                ) : news.length > 0 ? (
-                  news.map((item: any, index: number) => (
-                    <div key={index} className="p-4 hover:bg-muted/50">
-                      <div className="flex items-start gap-4">
-                        {item.imageUrl && (
-                          <div className="hidden sm:block flex-shrink-0 w-24 h-24 bg-muted rounded overflow-hidden">
-                            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <h3 className="font-medium mb-1">
-                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
-                              {item.title}
-                              <ExternalLink className="w-3 h-3 inline-block" />
+        </Tabs>
+
+        {/* Dedicated News Section - Yahoo Finance Style */}
+        <div className="mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              News for {symbol}
+              <Badge variant="outline" className="ml-2">{news.length}</Badge>
+            </h2>
+            <div className="hidden md:flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-8">
+                Latest
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8">
+                Recommended
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8">
+                Finance
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+            {isLoadingNews ? (
+              <div className="col-span-full py-8">
+                <p className="text-center text-muted-foreground">Loading news...</p>
+              </div>
+            ) : news.length > 0 ? (
+              news.slice(0, 6).map((item: any, index: number) => (
+                <Card key={index} className="overflow-hidden border-border hover:border-primary/50 transition-colors">
+                  <CardContent className="p-0">
+                    <div className="flex h-full">
+                      {/* News item details */}
+                      <div className="flex-1 p-4">
+                        <div className="flex items-center text-xs text-muted-foreground mb-1.5">
+                          <span className="font-medium">{item.source}</span>
+                          <span className="mx-2">•</span>
+                          <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+                        </div>
+                        
+                        <h3 className="font-semibold mb-2 line-clamp-3">
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            {item.title}
+                          </a>
+                        </h3>
+                        
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{item.summary}</p>
+                        
+                        <div className="flex justify-between items-center mt-auto">
+                          <Button variant="link" size="sm" className="px-0 h-auto" asChild>
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                              Read more <ExternalLink className="w-3 h-3 inline-block" />
                             </a>
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{item.summary}</p>
-                          <div className="flex items-center text-xs text-muted-foreground">
-                            <span>{item.source}</span>
-                            <span className="mx-2">•</span>
-                            <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Bookmark className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
+                      
+                      {/* News item image */}
+                      {item.imageUrl && (
+                        <div className="hidden md:block w-1/3 max-w-[180px] bg-muted">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title} 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="py-8">
-                    <p className="text-center text-muted-foreground">No recent news for {symbol}</p>
-                  </div>
-                )}
-                
-                {news.length > 0 && (
-                  <div className="p-3 text-center">
-                    <Button variant="link" className="text-primary">
-                      View More News <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full py-8 bg-card border border-border rounded-md">
+                <p className="text-center text-muted-foreground">No recent news for {symbol}</p>
+              </div>
+            )}
+          </div>
+          
+          {news.length > 6 && (
+            <div className="text-center mt-6">
+              <Button className="px-8">
+                Load More News
+              </Button>
+            </div>
+          )}
+          
+          {/* Related News - Additional Section */}
+          {news.length > 0 && (
+            <div className="mt-12">
+              <h3 className="text-lg font-semibold mb-4">Related News</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {news.slice(0, 3).map((item: any, index: number) => (
+                  <Card key={`related-${index}`} className="overflow-hidden hover:bg-muted/30 transition-colors">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center text-xs text-muted-foreground mb-1">
+                            <span className="font-medium">{item.source}</span>
+                            <span className="mx-1.5">•</span>
+                            <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+                          </div>
+                          <h4 className="font-medium text-sm line-clamp-2">
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                              {item.title}
+                            </a>
+                          </h4>
+                        </div>
+                        {item.imageUrl && (
+                          <div className="hidden sm:block w-12 h-12 bg-muted rounded overflow-hidden flex-shrink-0">
+                            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </MainLayout>
   );
