@@ -53,7 +53,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ symbol }) => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-xl">News</CardTitle>
         <Button variant="ghost" size="sm" className="gap-1 text-sm" asChild>
-          <a href={`https://finance.yahoo.com/quote/${symbol}/news`} target="_blank" rel="noopener noreferrer">
+          <a href={`https://www.tiingo.com/news?tickers=${symbol}`} target="_blank" rel="noopener noreferrer">
             View all news <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </Button>
