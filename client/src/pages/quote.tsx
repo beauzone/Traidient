@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, Clock, TrendingUp, ExternalLink, Share2, Bookmark, ChevronRight } from "lucide-react";
 import PositionsTable from "@/components/live-trading/PositionsTable";
 import OrdersTable from "@/components/live-trading/OrdersTable";
+import NewsSection from "@/components/market-data/NewsSection";
 import { formatDistanceToNow } from "date-fns";
 
 // Time period options for chart display
