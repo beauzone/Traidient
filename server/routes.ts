@@ -2118,6 +2118,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // News endpoint for stock symbols - implements Yahoo Finance style news section
+  app.get('/api/market-data/news', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const { symbol, limit = 10 } = req.query;
+      
+      if (!symbol) {
+        return res.status(400).json({ error: 'Symbol parameter is required' });
+      }
+      
+      const newsLimit = typeof limit === 'string' ? parseInt(limit, 10) : 10;
+      
+      console.log(`Fetching news for ${symbol} with limit ${newsLimit}`);
+      
+      // Use our news service to get real news data with fallback
+      const newsData = await getNewsForSymbol(symbol.toString(), newsLimit);
+      
+      return res.json(newsData);
+    } catch (error) {
+      console.error('Error fetching news data:', error);
+      return res.status(500).json({ error: 'Failed to fetch news data' });
+    }
+  });
   app.get('/api/market-data/quote/:symbol', authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user) {

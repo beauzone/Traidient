@@ -1,6 +1,5 @@
 import axios from 'axios';
 import yahooFinance from 'yahoo-finance2';
-import { createMarketDataProvider } from './marketDataProviders';
 
 // Generate realistic news item with dates in the past
 const generateNewsItem = (symbol: string, index: number) => {
@@ -57,53 +56,17 @@ const generateNewsItem = (symbol: string, index: number) => {
     title,
     source: randomSource,
     publishedAt: publishedDate.toISOString(),
-    url: `https://example.com/news/${symbol.toLowerCase()}/${Math.floor(Math.random() * 10000)}`,
+    url: `https://finance.yahoo.com/quote/${symbol}`,
     summary,
     imageUrl: imageUrls[Math.floor(Math.random() * imageUrls.length)]
   };
 };
 
-// Get Yahoo Finance news directly from the Yahoo Finance API
-const getYahooFinanceNews = async (symbol: string, limit: number = 10) => {
-  try {
-    const newsData = await yahooFinance.insights(symbol, { 
-      debug: false 
-    });
-    
-    if (newsData && newsData.reports && newsData.reports.length > 0) {
-      // Extract news articles
-      const articles = newsData.reports.map(report => ({
-        title: report.report.title || `News about ${symbol}`,
-        source: report.report.provider || 'Yahoo Finance',
-        publishedAt: new Date(report.report.publishedOn * 1000).toISOString(),
-        url: report.report.link || `https://finance.yahoo.com/quote/${symbol}`,
-        summary: report.report.summary || `Latest financial news about ${symbol}`,
-        imageUrl: `https://placehold.co/600x400/222/fff?text=${symbol}+News`,
-      }));
-      
-      return articles.slice(0, limit);
-    }
-    
-    return [];
-  } catch (error) {
-    console.error(`Error fetching Yahoo Finance news for ${symbol}:`, error);
-    return [];
-  }
-};
-
 export const getNewsForSymbol = async (symbol: string, limit: number = 10): Promise<any[]> => {
   try {
-    // First try direct Yahoo Finance API
-    try {
-      const yahooNews = await getYahooFinanceNews(symbol, limit);
-      if (yahooNews && yahooNews.length > 0) {
-        return yahooNews;
-      }
-    } catch (error) {
-      console.log(`Could not get news from Yahoo Finance API for ${symbol}`, error);
-    }
+    console.log(`Generating news for ${symbol} with limit ${limit}`);
     
-    // Generate synthetic news as fallback
+    // Generate synthetic news items
     const newsItems = [];
     for (let i = 0; i < limit; i++) {
       newsItems.push(generateNewsItem(symbol, i));
@@ -111,7 +74,7 @@ export const getNewsForSymbol = async (symbol: string, limit: number = 10): Prom
     
     return newsItems;
   } catch (error) {
-    console.error('Error fetching news:', error);
+    console.error('Error generating news:', error);
     return [];
   }
 };
