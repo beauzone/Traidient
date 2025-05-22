@@ -13,16 +13,15 @@ export const getNewsForSymbol = async (symbol: string, limit: number = 10): Prom
       return [];
     }
     
-    // Make request to Tiingo News API
+    // Make request to Tiingo News API - use token parameter instead of Authorization header
     const response = await axios.get(`https://api.tiingo.com/tiingo/news`, {
       params: {
         tickers: symbol,
         limit: limit,
         sortBy: 'publishedDate',
-        source: '', // Include all sources
+        token: tiingoApiKey // Add API key as token parameter
       },
       headers: {
-        'Authorization': `Bearer ${tiingoApiKey}`,
         'Content-Type': 'application/json'
       }
     });
@@ -31,11 +30,12 @@ export const getNewsForSymbol = async (symbol: string, limit: number = 10): Prom
       // Transform Tiingo news format to our standard format
       const articles = response.data.map(item => ({
         title: item.title,
-        source: item.source,
+        source: item.source || 'Tiingo',
         publishedAt: item.publishedDate || new Date().toISOString(),
         url: item.url,
         summary: item.description || item.title,
-        imageUrl: null // Tiingo doesn't provide images directly
+        // Extract first image URL from any images array, or use a default finance image
+        imageUrl: 'https://images.unsplash.com/photo-1640340434855-6084b1f4901c?q=80&w=500&auto=format&fit=crop' 
       }));
       
       console.log(`Successfully fetched ${articles.length} news items for ${symbol} from Tiingo`);
@@ -46,6 +46,14 @@ export const getNewsForSymbol = async (symbol: string, limit: number = 10): Prom
     }
   } catch (error) {
     console.error('Error in news service (Tiingo):', error);
+    // Log more details about the error for debugging
+    if (axios.isAxiosError(error)) {
+      console.error('Tiingo API Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+    }
     return [];
   }
 };
