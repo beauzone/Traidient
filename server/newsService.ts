@@ -1,4 +1,5 @@
 import axios from 'axios';
+import yahooFinance from 'yahoo-finance2';
 import { createMarketDataProvider } from './marketDataProviders';
 
 // Generate realistic news item with dates in the past
@@ -62,19 +63,44 @@ const generateNewsItem = (symbol: string, index: number) => {
   };
 };
 
+// Get Yahoo Finance news directly from the Yahoo Finance API
+const getYahooFinanceNews = async (symbol: string, limit: number = 10) => {
+  try {
+    const newsData = await yahooFinance.insights(symbol, { 
+      debug: false 
+    });
+    
+    if (newsData && newsData.reports && newsData.reports.length > 0) {
+      // Extract news articles
+      const articles = newsData.reports.map(report => ({
+        title: report.report.title || `News about ${symbol}`,
+        source: report.report.provider || 'Yahoo Finance',
+        publishedAt: new Date(report.report.publishedOn * 1000).toISOString(),
+        url: report.report.link || `https://finance.yahoo.com/quote/${symbol}`,
+        summary: report.report.summary || `Latest financial news about ${symbol}`,
+        imageUrl: `https://placehold.co/600x400/222/fff?text=${symbol}+News`,
+      }));
+      
+      return articles.slice(0, limit);
+    }
+    
+    return [];
+  } catch (error) {
+    console.error(`Error fetching Yahoo Finance news for ${symbol}:`, error);
+    return [];
+  }
+};
+
 export const getNewsForSymbol = async (symbol: string, limit: number = 10): Promise<any[]> => {
   try {
-    // Try to get real news from Yahoo Finance provider if available
-    const yahooProvider = createMarketDataProvider('yahoo');
-    if (yahooProvider) {
-      try {
-        const realNews = await yahooProvider.getNews(symbol, limit);
-        if (realNews && realNews.length > 0) {
-          return realNews;
-        }
-      } catch (error) {
-        console.log(`Could not get real news from provider for ${symbol}`, error);
+    // First try direct Yahoo Finance API
+    try {
+      const yahooNews = await getYahooFinanceNews(symbol, limit);
+      if (yahooNews && yahooNews.length > 0) {
+        return yahooNews;
       }
+    } catch (error) {
+      console.log(`Could not get news from Yahoo Finance API for ${symbol}`, error);
     }
     
     // Generate synthetic news as fallback
