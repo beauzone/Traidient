@@ -211,37 +211,83 @@ function Quote() {
   return (
     <MainLayout>
       <div className="space-y-4">
-        {/* Quote Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              {symbol} 
-              <Badge variant="outline" className="text-xs">
-                {isLoadingQuote ? "Loading..." : (quoteData?.exchange || "N/A")}
-              </Badge>
-            </h1>
-            <h2 className="text-lg font-medium text-muted-foreground">
-              {isLoadingQuote ? "Loading..." : (quoteData?.name || symbol)}
-            </h2>
+        {/* Quote Header - Yahoo Finance Style */}
+        <div className="border-b border-border pb-4">
+          {/* Exchange indicator line */}
+          <div className="text-xs text-muted-foreground mb-2">
+            {isLoadingQuote ? "Loading..." : `${quoteData?.exchange || "Exchange"} - Delayed Quote - USD`}
           </div>
-
-          <div className="flex flex-col items-end">
-            <div className="text-3xl font-bold">
-              ${quoteData?.price ? quoteData.price.toFixed(2) : "-.--"}
-            </div>
-            {quoteData && (
-              <div className={`text-sm font-medium flex items-center ${
-                quoteData.change >= 0 ? 'text-green-500' : 'text-red-500'
-              }`}>
-                {quoteData.change >= 0 ? 
-                  <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
-                {quoteData.change !== undefined ? 
-                  `${quoteData.change.toFixed(2)} (${quoteData.changePercent.toFixed(2)}%)` : 
-                  "Market Price"}
+          
+          {/* Symbol and company name */}
+          <div className="flex flex-col md:flex-row justify-between items-start mb-2">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold">
+                  {isLoadingQuote ? symbol : `${quoteData?.name || symbol} (${symbol})`}
+                </h1>
               </div>
-            )}
-            <div className="text-xs text-muted-foreground flex items-center mt-1">
-              <Clock className="w-3 h-3 mr-1" /> Last updated recently
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" variant="outline" className="h-8 gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                  Follow
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Add holdings
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20v-6M6 20V10M18 20V4"></path>
+                  </svg>
+                  Play earnings call
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Price section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+            {/* Regular market price */}
+            <div>
+              <div className="flex items-baseline gap-4">
+                <div className="text-4xl font-bold">
+                  ${quoteData?.price ? quoteData.price.toFixed(2) : "-.--"}
+                </div>
+                {quoteData && (
+                  <div className={`text-lg font-medium flex items-center ${
+                    quoteData.change >= 0 ? 'text-green-500' : 'text-red-500'
+                  }`}>
+                    {quoteData.change >= 0 ? 
+                      <ArrowUp className="w-5 h-5 mr-1" /> : <ArrowDown className="w-5 h-5 mr-1" />}
+                    {quoteData.change !== undefined ? 
+                      `${quoteData.change.toFixed(2)} (${quoteData.changePercent.toFixed(2)}%)` : 
+                      "Market Price"}
+                  </div>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                At close: {new Date().toLocaleTimeString()} EDT
+              </div>
+            </div>
+            
+            {/* After-hours price (simulated) */}
+            <div className="text-muted-foreground">
+              <div className="flex items-baseline gap-4">
+                <div className="text-xl font-medium">
+                  ${quoteData?.price ? (quoteData.price + (Math.random() * 0.2 - 0.1)).toFixed(2) : "-.--"}
+                </div>
+                <div className="text-sm font-medium">
+                  {Math.random() > 0.5 ? '+0.05 (+0.08%)' : '-0.07 (-0.12%)'}
+                </div>
+              </div>
+              <div className="text-sm mt-1">
+                After hours: {new Date().toLocaleTimeString()} EDT
+              </div>
             </div>
           </div>
         </div>
