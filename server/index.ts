@@ -99,8 +99,8 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use PORT from environment or fallback to 5000
-  const port = process.env.PORT || 5000;
+  // Use PORT from environment or fallback to 80 for deployment compatibility
+  const port = parseInt(process.env.PORT || '80');
   
   // Make sure any existing server is properly closed
   server.on('error', (err: any) => {
