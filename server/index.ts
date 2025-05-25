@@ -37,37 +37,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize Python environment for screeners (with production safeguards)
-  try {
-    const { initPythonEnvironment } = await import('./pythonExecutionService');
-    log('Initializing Python environment for screeners...');
-
-    // Use a timeout to prevent hanging during deployment
-    const pythonInitTimeout = setTimeout(() => {
-      log('Python initialization timed out after 10 seconds, continuing startup');
-    }, 10000);
-
+  // Skip Python initialization in production deployment
+  if (process.env.NODE_ENV !== 'production') {
     try {
-      await Promise.race([
-        initPythonEnvironment().catch(e => {
-          log(`Python initialization error caught: ${e instanceof Error ? e.message : String(e)}`);
-          return null; // Prevent rejection from stopping server startup
-        }),
-        new Promise(resolve => setTimeout(() => {
-          log('Python initialization timeout safety resolved');
-          resolve(null);
-        }, 8000))
-      ]);
+      const { initPythonEnvironment } = await import('./pythonExecutionService');
+      log('Initializing Python environment for screeners...');
+      await initPythonEnvironment();
       log('Python environment initialization completed');
-    } catch (err) {
-      log(`Warning: Python environment initialization rejected: ${err instanceof Error ? err.message : String(err)}`);
-      log('Continuing with limited Python functionality');
-    } finally {
-      clearTimeout(pythonInitTimeout);
+    } catch (error) {
+      log(`Warning: Failed to initialize Python environment: ${error instanceof Error ? error.message : String(error)}`);
     }
-  } catch (error) {
-    log(`Warning: Failed to import Python execution service: ${error instanceof Error ? error.message : String(error)}`);
-    log('Continuing without Python screener functionality');
+  } else {
+    log('Skipping Python initialization in production environment');
   }
 
   const server = await registerRoutes(app);

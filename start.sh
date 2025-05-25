@@ -1,14 +1,9 @@
+
 #!/bin/bash
-# Set production environment
+
+# Set NODE_ENV to production
 export NODE_ENV=production
 export PORT=5000
 
-# Log startup info
-echo "Starting server in production mode"
-echo "Current directory: $(pwd)"
-echo "Port: $PORT"
-echo "Contents of dist directory:"
-ls -la dist/
-
-# Start the server
+# Start the server with proper host binding
 node dist/index.js
