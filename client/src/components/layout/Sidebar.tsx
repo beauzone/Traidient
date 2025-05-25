@@ -107,7 +107,7 @@ const Sidebar = () => {
       </button>
 
       <div className={sidebarClasses}>
-        <div className="flex flex-col p-4 border-b border-border">
+        <div className="flex flex-col px-4 py-4 border-b border-border">
           <div className="flex items-start gap-3 w-full">
             {/* Placeholder App Logo - Square yellow background similar to Alpaca */}
             <div className="h-10 w-10 bg-yellow-400 rounded-md flex items-center justify-center flex-shrink-0">
