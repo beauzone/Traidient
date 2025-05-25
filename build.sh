@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
-echo "Building full application for deployment..."
+echo "Building application for production deployment..."
 
 # Build frontend
 echo "Building frontend..."
 npm run build
 
-# Build backend
+# Build backend with proper configuration
 echo "Building backend..."
-npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+npx esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=dist --target=node18
 
-echo "Full build completed successfully"
+echo "Production build completed successfully"

@@ -8,8 +8,8 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 
 [deployment]
 deploymentTarget = "gce"
-run = ["sh", "-c", "sh -c \"npm run build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && NODE_ENV=production PORT=5000 HOST=0.0.0.0 node dist/index.js\""]
-build = ["sh", "-c", "echo \"Build integrated into run command\""]
+run = ["sh", "-c", "node server/index.ts"]
+build = ["sh", "-c", "npm run build"]
 
 [[ports]]
 localPort = 5000
