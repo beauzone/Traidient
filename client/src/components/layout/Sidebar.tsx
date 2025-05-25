@@ -228,14 +228,14 @@ const Sidebar = () => {
         </div>
         
         <div className="overflow-y-auto flex-grow">
-          <div className="px-3 py-4">
+          <div className="px-4 py-4">
             <div className="space-y-1">
               {navItems.map((item) => (
                 <Link 
                   key={item.path}
                   href={item.path}
                   onClick={closeMobileMenu}
-                  className={`flex items-center px-3 py-3 md:py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
+                  className={`flex items-center px-0 py-3 md:py-2 text-sm font-medium rounded-md hover:bg-accent hover:bg-opacity-10 group ${
                     location === item.path
                       ? "bg-accent bg-opacity-20 border-l-2 border-primary text-primary"
                       : ""
