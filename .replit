@@ -12,25 +12,8 @@ run = ["sh", "-c", "bash ./start.sh"]
 build = ["sh", "-c", "bash ./build.sh"]
 
 [[ports]]
-localPort = 3000
-externalPort = 3003
-
-[[ports]]
 localPort = 5000
 externalPort = 80
-primary = true
-
-[[ports]]
-localPort = 5001
-externalPort = 3000
-
-[[ports]]
-localPort = 5002
-externalPort = 3001
-
-[[ports]]
-localPort = 5003
-externalPort = 3002
 
 [workflows]
 runButton = "Start Dev Server"

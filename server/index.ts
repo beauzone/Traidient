@@ -41,12 +41,12 @@ app.use((req, res, next) => {
   try {
     const { initPythonEnvironment } = await import('./pythonExecutionService');
     log('Initializing Python environment for screeners...');
-    
+
     // Use a timeout to prevent hanging during deployment
     const pythonInitTimeout = setTimeout(() => {
       log('Python initialization timed out after 10 seconds, continuing startup');
     }, 10000);
-    
+
     try {
       await Promise.race([
         initPythonEnvironment().catch(e => {
@@ -99,15 +99,15 @@ app.use((req, res, next) => {
     }
   }
 
-  // Use PORT from environment or fallback to 80 for deployment compatibility
-  const port = parseInt(process.env.PORT || '80');
-  
-  // Make sure any existing server is properly closed
+  // Define port consistently
+  const port = process.env.PORT || 5000;
+
+  // Set up error handler for the server
   server.on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
       log(`Port ${port} is already in use. This may be due to a previous instance still running.`);
       log('Trying to start on the same port after a short delay...');
-      
+
       setTimeout(() => {
         server.close();
         server.listen(port, "0.0.0.0");
@@ -116,8 +116,8 @@ app.use((req, res, next) => {
       console.error(`Server error: ${err.message}`);
     }
   });
-  
-  // Start the server on the configured port
+
+  // Start the server
   server.listen(port, "0.0.0.0", () => {
     log(`Server listening on port ${port} (Replit will map this externally)`);
   });
