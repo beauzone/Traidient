@@ -227,10 +227,8 @@ const Sidebar = () => {
           </div>
         </div>
         
-        {/* Separator line that aligns with content */}
-        <div className="px-4">
-          <div className="border-t border-border"></div>
-        </div>
+        {/* Separator line */}
+        <div className="border-t border-border"></div>
         
         <div className="overflow-y-auto flex-grow">
           <div className="px-4 py-4">
