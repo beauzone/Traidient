@@ -80,8 +80,9 @@ app.use((req, res, next) => {
     }
   }
 
-  // Define port consistently
-  const port = process.env.PORT || 5000;
+  // Define port and host for deployment
+  const port = parseInt(process.env.PORT || '5000');
+  const host = process.env.HOST || '0.0.0.0';
 
   // Set up error handler for the server
   server.on('error', (err: any) => {
@@ -91,16 +92,16 @@ app.use((req, res, next) => {
 
       setTimeout(() => {
         server.close();
-        server.listen(port, "0.0.0.0");
+        server.listen(port, host);
       }, 1000);
     } else {
       console.error(`Server error: ${err.message}`);
     }
   });
 
-  // Start the server
-  server.listen(port, "0.0.0.0", () => {
-    log(`Server listening on port ${port} (Replit will map this externally)`);
+  // Start the server with proper host binding
+  server.listen(port, host, () => {
+    log(`Server listening on ${host}:${port} (NODE_ENV: ${process.env.NODE_ENV})`);
   });
 
 })();
