@@ -1,11 +1,15 @@
 #!/bin/bash
 set -e
-echo "Installing production dependencies..."
-npm ci --only=production
-echo "Building backend only for deployment..."
-npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
-echo "Copying client files..."
+echo "Installing all dependencies for build..."
+npm ci
+echo "Building frontend..."
+npm run build
+echo "Creating proper directory structure for deployment..."
 mkdir -p dist/public
-cp -r client/* dist/public/ 2>/dev/null || true
+echo "Copying built frontend files to expected location..."
+cp -r dist/* dist/public/ 2>/dev/null || true
+echo "Building backend..."
+npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 echo "Build completed successfully"
 ls -la dist/
+ls -la dist/public/
