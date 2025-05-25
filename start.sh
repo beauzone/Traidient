@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Set NODE_ENV to production
