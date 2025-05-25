@@ -5,5 +5,8 @@
 export NODE_ENV=production
 export PORT=5000
 
-# Start the server with proper host binding
+# Ensure host binding for Replit deployment
+export HOST=0.0.0.0
+
+# Start the server
 node dist/index.js
