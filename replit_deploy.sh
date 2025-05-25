@@ -1,19 +1,31 @@
 #!/bin/bash
-echo "Starting application for Replit deployment..."
+# Simple deployment script for Replit
+set -e
 
-# Set the environment to production
+echo "=== Replit Deployment Starting ==="
+
+# Set production environment
 export NODE_ENV=production
+export PORT=${PORT:-5000}
+export HOST=0.0.0.0
 
-# Set port to 5000 to match Replit's port forwarding configuration
-export PORT=5000
+# Generate JWT secret if missing
+if [ -z "$JWT_SECRET" ]; then
+  export JWT_SECRET="replit-deploy-$(date +%s)"
+fi
 
-# Disable package layer to ensure all dependencies are included
-export REPLIT_DISABLE_PACKAGE_LAYER=1
-
-# Display environment information
-echo "Environment: $NODE_ENV"
+echo "Environment: NODE_ENV=$NODE_ENV"
 echo "Port: $PORT"
-echo "Server starting at http://localhost:$PORT"
+echo "Host: $HOST"
 
-# Start the server
+# Build the application
+echo "Building application..."
+npm run build
+
+# Build backend
+echo "Building backend..."
+npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+echo "=== Starting Server ==="
+# Start the application
 node dist/index.js
