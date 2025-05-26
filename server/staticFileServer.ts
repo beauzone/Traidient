@@ -2,8 +2,17 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Handle import.meta in different environments
+let __filename: string;
+let __dirname: string;
+
+try {
+  __filename = fileURLToPath(import.meta.url);
+  __dirname = path.dirname(__filename);
+} catch (e) {
+  // Fallback for environments where import.meta is not available
+  __dirname = path.resolve();
+}
 
 export function serveStaticFiles(app: express.Express) {
   const distPath = path.resolve(__dirname, '..', 'dist', 'public');
