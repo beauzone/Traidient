@@ -37,7 +37,8 @@ router.get('/metrics', authMiddleware, async (req: any, res: any) => {
     // Get real account data directly using AlpacaAPI
     const { AlpacaAPI } = await import('../alpaca');
     const apiIntegrations = await storage.getApiIntegrationsByUser(userId);
-    const alpacaIntegration = apiIntegrations.find(api => api.provider === 'Alpaca');
+    console.log('Available integrations:', apiIntegrations.map(i => ({ id: i.id, provider: i.provider })));
+    const alpacaIntegration = apiIntegrations.find(api => api.provider.toLowerCase() === 'alpaca');
     
     if (!alpacaIntegration) {
       return res.status(400).json({ message: 'No Alpaca integration found' });
@@ -125,7 +126,7 @@ router.get('/portfolio-history', authMiddleware, async (req: any, res: any) => {
     // Get real Alpaca account data directly
     const { AlpacaAPI } = await import('../alpaca');
     const apiIntegrations = await storage.getApiIntegrationsByUser(userId);
-    const alpacaIntegration = apiIntegrations.find(api => api.provider === 'Alpaca');
+    const alpacaIntegration = apiIntegrations.find(api => api.provider === 'alpaca');
     
     if (!alpacaIntegration) {
       return res.status(400).json({ message: 'No Alpaca integration found' });
@@ -171,7 +172,7 @@ router.get('/trade-analytics', authMiddleware, async (req: any, res: any) => {
     // Get real positions directly using AlpacaAPI
     const { AlpacaAPI } = await import('../alpaca');
     const apiIntegrations = await storage.getApiIntegrationsByUser(userId);
-    const alpacaIntegration = apiIntegrations.find(api => api.provider === 'Alpaca');
+    const alpacaIntegration = apiIntegrations.find(api => api.provider === 'alpaca');
     
     if (!alpacaIntegration) {
       return res.status(400).json({ message: 'No Alpaca integration found' });
