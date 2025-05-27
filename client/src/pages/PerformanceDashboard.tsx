@@ -82,8 +82,9 @@ export default function PerformanceDashboard() {
     }).format(value);
   };
 
-  const formatPercent = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  const formatPercent = (value: number | undefined) => {
+    const safeValue = value || 0;
+    return `${safeValue >= 0 ? '+' : ''}${safeValue.toFixed(2)}%`;
   };
 
   if (metricsLoading || strategiesLoading || historyLoading || analyticsLoading) {
