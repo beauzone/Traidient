@@ -30,6 +30,7 @@ import NotFound from "@/pages/not-found";
 import DebugPage from "@/pages/debug";
 import Webhooks from "@/pages/webhooks";
 import Quote from "@/pages/quote";
+import MonitoringPage from "@/pages/MonitoringPage";
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -161,6 +162,11 @@ function AppRoutes() {
       </Route>
       <Route path="/provider-test">
         <ProtectedRoute component={ProviderTest} />
+      </Route>
+      
+      {/* Monitoring */}
+      <Route path="/monitoring">
+        <ProtectedRoute component={MonitoringPage} />
       </Route>
       
       {/* Webhooks */}

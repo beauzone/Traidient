@@ -4849,6 +4849,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register bot routes
   app.use('/api/bots', authMiddleware, botRoutes);
   
+  // Register monitoring routes
+  app.use('/api/monitoring', monitoringRoutes);
+  
   // Register screener routes
   app.use('/api/screeners', screenerRoutes);
   
