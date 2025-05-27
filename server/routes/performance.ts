@@ -47,21 +47,22 @@ router.get('/metrics', authMiddleware, async (req: any, res: any) => {
     const alpacaAPI = new AlpacaAPI(alpacaIntegration);
     const alpacaAccount = await alpacaAPI.getAccount();
     
-    // Get bot trades for analytics
-    const botTrades = await storage.getBotTradesByUser(userId);
-    let winningTrades = 0;
-    let totalTradesPnL = 0;
+    // Get real trading activity from Alpaca positions
+    const positions = await alpacaAPI.getPositions();
+    let winningPositions = 0;
+    let totalPositionsPnL = 0;
     
-    for (const trade of botTrades) {
-      if (trade.pnl && trade.pnl > 0) {
-        winningTrades++;
+    for (const position of positions) {
+      const unrealizedPnL = parseFloat(position.unrealized_pl) || 0;
+      if (unrealizedPnL > 0) {
+        winningPositions++;
       }
-      totalTradesPnL += trade.pnl || 0;
+      totalPositionsPnL += unrealizedPnL;
     }
 
-    const totalTrades = botTrades.length;
-    const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
-    const avgTradeReturn = totalTrades > 0 ? totalTradesPnL / totalTrades : 0;
+    const totalTrades = positions.length;
+    const winRate = totalTrades > 0 ? (winningPositions / totalTrades) * 100 : 0;
+    const avgTradeReturn = totalTrades > 0 ? totalPositionsPnL / totalTrades : 0;
     
     // Calculate metrics from real Alpaca account data
     const totalValue = parseFloat(alpacaAccount.equity) || 0;
@@ -70,8 +71,24 @@ router.get('/metrics', authMiddleware, async (req: any, res: any) => {
       : 0;
     const dailyPnL = parseFloat(alpacaAccount.equity) - parseFloat(alpacaAccount.last_equity) || 0;
     
-    // Calculate Sharpe ratio (simplified calculation)
-    const sharpeRatio = totalReturn > 0 ? totalReturn / 10 : 0; // Simplified: return / estimated volatility
+    // Calculate Sharpe ratio using portfolio volatility
+    // For a more accurate Sharpe ratio, we'll use the actual return variance from positions
+    const riskFreeRate = 4.5; // Current risk-free rate (approximate)
+    const excessReturn = totalReturn - (riskFreeRate / 365); // Daily excess return
+    
+    // Calculate portfolio volatility from position variance
+    let portfolioVariance = 0;
+    if (positions.length > 0) {
+      const avgPositionReturn = totalPositionsPnL / positions.length;
+      for (const position of positions) {
+        const positionReturn = parseFloat(position.unrealized_pl) || 0;
+        portfolioVariance += Math.pow(positionReturn - avgPositionReturn, 2);
+      }
+      portfolioVariance = portfolioVariance / positions.length;
+    }
+    
+    const portfolioVolatility = Math.sqrt(portfolioVariance) / totalValue * 100; // As percentage
+    const sharpeRatio = portfolioVolatility > 0 ? excessReturn / portfolioVolatility : 0;
     
     // Calculate max drawdown (simplified calculation)
     const maxDrawdown = totalReturn < 0 ? Math.abs(totalReturn * 0.2) : -0.88; // Conservative estimate
