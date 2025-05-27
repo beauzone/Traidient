@@ -20,7 +20,7 @@ import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
 import screenerRoutes from './screenerRoutes';
 import monitoringRoutes from './routes/monitoring';
-// import performanceRoutes from './routes/performance';
+import performanceRoutes from './routes/performance';
 import { Parser } from 'json2csv';
 import { getNewsForSymbol } from './newsService';
 // For Python script execution
@@ -94,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/screeners', screenerRoutes);
   
   // Register performance dashboard routes
-  // app.use('/api/performance', performanceRoutes);
+  app.use('/api/performance', performanceRoutes);
   
   // Initialize the Yahoo Finance API
   const yahooFinance = new YahooFinanceAPI();
