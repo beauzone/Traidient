@@ -1,13 +1,8 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, Target, Activity, DollarSign, BarChart3, AlertTriangle, Trophy, Zap, Shield } from "lucide-react";
 import MainLayout from "@/components/layout/MainLayout";
+import CustomizableDashboard from "@/components/widgets/CustomizableDashboard";
 
 interface PerformanceMetrics {
   totalValue: number;
@@ -74,20 +69,6 @@ export default function PerformanceDashboard() {
     refetchInterval: 300000
   });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
-  const formatPercent = (value: number | undefined) => {
-    const safeValue = value || 0;
-    return `${safeValue >= 0 ? '+' : ''}${safeValue.toFixed(2)}%`;
-  };
-
   if (metricsLoading || strategiesLoading || historyLoading || analyticsLoading) {
     return (
       <MainLayout>
@@ -98,31 +79,43 @@ export default function PerformanceDashboard() {
     );
   }
 
-  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'];
+  // Combine all data for widgets
+  const dashboardData = {
+    ...performanceMetrics,
+    strategies,
+    portfolioHistory,
+    tradeAnalytics
+  };
 
   return (
     <MainLayout>
       <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Performance</h1>
-            <p className="text-muted-foreground">Track your trading performance and strategy analytics</p>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Performance</h1>
+              <p className="text-muted-foreground">Track your trading performance and strategy analytics</p>
+            </div>
+            <div className="flex gap-2">
+              {(['1D', '1W', '1M', '3M', '1Y'] as const).map((tf) => (
+                <Button
+                  key={tf}
+                  variant={timeframe === tf ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeframe(tf)}
+                >
+                  {tf}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {(['1D', '1W', '1M', '3M', '1Y'] as const).map((tf) => (
-              <Button
-                key={tf}
-                variant={timeframe === tf ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeframe(tf)}
-              >
-                {tf}
-              </Button>
-            ))}
-          </div>
-        </div>
+
+          {/* Customizable Dashboard */}
+          <CustomizableDashboard 
+            dashboardType="performance" 
+            data={dashboardData}
+          />
 
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
