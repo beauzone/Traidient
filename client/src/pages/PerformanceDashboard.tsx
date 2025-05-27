@@ -107,7 +107,7 @@ export default function PerformanceDashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Performance Dashboard</h1>
+            <h1 className="text-3xl font-bold text-foreground">Performance</h1>
             <p className="text-muted-foreground">Track your trading performance and strategy analytics</p>
           </div>
           <div className="flex gap-2">
