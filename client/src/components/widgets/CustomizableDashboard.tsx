@@ -64,6 +64,7 @@ export default function CustomizableDashboard({ dashboardType, data, className }
   const [widgets, setWidgets] = useState<WidgetConfig[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState('');
   const { toast } = useToast();
 
   // Load widgets from localStorage or use defaults
@@ -195,21 +196,65 @@ export default function CustomizableDashboard({ dashboardType, data, className }
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="presets" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {Object.entries(PRESET_LAYOUTS).map(([key, preset]) => (
-                      <div key={key} className="p-4 border rounded-lg">
-                        <h4 className="font-medium mb-2">{preset.name}</h4>
-                        <p className="text-sm text-muted-foreground mb-3">{preset.description}</p>
-                        <Button 
-                          size="sm" 
-                          onClick={() => applyPreset(key)}
-                          className="w-full"
-                        >
-                          Apply Preset
-                        </Button>
+                <TabsContent value="presets" className="space-y-6">
+                  <div className="space-y-4">
+                    {/* Preset Selector */}
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Choose a Layout Preset</label>
+                      <select 
+                        className="w-full p-2 border rounded-md bg-background"
+                        value={selectedPreset}
+                        onChange={(e) => setSelectedPreset(e.target.value)}
+                      >
+                        <option value="">Select a preset layout...</option>
+                        {Object.entries(PRESET_LAYOUTS).map(([key, preset]) => (
+                          <option key={key} value={key}>{preset.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Preset Details */}
+                    {selectedPreset && (
+                      <div className="p-4 border rounded-lg bg-muted/20">
+                        <h4 className="font-medium mb-2">{PRESET_LAYOUTS[selectedPreset as keyof typeof PRESET_LAYOUTS].name}</h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {PRESET_LAYOUTS[selectedPreset as keyof typeof PRESET_LAYOUTS].description}
+                        </p>
+                        
+                        <div className="mb-4">
+                          <h5 className="text-sm font-medium mb-2">Included Widgets:</h5>
+                          <div className="grid grid-cols-2 gap-2">
+                            {PRESET_LAYOUTS[selectedPreset as keyof typeof PRESET_LAYOUTS].widgets.map((widgetType) => {
+                              const definition = WIDGET_DEFINITIONS[widgetType as keyof typeof WIDGET_DEFINITIONS];
+                              return (
+                                <div key={widgetType} className="flex items-center gap-2 text-sm">
+                                  <div className="w-2 h-2 rounded-full bg-primary"></div>
+                                  <span>{definition.title}</span>
+                                  <Badge variant="outline" className="text-xs">{definition.defaultSize}</Badge>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-2 pt-4 border-t">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setSelectedPreset('')}
+                        disabled={!selectedPreset}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => selectedPreset && applyPreset(selectedPreset)}
+                        disabled={!selectedPreset}
+                      >
+                        Apply Preset
+                      </Button>
+                    </div>
                   </div>
                 </TabsContent>
                 
