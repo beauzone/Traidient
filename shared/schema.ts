@@ -1142,6 +1142,211 @@ export const botTradesRelations = relations(botTrades, ({ one }) => ({
   }),
 }));
 
+// System Monitoring & Performance Metrics
+export const systemMetrics = pgTable("system_metrics", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  
+  // Application Performance
+  applicationHealth: jsonb("application_health").$type<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    responseTime: number; // in ms
+    activeConnections: number;
+    memoryUsage: number; // in MB
+    cpuUsage: number; // percentage
+    uptime: number; // in seconds
+  }>().notNull(),
+  
+  // Trading System Metrics
+  tradingMetrics: jsonb("trading_metrics").$type<{
+    activeStrategies: number;
+    totalPositions: number;
+    totalPortfolioValue: number;
+    dailyPnL: number;
+    activeBots: number;
+    totalTrades: number;
+    errorRate: number; // percentage
+    executionLatency: number; // in ms
+  }>().notNull(),
+  
+  // Market Data Quality
+  dataQuality: jsonb("data_quality").$type<{
+    alpacaStatus: 'connected' | 'degraded' | 'disconnected';
+    yahooStatus: 'connected' | 'degraded' | 'disconnected';
+    polygonStatus: 'connected' | 'degraded' | 'disconnected';
+    latency: {
+      alpaca: number;
+      yahoo: number;
+      polygon: number;
+    };
+    dataFreshness: number; // seconds since last update
+  }>().notNull(),
+  
+  // WebSocket Performance
+  websocketMetrics: jsonb("websocket_metrics").$type<{
+    activeConnections: number;
+    messagesSent: number;
+    messagesReceived: number;
+    connectionErrors: number;
+    averageLatency: number;
+  }>().notNull().default({
+    activeConnections: 0,
+    messagesSent: 0,
+    messagesReceived: 0,
+    connectionErrors: 0,
+    averageLatency: 0
+  }),
+});
+
+// Alert Rules & Configurations
+export const alertRules = pgTable("alert_rules", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Alert Conditions
+  conditions: jsonb("conditions").$type<{
+    type: 'portfolio' | 'position' | 'market' | 'system' | 'strategy';
+    metric: string; // e.g., 'totalValue', 'dailyPnL', 'position.unrealizedPnL'
+    operator: 'greater_than' | 'less_than' | 'equals' | 'change_percent' | 'crosses_above' | 'crosses_below';
+    threshold: number;
+    timeframe?: string; // e.g., '5m', '1h', '1d'
+    asset?: string; // for position-specific alerts
+  }>().notNull(),
+  
+  // Notification Settings
+  notificationChannels: jsonb("notification_channels").$type<{
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+    webhook?: string;
+  }>().notNull().default({
+    email: true,
+    sms: false,
+    push: true
+  }),
+  
+  // Alert Frequency Control
+  frequency: jsonb("frequency").$type<{
+    cooldownMinutes: number; // minimum time between same alerts
+    maxAlertsPerHour: number;
+    maxAlertsPerDay: number;
+  }>().notNull().default({
+    cooldownMinutes: 15,
+    maxAlertsPerHour: 4,
+    maxAlertsPerDay: 20
+  }),
+  
+  lastTriggered: timestamp("last_triggered"),
+  triggerCount: integer("trigger_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAlertRuleSchema = createInsertSchema(alertRules).pick({
+  userId: true,
+  name: true,
+  description: true,
+  isActive: true,
+  conditions: true,
+  notificationChannels: true,
+  frequency: true,
+});
+
+// Alert History & Logs
+export const alertHistory = pgTable("alert_history", {
+  id: serial("id").primaryKey(),
+  alertRuleId: integer("alert_rule_id").notNull().references(() => alertRules.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  severity: text("severity").notNull(), // 'info', 'warning', 'critical'
+  status: text("status").notNull().default('triggered'), // 'triggered', 'acknowledged', 'resolved'
+  
+  // Alert Details
+  alertData: jsonb("alert_data").$type<{
+    metric: string;
+    currentValue: number;
+    thresholdValue: number;
+    previousValue?: number;
+    changePercent?: number;
+    asset?: string;
+    message: string;
+  }>().notNull(),
+  
+  // Delivery Status
+  deliveryStatus: jsonb("delivery_status").$type<{
+    email?: { sent: boolean; timestamp?: string; error?: string; };
+    sms?: { sent: boolean; timestamp?: string; error?: string; };
+    push?: { sent: boolean; timestamp?: string; error?: string; };
+    webhook?: { sent: boolean; timestamp?: string; error?: string; };
+  }>().notNull().default({}),
+  
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+// Performance Tracking for Strategies/Bots
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  entityType: text("entity_type").notNull(), // 'strategy', 'bot', 'portfolio'
+  entityId: integer("entity_id").notNull(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  
+  // Performance Data
+  metrics: jsonb("metrics").$type<{
+    totalReturn: number;
+    dailyReturn: number;
+    weeklyReturn: number;
+    monthlyReturn: number;
+    annualizedReturn: number;
+    sharpeRatio: number;
+    maxDrawdown: number;
+    winRate: number;
+    profitFactor: number;
+    totalTrades: number;
+    winningTrades: number;
+    losingTrades: number;
+    averageWin: number;
+    averageLoss: number;
+    largestWin: number;
+    largestLoss: number;
+    consecutiveWins: number;
+    consecutiveLosses: number;
+    volatility: number;
+  }>().notNull(),
+  
+  // Risk Metrics
+  riskMetrics: jsonb("risk_metrics").$type<{
+    valueAtRisk: number; // VaR at 95%
+    expectedShortfall: number;
+    beta: number;
+    alpha: number;
+    correlation: number;
+    downside_deviation: number;
+    calmarRatio: number;
+    sortinoRatio: number;
+  }>().notNull().default({}),
+});
+
+// System Health Checks
+export const healthChecks = pgTable("health_checks", {
+  id: serial("id").primaryKey(),
+  service: text("service").notNull(), // 'database', 'alpaca', 'websocket', 'python'
+  status: text("status").notNull(), // 'healthy', 'degraded', 'unhealthy'
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  
+  details: jsonb("details").$type<{
+    responseTime?: number;
+    errorMessage?: string;
+    lastSuccessful?: string;
+    consecutiveFailures?: number;
+    additionalInfo?: Record<string, any>;
+  }>().notNull().default({}),
+});
+
 // Type Exports
 export type BotInstance = typeof botInstances.$inferSelect;
 export type InsertBotInstance = z.infer<typeof insertBotInstanceSchema>;
@@ -1150,3 +1355,10 @@ export type MarketCondition = typeof marketConditions.$inferSelect;
 export type SymbolInsight = typeof symbolInsights.$inferSelect;
 export type BotTrade = typeof botTrades.$inferSelect;
 export type InsertBotTrade = z.infer<typeof insertBotTradeSchema>;
+
+export type SystemMetrics = typeof systemMetrics.$inferSelect;
+export type AlertRule = typeof alertRules.$inferSelect;
+export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+export type AlertHistory = typeof alertHistory.$inferSelect;
+export type PerformanceMetrics = typeof performanceMetrics.$inferSelect;
+export type HealthCheck = typeof healthChecks.$inferSelect;
