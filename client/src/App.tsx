@@ -31,6 +31,7 @@ import DebugPage from "@/pages/debug";
 import Webhooks from "@/pages/webhooks";
 import Quote from "@/pages/quote";
 import MonitoringPage from "@/pages/MonitoringPage";
+import PerformanceDashboard from "@/pages/PerformanceDashboard";
 
 // Protected Route Component
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -167,6 +168,11 @@ function AppRoutes() {
       {/* Monitoring */}
       <Route path="/monitoring">
         <ProtectedRoute component={MonitoringPage} />
+      </Route>
+      
+      {/* Performance Dashboard */}
+      <Route path="/performance">
+        <ProtectedRoute component={PerformanceDashboard} />
       </Route>
       
       {/* Webhooks */}
