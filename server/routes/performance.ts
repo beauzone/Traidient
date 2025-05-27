@@ -1,11 +1,36 @@
-import { Router } from 'express';
-import { requireAuth } from '../middleware/auth';
+import { Router, Request, Response } from 'express';
 import { storage } from '../storage';
 
 const router = Router();
 
+// Auth middleware (matching the one in routes.ts)
+const authMiddleware = async (req: any, res: Response, next: any) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized: Missing or invalid token' });
+    }
+
+    const token = authHeader.substring(7);
+    const jwt = await import('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
+    
+    const decoded = jwt.default.verify(token, JWT_SECRET) as { userId: number };
+    const user = await storage.getUser(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ message: 'Unauthorized: User not found' });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+  }
+};
+
 // Get user's performance metrics
-router.get('/metrics', requireAuth, async (req, res) => {
+router.get('/metrics', authMiddleware, async (req: any, res) => {
   try {
     const userId = req.user!.id;
     const timeframe = req.query.timeframe as string || '1M';
@@ -81,7 +106,7 @@ router.get('/metrics', requireAuth, async (req, res) => {
 });
 
 // Get user's strategy performance
-router.get('/strategies', requireAuth, async (req, res) => {
+router.get('/strategies', authMiddleware, async (req: any, res) => {
   try {
     const userId = req.user!.id;
     
@@ -146,7 +171,7 @@ router.get('/strategies', requireAuth, async (req, res) => {
 });
 
 // Get portfolio history
-router.get('/portfolio-history', requireAuth, async (req, res) => {
+router.get('/portfolio-history', authMiddleware, async (req: any, res) => {
   try {
     const userId = req.user!.id;
     const timeframe = req.query.timeframe as string || '1M';
