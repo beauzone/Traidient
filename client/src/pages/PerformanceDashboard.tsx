@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, Target, Activity, DollarSign, BarChart3, AlertTriangle, Trophy, Zap, Shield } from "lucide-react";
+import MainLayout from "@/components/layout/MainLayout";
 
 interface PerformanceMetrics {
   totalValue: number;
@@ -89,17 +90,20 @@ export default function PerformanceDashboard() {
 
   if (metricsLoading || strategiesLoading || historyLoading || analyticsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
     );
   }
 
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <MainLayout>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -453,7 +457,8 @@ export default function PerformanceDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
-    </div>
+    </MainLayout>
   );
 }
