@@ -19,6 +19,7 @@ import webhookRoutes from './routes/webhooks';
 import botRoutes from './routes/bots';
 import { snaptradeRoutes } from './routes/snaptradeRoutes';
 import screenerRoutes from './screenerRoutes';
+import monitoringRoutes from './routes/monitoring';
 import { Parser } from 'json2csv';
 import { getNewsForSymbol } from './newsService';
 // For Python script execution

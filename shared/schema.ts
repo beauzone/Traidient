@@ -1320,14 +1320,14 @@ export const performanceMetrics = pgTable("performance_metrics", {
   
   // Risk Metrics
   riskMetrics: jsonb("risk_metrics").$type<{
-    valueAtRisk: number; // VaR at 95%
-    expectedShortfall: number;
-    beta: number;
-    alpha: number;
-    correlation: number;
-    downside_deviation: number;
-    calmarRatio: number;
-    sortinoRatio: number;
+    valueAtRisk?: number; // VaR at 95%
+    expectedShortfall?: number;
+    beta?: number;
+    alpha?: number;
+    correlation?: number;
+    downside_deviation?: number;
+    calmarRatio?: number;
+    sortinoRatio?: number;
   }>().notNull().default({}),
 });
 

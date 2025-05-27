@@ -38,7 +38,18 @@ import {
   MarketCondition,
   symbolInsights,
   SymbolInsight,
-  InsertScreener
+  InsertScreener,
+  systemMetrics,
+  SystemMetrics,
+  alertRules,
+  AlertRule,
+  InsertAlertRule,
+  alertHistory,
+  AlertHistory,
+  performanceMetrics,
+  PerformanceMetrics,
+  healthChecks,
+  HealthCheck
 } from "@shared/schema";
 
 export interface IStorage {
