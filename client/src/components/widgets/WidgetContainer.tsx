@@ -110,19 +110,35 @@ export default function WidgetContainer({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{widget.title}</CardTitle>
-          {editMode && (
-            <Badge variant="outline" className="text-xs">
-              {widget.size}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {editMode && (
+              <Badge variant="outline" className="text-xs">
+                {widget.size}
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-70 hover:opacity-100"
+              onClick={() => setIsMinimized(!isMinimized)}
+            >
+              {isMinimized ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronUp className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       
-      <CardContent className={cn(
-        widget.size === 'large' ? 'h-64' : widget.size === 'medium' ? 'h-32' : 'h-24'
-      )}>
-        {children}
-      </CardContent>
+      {!isMinimized && (
+        <CardContent className={cn(
+          widget.size === 'large' ? 'h-64' : widget.size === 'medium' ? 'h-32' : 'h-24'
+        )}>
+          {children}
+        </CardContent>
+      )}
     </Card>
   );
 }
