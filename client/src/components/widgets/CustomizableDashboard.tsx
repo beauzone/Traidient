@@ -18,11 +18,11 @@ interface CustomizableDashboardProps {
 // Default layouts for different dashboard types
 const DEFAULT_LAYOUTS = {
   main: [
-    { id: 'portfolio-value', title: 'Portfolio Value', type: 'portfolio-value', size: 'medium' as const, position: { x: 0, y: 0 }, enabled: true },
-    { id: 'daily-pnl', title: 'Daily P&L', type: 'daily-pnl', size: 'medium' as const, position: { x: 2, y: 0 }, enabled: true },
-    { id: 'portfolio-chart', title: 'Portfolio Chart', type: 'portfolio-chart', size: 'large' as const, position: { x: 0, y: 1 }, enabled: true },
-    { id: 'top-performers', title: 'Top Performers', type: 'top-performers', size: 'medium' as const, position: { x: 3, y: 1 }, enabled: true },
-    { id: 'strategies', title: 'Active Strategies', type: 'strategies', size: 'medium' as const, position: { x: 0, y: 3 }, enabled: true }
+    { id: 'main-portfolio-value', title: 'Portfolio Value', type: 'main-portfolio-value', size: 'medium' as const, position: { x: 0, y: 0 }, enabled: true },
+    { id: 'main-asset-allocation', title: 'Asset Allocation', type: 'main-asset-allocation', size: 'medium' as const, position: { x: 2, y: 0 }, enabled: true },
+    { id: 'main-portfolio-chart', title: 'Portfolio Chart', type: 'main-portfolio-chart', size: 'large' as const, position: { x: 0, y: 1 }, enabled: true },
+    { id: 'main-positions', title: 'Current Positions', type: 'main-positions', size: 'medium' as const, position: { x: 3, y: 1 }, enabled: true },
+    { id: 'main-strategies', title: 'Active Strategies', type: 'main-strategies', size: 'medium' as const, position: { x: 0, y: 3 }, enabled: true }
   ],
   performance: [
     { id: 'portfolio-value', title: 'Portfolio Value', type: 'portfolio-value', size: 'medium' as const, position: { x: 0, y: 0 }, enabled: true },

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import MainLayout from "@/components/layout/MainLayout";
+import CustomizableDashboard from "@/components/widgets/CustomizableDashboard";
 import StatsCards from "@/components/dashboard/StatsCards";
 import PortfolioChart from "@/components/dashboard/PortfolioChart";
 import AssetAllocation from "@/components/dashboard/AssetAllocation";
@@ -451,72 +452,61 @@ const Dashboard = () => {
   
   const pnlData = calculatePnL();
   
+  // Prepare comprehensive data for widgets
+  const dashboardData = {
+    // Portfolio metrics
+    portfolio: {
+      totalValue: Array.isArray(accountData) 
+        ? (selectedAccount === "all"
+          ? accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0)
+          : accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.equity || 
+            accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.balance || 
+            (accountData.length > 0 ? accountData[0].equity || accountData[0].balance || 0 : 0)
+        )
+        : 0,
+      dailyPnL: pnlData,
+      chartData: portfolioData,
+      assetAllocation: assetAllocationData,
+      timeRange: portfolioTimeRange,
+      onTimeRangeChange: setPortfolioTimeRange
+    },
+    
+    // Strategy data
+    strategies: {
+      list: strategies,
+      active: strategies.filter(s => s.status === 'Running').length,
+      onPause: handlePauseStrategy,
+      onPlay: handlePlayStrategy,
+      onEdit: handleEditStrategy,
+      onDelete: handleDeleteStrategy
+    },
+    
+    // Trading data
+    trading: {
+      positions: filteredPositions,
+      orders: orders,
+      todayTrades: orders.filter((o: Order) => new Date(o.createdAt).toDateString() === new Date().toDateString()).length,
+      isLoadingPositions,
+      isLoadingOrders
+    },
+    
+    // Account info
+    account: {
+      selected: selectedAccount,
+      data: accountData,
+      isLoading: isLoadingAccount
+    },
+    
+    // Utility functions
+    formatCurrency
+  };
+  
   return (
     <MainLayout title="Dashboard">
-      {isLoadingAccount ? (
-        <div className="flex items-center justify-center h-24">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <>
-          {/* Stats Cards */}
-          <StatsCards
-            activeStrategies={strategies.filter(s => s.status === 'Running').length}
-            totalPnL={pnlData}
-            todayTrades={orders.filter((o: Order) => new Date(o.createdAt).toDateString() === new Date().toDateString()).length}
-            alerts={0}
-          />
-
-          {/* Charts */}
-          <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <PortfolioChart
-              data={portfolioData}
-              currentValue={
-                Array.isArray(accountData) 
-                  ? (selectedAccount === "all"
-                    ? formatCurrency(accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0))
-                    : formatCurrency(
-                        accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.equity || 
-                        accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.balance || 
-                        (accountData.length > 0 ? accountData[0].equity || accountData[0].balance || 0 : 0)
-                      )
-                  )
-                  : formatCurrency(0)
-              }
-              change={{
-                value: pnlData.value,
-                percentage: pnlData.percentage,
-                isPositive: pnlData.isPositive
-              }}
-              onTimeRangeChange={setPortfolioTimeRange}
-            />
-            
-            {/* Force remount of component when account changes */}
-            <AssetAllocation 
-              key={`asset-allocation-${selectedAccount}-${new Date().getTime()}`} 
-              data={assetAllocationData} 
-            />
-          </div>
-
-          {/* Portfolio Positions */}
-          <PositionsTable 
-            passedPositions={filteredPositions} 
-            isLoading={isLoadingPositions}
-          />
-        </>
-      )}
-      
-      {/* Strategy Performance */}
-      <StrategyTable
-        strategies={strategies}
-        onPause={handlePauseStrategy}
-        onPlay={handlePlayStrategy}
-        onEdit={handleEditStrategy}
-        onDelete={handleDeleteStrategy}
+      <CustomizableDashboard 
+        dashboardType="main"
+        data={dashboardData}
       />
-
-      {/* Watchlist */}
-      <WatchlistTable />
     </MainLayout>
   );
 };

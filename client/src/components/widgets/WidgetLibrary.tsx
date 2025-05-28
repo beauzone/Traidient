@@ -204,6 +204,168 @@ export const StrategiesWidget = ({ data }: { data: any }) => {
   );
 };
 
+// Main Dashboard Widgets for Trading Platform
+export const MainPortfolioValueWidget = ({ data }: { data: any }) => {
+  const portfolioData = data?.portfolio;
+  const formatCurrency = data?.formatCurrency || ((value: number) => `$${value.toLocaleString()}`);
+  
+  return (
+    <div className="flex flex-col justify-center h-full">
+      <div className="text-2xl font-bold">
+        {formatCurrency(portfolioData?.totalValue || 0)}
+      </div>
+      <div className={`text-sm flex items-center gap-1 ${
+        portfolioData?.dailyPnL?.isPositive ? 'text-green-600' : 'text-red-600'
+      }`}>
+        {portfolioData?.dailyPnL?.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+        {portfolioData?.dailyPnL?.percentage || '0.00%'} today
+      </div>
+    </div>
+  );
+};
+
+export const MainPortfolioChartWidget = ({ data }: { data: any }) => {
+  const portfolioData = data?.portfolio;
+  const chartData = portfolioData?.chartData || [];
+  
+  return (
+    <div className="h-full">
+      <div className="mb-2 flex justify-between items-center">
+        <span className="text-sm text-muted-foreground">Portfolio Performance</span>
+        <div className="flex gap-1">
+          {['1D', '1W', '1M', '1Y'].map((range) => (
+            <button
+              key={range}
+              onClick={() => portfolioData?.onTimeRangeChange?.(range)}
+              className={`px-2 py-1 text-xs rounded ${
+                portfolioData?.timeRange === range ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              }`}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height="85%">
+        <AreaChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" hide />
+          <YAxis hide />
+          <Tooltip />
+          <Area type="monotone" dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+export const MainAssetAllocationWidget = ({ data }: { data: any }) => {
+  const allocationData = data?.portfolio?.assetAllocation || [];
+  
+  return (
+    <div className="h-full">
+      <div className="mb-2">
+        <span className="text-sm text-muted-foreground">Asset Allocation</span>
+      </div>
+      <ResponsiveContainer width="100%" height="85%">
+        <RechartsPieChart>
+          <Pie
+            data={allocationData}
+            cx="50%"
+            cy="50%"
+            outerRadius={40}
+            fill="#8884d8"
+            dataKey="value"
+            label={({name, value}) => `${name}: ${value}%`}
+          >
+            {allocationData.map((entry: any, index: number) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip />
+        </RechartsPieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+export const MainPositionsWidget = ({ data }: { data: any }) => {
+  const positions = data?.trading?.positions || [];
+  const isLoading = data?.trading?.isLoadingPositions;
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="h-full overflow-hidden">
+      <div className="mb-2">
+        <span className="text-sm text-muted-foreground">Current Positions</span>
+      </div>
+      <div className="space-y-2 overflow-y-auto h-full">
+        {positions.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-4">No positions</div>
+        ) : (
+          positions.slice(0, 5).map((position: any, index: number) => (
+            <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+              <div>
+                <div className="font-medium text-sm">{position.symbol}</div>
+                <div className="text-xs text-muted-foreground">{position.qty} shares</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium">${position.marketValue?.toLocaleString()}</div>
+                <div className={`text-xs ${position.unrealizedPl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {position.unrealizedPl >= 0 ? '+' : ''}${position.unrealizedPl?.toFixed(2)}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const MainStrategiesWidget = ({ data }: { data: any }) => {
+  const strategies = data?.strategies?.list || [];
+  
+  return (
+    <div className="h-full overflow-hidden">
+      <div className="mb-2">
+        <span className="text-sm text-muted-foreground">Active Strategies</span>
+      </div>
+      <div className="space-y-2 overflow-y-auto h-full">
+        {strategies.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-4">No strategies</div>
+        ) : (
+          strategies.slice(0, 4).map((strategy: any) => (
+            <div key={strategy.id} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{strategy.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {strategy.trades} trades • {strategy.winRate?.toFixed(1)}% win rate
+                </div>
+              </div>
+              <div className="text-right ml-2">
+                <div className={`text-sm font-medium ${strategy.return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {strategy.return >= 0 ? '+' : ''}{strategy.return?.toFixed(2)}%
+                </div>
+                <Badge variant={strategy.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                  {strategy.status}
+                </Badge>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Widget definitions for the library
 export const WIDGET_DEFINITIONS = {
   'portfolio-value': {
@@ -251,6 +413,37 @@ export const WIDGET_DEFINITIONS = {
   'strategies': {
     title: 'Active Strategies',
     component: StrategiesWidget,
+    defaultSize: 'medium' as const,
+    category: 'strategies'
+  },
+  // Main Dashboard Widgets
+  'main-portfolio-value': {
+    title: 'Portfolio Value',
+    component: MainPortfolioValueWidget,
+    defaultSize: 'medium' as const,
+    category: 'portfolio'
+  },
+  'main-portfolio-chart': {
+    title: 'Portfolio Chart',
+    component: MainPortfolioChartWidget,
+    defaultSize: 'large' as const,
+    category: 'charts'
+  },
+  'main-asset-allocation': {
+    title: 'Asset Allocation',
+    component: MainAssetAllocationWidget,
+    defaultSize: 'medium' as const,
+    category: 'portfolio'
+  },
+  'main-positions': {
+    title: 'Current Positions',
+    component: MainPositionsWidget,
+    defaultSize: 'medium' as const,
+    category: 'trading'
+  },
+  'main-strategies': {
+    title: 'Active Strategies',
+    component: MainStrategiesWidget,
     defaultSize: 'medium' as const,
     category: 'strategies'
   }
