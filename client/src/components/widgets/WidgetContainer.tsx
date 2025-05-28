@@ -110,7 +110,7 @@ export default function WidgetContainer({
         setDragOffset({ x: deltaX, y: deltaY });
         
         // Trigger real-time widget repositioning
-        if (onDragUpdate && Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        if (onDragUpdate && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
           onDragUpdate(widget.id, { x: deltaX, y: deltaY });
         }
       }
