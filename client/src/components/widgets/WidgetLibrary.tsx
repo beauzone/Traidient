@@ -180,12 +180,12 @@ export const StrategiesWidget = ({ data }: { data: any }) => {
         <BarChart3 className="h-4 w-4 text-indigo-500" />
         <span className="text-xs text-muted-foreground">Active Strategies</span>
       </div>
-      <div className="space-y-2 overflow-y-auto max-h-32">
+      <div className="space-y-2 overflow-hidden">
         {data?.strategies?.slice(0, 3).map((strategy: any) => (
           <div key={strategy.id} className="text-xs">
             <div className="flex justify-between items-center">
-              <span className="font-medium truncate">{strategy.name}</span>
-              <span className={`font-medium ${
+              <span className="font-medium truncate pr-2 flex-1">{strategy.name}</span>
+              <span className={`font-medium flex-shrink-0 ${
                 strategy.return >= 0 ? 'text-green-600' : 'text-red-600'
               }`}>
                 {formatPercent(strategy.return)}

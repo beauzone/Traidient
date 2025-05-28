@@ -159,9 +159,7 @@ export default function WidgetContainer({
             className="h-6 w-6 p-0 opacity-70 hover:opacity-100"
             onClick={() => setIsMinimized(!isMinimized)}
           >
-            {editMode ? (
-              <X className="h-3 w-3" />
-            ) : isMinimized ? (
+            {isMinimized ? (
               <ChevronUp className="h-3 w-3" />
             ) : (
               <ChevronDown className="h-3 w-3" />
