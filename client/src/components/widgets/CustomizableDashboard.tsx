@@ -165,13 +165,22 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     const currentRow = Math.floor(currentIndex / columnsPerRow);
     const currentCol = currentIndex % columnsPerRow;
     
-    // Extremely strict thresholds - require dragging almost entirely past widget like Fidelity
-    const cellWidth = 300; // Widget width
-    const cellHeight = 180; // Widget height
-    const threshold = 2.2; // Must drag 220% past center (near complete overlap) before repositioning
+    // Fixed directional calculation - works for all directions
+    const cellWidth = 280; // Widget width
+    const cellHeight = 160; // Widget height
     
-    const colOffset = Math.floor(dragOffset.x / (cellWidth * threshold));
-    const rowOffset = Math.floor(dragOffset.y / (cellHeight * threshold));
+    // Use sign-preserving calculation instead of Math.floor for proper bidirectional movement
+    let colOffset = 0;
+    let rowOffset = 0;
+    
+    // Only move if dragged more than 80% of widget width/height
+    if (Math.abs(dragOffset.x) > cellWidth * 0.8) {
+      colOffset = dragOffset.x > 0 ? 1 : -1;
+    }
+    
+    if (Math.abs(dragOffset.y) > cellHeight * 0.8) {
+      rowOffset = dragOffset.y > 0 ? 1 : -1;
+    }
     
     const newCol = Math.max(0, Math.min(columnsPerRow - 1, currentCol + colOffset));
     const newRow = Math.max(0, currentRow + rowOffset);
@@ -186,8 +195,11 @@ export default function CustomizableDashboard({ dashboardType, data, className }
       setDraggedWidgetId(widgetId);
     }
     
-    // Only show repositioning preview with extremely high thresholds like Fidelity
-    if (Math.abs(dragOffset.x) > 250 || Math.abs(dragOffset.y) > 150) {
+    // Only show repositioning preview when dragged 80% past widget edge (matching calculateDragTarget)
+    const cellWidth = 280;
+    const cellHeight = 160;
+    
+    if (Math.abs(dragOffset.x) > cellWidth * 0.8 || Math.abs(dragOffset.y) > cellHeight * 0.8) {
       const targetIndex = calculateDragTarget(widgetId, dragOffset);
       const currentIndex = widgets.findIndex(w => w.id === widgetId);
       
