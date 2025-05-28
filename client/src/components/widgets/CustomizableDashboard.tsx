@@ -165,10 +165,10 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     const currentRow = Math.floor(currentIndex / columnsPerRow);
     const currentCol = currentIndex % columnsPerRow;
     
-    // More precise thresholds - require dragging past 75% of widget width/height
-    const cellWidth = 280; // More accurate widget width including gaps
-    const cellHeight = 200; // More accurate widget height including gaps
-    const threshold = 0.75; // Must drag 75% past center before repositioning
+    // Much stricter thresholds - require dragging almost completely past widget
+    const cellWidth = 320; // More accurate widget width including gaps
+    const cellHeight = 220; // More accurate widget height including gaps
+    const threshold = 1.5; // Must drag 150% past center (almost complete overlap) before repositioning
     
     const colOffset = Math.floor(dragOffset.x / (cellWidth * threshold));
     const rowOffset = Math.floor(dragOffset.y / (cellHeight * threshold));
@@ -435,7 +435,7 @@ export default function CustomizableDashboard({ dashboardType, data, className }
             onDragUpdate={handleDragUpdate}
             isDraggedWidget={draggedWidgetId === widget.id}
             style={draggedWidgetId && draggedWidgetId !== widget.id ? { 
-              transition: 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Slower, smoother easing
+              transition: 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Even slower, more elegant easing
               transform: 'translateZ(0)' // Force hardware acceleration for smooth animation
             } : undefined}
           >
