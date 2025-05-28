@@ -81,25 +81,34 @@ export default function WidgetContainer({
     // Don't start drag if clicking on buttons
     if ((e.target as HTMLElement).closest('button')) return;
     
+    e.preventDefault();
     setDragStart({ x: e.clientX, y: e.clientY });
     setIsDragging(true);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !dragStart) return;
     
-    const deltaX = e.clientX - dragStart.x;
-    const deltaY = e.clientY - dragStart.y;
-    
-    // Only trigger move if dragged more than 5px to avoid accidental drags
-    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-      onMove?.(widget.id, { x: deltaX, y: deltaY });
-    }
-  };
+    // Add global listeners for better drag handling
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!dragStart) return;
+      
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      
+      // Only trigger move if dragged more than 5px to avoid accidental drags
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        const gridX = Math.round(deltaX / 200); // Approximate grid cell width
+        const gridY = Math.round(deltaY / 150); // Approximate grid cell height
+        onMove?.(widget.id, { x: gridX, y: gridY });
+      }
+    };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setDragStart(null);
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+      setDragStart(null);
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
   };
 
   return (
@@ -109,18 +118,16 @@ export default function WidgetContainer({
         getSizeClass(widget.size),
         isDragging && "shadow-lg z-10",
         editMode && "border-dashed border-2 border-primary/50 cursor-move",
-        isMinimized && "row-span-1 h-auto", // Force minimized widgets to be smaller
+        isMinimized && "!row-span-1", // Force minimized widgets to single row height
         className
       )}
       style={{
         gridColumn: `span ${widget.size === 'small' ? 1 : widget.size === 'medium' ? 2 : 3}`,
         gridRow: isMinimized ? 'span 1' : `span ${widget.size === 'large' ? 2 : 1}`,
-        minHeight: isMinimized ? 'auto' : undefined
+        height: isMinimized ? 'auto' : undefined,
+        maxHeight: isMinimized ? '60px' : undefined // Limit height when minimized like Fidelity
       }}
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       {editMode && (
         <div className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
