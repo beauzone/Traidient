@@ -20,14 +20,10 @@ export const PortfolioValueWidget = ({ data }: { data: any }) => {
 
   return (
     <div className="flex flex-col justify-center h-full">
-      <div className="flex items-center gap-2 mb-1">
-        <DollarSign className="h-4 w-4 text-blue-500" />
-        <span className="text-xs text-muted-foreground">Portfolio Value</span>
-      </div>
-      <div className="text-lg font-bold">
+      <div className="text-2xl font-bold">
         {formatCurrency(data?.totalValue || 0)}
       </div>
-      <div className={`text-xs flex items-center gap-1 ${
+      <div className={`text-sm flex items-center gap-1 ${
         (data?.totalReturn || 0) >= 0 ? 'text-green-600' : 'text-red-600'
       }`}>
         {(data?.totalReturn || 0) >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -49,16 +45,12 @@ export const DailyPnLWidget = ({ data }: { data: any }) => {
 
   return (
     <div className="flex flex-col justify-center h-full">
-      <div className="flex items-center gap-2 mb-1">
-        <Activity className="h-4 w-4 text-green-500" />
-        <span className="text-xs text-muted-foreground">Daily P&L</span>
-      </div>
-      <div className={`text-lg font-bold ${
+      <div className={`text-2xl font-bold ${
         (data?.dailyPnL || 0) >= 0 ? 'text-green-600' : 'text-red-600'
       }`}>
         {formatCurrency(data?.dailyPnL || 0)}
       </div>
-      <div className="text-xs text-muted-foreground">
+      <div className="text-sm text-muted-foreground">
         Today's performance
       </div>
     </div>
@@ -72,14 +64,10 @@ export const WinRateWidget = ({ data }: { data: any }) => {
 
   return (
     <div className="flex flex-col justify-center h-full">
-      <div className="flex items-center gap-2 mb-1">
-        <Target className="h-4 w-4 text-purple-500" />
-        <span className="text-xs text-muted-foreground">Win Rate</span>
-      </div>
-      <div className="text-lg font-bold">
+      <div className="text-2xl font-bold">
         {formatPercent(data?.winRate || 0)}
       </div>
-      <div className="text-xs text-muted-foreground">
+      <div className="text-sm text-muted-foreground">
         {data?.totalTrades || 0} total trades
       </div>
     </div>
@@ -89,14 +77,10 @@ export const WinRateWidget = ({ data }: { data: any }) => {
 export const SharpeRatioWidget = ({ data }: { data: any }) => {
   return (
     <div className="flex flex-col justify-center h-full">
-      <div className="flex items-center gap-2 mb-1">
-        <BarChart3 className="h-4 w-4 text-orange-500" />
-        <span className="text-xs text-muted-foreground">Sharpe Ratio</span>
-      </div>
-      <div className="text-lg font-bold">
+      <div className="text-2xl font-bold">
         {(data?.sharpeRatio || 0).toFixed(2)}
       </div>
-      <div className="text-xs text-muted-foreground">
+      <div className="text-sm text-muted-foreground">
         Risk-adjusted returns
       </div>
     </div>
@@ -106,11 +90,7 @@ export const SharpeRatioWidget = ({ data }: { data: any }) => {
 export const PortfolioChartWidget = ({ data }: { data: any }) => {
   return (
     <div className="h-full">
-      <div className="flex items-center gap-2 mb-2">
-        <TrendingUp className="h-4 w-4 text-blue-500" />
-        <span className="text-xs text-muted-foreground">Portfolio Performance</span>
-      </div>
-      <ResponsiveContainer width="100%" height="85%">
+      <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data?.portfolioHistory || []}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" hide />

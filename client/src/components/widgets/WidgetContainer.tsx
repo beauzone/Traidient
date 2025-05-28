@@ -117,7 +117,7 @@ export default function WidgetContainer({
         "relative group transition-all duration-200",
         getSizeClass(widget.size),
         isDragging && "shadow-lg z-10",
-        editMode && "border-dashed border-2 border-primary/50 cursor-move",
+        editMode && "cursor-move", // Clean design like Fidelity - no dashed borders
         isMinimized && "!row-span-1", // Force minimized widgets to single row height
         className
       )}
@@ -159,7 +159,9 @@ export default function WidgetContainer({
             className="h-6 w-6 p-0 opacity-70 hover:opacity-100"
             onClick={() => setIsMinimized(!isMinimized)}
           >
-            {isMinimized ? (
+            {editMode ? (
+              <X className="h-3 w-3" />
+            ) : isMinimized ? (
               <ChevronUp className="h-3 w-3" />
             ) : (
               <ChevronDown className="h-3 w-3" />
