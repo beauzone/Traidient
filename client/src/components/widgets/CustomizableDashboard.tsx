@@ -155,7 +155,7 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     setWidgets(widgets.map(w => w.id === widgetId ? { ...w, size } : w));
   };
 
-  // Calculate target position during drag
+  // Calculate target position during drag (with stricter thresholds)
   const calculateDragTarget = (widgetId: string, dragOffset: { x: number; y: number }) => {
     const currentIndex = widgets.findIndex(w => w.id === widgetId);
     if (currentIndex === -1) return currentIndex;
@@ -165,12 +165,13 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     const currentRow = Math.floor(currentIndex / columnsPerRow);
     const currentCol = currentIndex % columnsPerRow;
     
-    // Calculate new position based on drag offset
-    const cellWidth = 200; // Approximate widget width
-    const cellHeight = 150; // Approximate widget height
+    // More precise thresholds - require dragging past 75% of widget width/height
+    const cellWidth = 280; // More accurate widget width including gaps
+    const cellHeight = 200; // More accurate widget height including gaps
+    const threshold = 0.75; // Must drag 75% past center before repositioning
     
-    const colOffset = Math.round(dragOffset.x / cellWidth);
-    const rowOffset = Math.round(dragOffset.y / cellHeight);
+    const colOffset = Math.floor(dragOffset.x / (cellWidth * threshold));
+    const rowOffset = Math.floor(dragOffset.y / (cellHeight * threshold));
     
     const newCol = Math.max(0, Math.min(columnsPerRow - 1, currentCol + colOffset));
     const newRow = Math.max(0, currentRow + rowOffset);
@@ -434,7 +435,7 @@ export default function CustomizableDashboard({ dashboardType, data, className }
             onDragUpdate={handleDragUpdate}
             isDraggedWidget={draggedWidgetId === widget.id}
             style={draggedWidgetId && draggedWidgetId !== widget.id ? { 
-              transition: 'all 0.2s ease-out',
+              transition: 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Slower, smoother easing
               transform: 'translateZ(0)' // Force hardware acceleration for smooth animation
             } : undefined}
           >
