@@ -84,20 +84,30 @@ export default function WidgetContainer({
     e.preventDefault();
     const startPos = { x: e.clientX, y: e.clientY };
     setDragStart(startPos);
-    setIsDragging(true);
+    
+    let hasMoved = false;
     
     // Add global listeners for better drag handling
     const handleGlobalMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startPos.x;
       const deltaY = e.clientY - startPos.y;
       
-      // Only trigger move if dragged more than 10px to avoid accidental drags
-      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-        onMove(widget.id, { x: deltaX, y: deltaY });
+      // Start visual dragging after 5px movement
+      if (!hasMoved && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) {
+        setIsDragging(true);
+        hasMoved = true;
       }
     };
 
-    const handleGlobalMouseUp = () => {
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      const deltaX = e.clientX - startPos.x;
+      const deltaY = e.clientY - startPos.y;
+      
+      // Only commit the move on mouse release if we actually dragged
+      if (hasMoved && (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20)) {
+        onMove(widget.id, { x: deltaX, y: deltaY });
+      }
+      
       setIsDragging(false);
       setDragStart(null);
       document.removeEventListener('mousemove', handleGlobalMouseMove);
