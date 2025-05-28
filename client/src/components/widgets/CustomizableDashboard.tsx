@@ -217,7 +217,12 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     const targetIndex = calculateDragTarget(widgetId, delta);
     const currentIndex = widgets.findIndex(w => w.id === widgetId);
     
-    if (targetIndex !== currentIndex && Math.abs(delta.x) > 20 || Math.abs(delta.y) > 20) {
+    // Use same threshold logic as preview - must exceed 80% of widget size
+    const cellWidth = 280;
+    const cellHeight = 160;
+    const thresholdMet = Math.abs(delta.x) > cellWidth * 0.8 || Math.abs(delta.y) > cellHeight * 0.8;
+    
+    if (targetIndex !== currentIndex && thresholdMet) {
       const newWidgets = [...widgets];
       const [movedWidget] = newWidgets.splice(currentIndex, 1);
       newWidgets.splice(targetIndex, 0, movedWidget);
