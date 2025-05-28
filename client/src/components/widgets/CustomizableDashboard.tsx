@@ -154,8 +154,32 @@ export default function CustomizableDashboard({ dashboardType, data, className }
   };
 
   // Move widget (for drag functionality)
-  const moveWidget = (widgetId: string, newPosition: { x: number; y: number }) => {
-    setWidgets(widgets.map(w => w.id === widgetId ? { ...w, position: newPosition } : w));
+  const moveWidget = (widgetId: string, delta: { x: number; y: number }) => {
+    const currentIndex = widgets.findIndex(w => w.id === widgetId);
+    if (currentIndex === -1) return;
+
+    // Simple reordering based on drag direction
+    let targetIndex = currentIndex;
+    
+    // Move based on significant drag distance
+    if (Math.abs(delta.x) > 100) {
+      targetIndex = delta.x > 0 ? Math.min(widgets.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+    }
+    
+    if (Math.abs(delta.y) > 100) {
+      // Move up/down by 3 positions (assuming 3 columns)
+      targetIndex = delta.y > 0 ? Math.min(widgets.length - 1, currentIndex + 3) : Math.max(0, currentIndex - 3);
+    }
+    
+    if (targetIndex !== currentIndex) {
+      const newWidgets = [...widgets];
+      const [movedWidget] = newWidgets.splice(currentIndex, 1);
+      newWidgets.splice(targetIndex, 0, movedWidget);
+      setWidgets(newWidgets);
+      
+      // Save to localStorage
+      localStorage.setItem(`dashboard-widgets-${dashboardType}`, JSON.stringify(newWidgets));
+    }
   };
 
   // Render widget content
