@@ -109,8 +109,8 @@ export default function WidgetContainer({
       if (hasMoved) {
         setDragOffset({ x: deltaX, y: deltaY });
         
-        // Trigger real-time widget repositioning (higher threshold for smoother interaction)
-        if (onDragUpdate && (Math.abs(deltaX) > 50 || Math.abs(deltaY) > 50)) {
+        // Trigger real-time widget repositioning (much higher threshold to match Fidelity behavior)
+        if (onDragUpdate && (Math.abs(deltaX) > 120 || Math.abs(deltaY) > 80)) {
           onDragUpdate(widget.id, { x: deltaX, y: deltaY });
         }
       }

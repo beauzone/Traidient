@@ -165,10 +165,10 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     const currentRow = Math.floor(currentIndex / columnsPerRow);
     const currentCol = currentIndex % columnsPerRow;
     
-    // Much stricter thresholds - require dragging almost completely past widget
-    const cellWidth = 320; // More accurate widget width including gaps
-    const cellHeight = 220; // More accurate widget height including gaps
-    const threshold = 1.5; // Must drag 150% past center (almost complete overlap) before repositioning
+    // Extremely strict thresholds - require dragging almost entirely past widget like Fidelity
+    const cellWidth = 300; // Widget width
+    const cellHeight = 180; // Widget height
+    const threshold = 2.2; // Must drag 220% past center (near complete overlap) before repositioning
     
     const colOffset = Math.floor(dragOffset.x / (cellWidth * threshold));
     const rowOffset = Math.floor(dragOffset.y / (cellHeight * threshold));
@@ -180,11 +180,16 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     return newIndex;
   };
 
-  // Real-time widget repositioning during drag
+  // Real-time widget repositioning during drag (with stricter thresholds)
   const handleDragUpdate = (widgetId: string, dragOffset: { x: number; y: number }) => {
     if (!draggedWidgetId) {
       setDraggedWidgetId(widgetId);
       setTempWidgetOrder([...widgets]);
+    }
+    
+    // Only check for repositioning if we've moved significantly (like Fidelity)
+    if (Math.abs(dragOffset.x) < 200 && Math.abs(dragOffset.y) < 120) {
+      return; // Don't reposition until almost complete overlap
     }
     
     const targetIndex = calculateDragTarget(widgetId, dragOffset);
