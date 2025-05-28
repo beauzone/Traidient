@@ -180,14 +180,24 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     return newIndex;
   };
 
-  // Real-time widget repositioning during drag (visual only, no array reordering)
+  // Real-time widget repositioning during drag (with very strict Fidelity-like thresholds)
   const handleDragUpdate = (widgetId: string, dragOffset: { x: number; y: number }) => {
     if (!draggedWidgetId) {
       setDraggedWidgetId(widgetId);
     }
     
-    // Don't reorder during drag - this causes the jumping issue
-    // We'll only show visual feedback through CSS transforms
+    // Only show repositioning preview with extremely high thresholds like Fidelity
+    if (Math.abs(dragOffset.x) > 250 || Math.abs(dragOffset.y) > 150) {
+      const targetIndex = calculateDragTarget(widgetId, dragOffset);
+      const currentIndex = widgets.findIndex(w => w.id === widgetId);
+      
+      if (targetIndex !== currentIndex) {
+        const newOrder = [...widgets];
+        const [draggedWidget] = newOrder.splice(currentIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedWidget);
+        setTempWidgetOrder(newOrder);
+      }
+    }
   };
 
   // Finalize widget position on drag end
@@ -415,7 +425,8 @@ export default function CustomizableDashboard({ dashboardType, data, className }
 
       {/* Widget Grid */}
       <div className="grid grid-cols-6 auto-rows-min gap-4">
-        {widgets.filter(w => w.enabled).map((widget, index) => (
+        {(tempWidgetOrder.length > 0 ? tempWidgetOrder : widgets)
+          .filter(w => w.enabled).map((widget, index) => (
           <WidgetContainer
             key={widget.id}
             widget={widget}
