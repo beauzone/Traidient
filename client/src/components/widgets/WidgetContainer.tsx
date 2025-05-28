@@ -39,6 +39,7 @@ export default function WidgetContainer({
   const [isDragging, setIsDragging] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const getSizeClass = (size: string) => {
     switch (size) {
@@ -97,6 +98,11 @@ export default function WidgetContainer({
         setIsDragging(true);
         hasMoved = true;
       }
+      
+      // Update visual position during drag
+      if (hasMoved) {
+        setDragOffset({ x: deltaX, y: deltaY });
+      }
     };
 
     const handleGlobalMouseUp = (e: MouseEvent) => {
@@ -110,6 +116,7 @@ export default function WidgetContainer({
       
       setIsDragging(false);
       setDragStart(null);
+      setDragOffset({ x: 0, y: 0 });
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
@@ -132,7 +139,9 @@ export default function WidgetContainer({
         gridColumn: `span ${widget.size === 'small' ? 1 : widget.size === 'medium' ? 2 : 3}`,
         gridRow: isMinimized ? 'span 1' : `span ${widget.size === 'large' ? 2 : 1}`,
         height: isMinimized ? 'auto' : undefined,
-        maxHeight: isMinimized ? '60px' : undefined // Limit height when minimized like Fidelity
+        maxHeight: isMinimized ? '60px' : undefined, // Limit height when minimized like Fidelity
+        transform: isDragging ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : undefined,
+        transition: isDragging ? 'none' : undefined
       }}
       onMouseDown={handleMouseDown}
     >
