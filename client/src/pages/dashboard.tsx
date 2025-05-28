@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import MainLayout from "@/components/layout/MainLayout";
@@ -11,7 +11,8 @@ import WatchlistTable from "@/components/dashboard/WatchlistTable";
 import { useToast } from "@/hooks/use-toast";
 import { useAccountContext } from "@/context/AccountContext";
 import { Button } from "@/components/ui/button";
-import { Grid2x2, Save, RotateCcw } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Grid2x2, Save, RotateCcw, Plus, ChevronDown, ChevronUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Strategy {
@@ -54,6 +55,7 @@ const Dashboard = () => {
   const [layout, setLayout] = useState<DashboardSection[]>(DEFAULT_LAYOUT);
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
   const [tempLayout, setTempLayout] = useState<DashboardSection[]>([]);
+  const [showSectionDialog, setShowSectionDialog] = useState(false);
 
   // Load saved layout from localStorage
   useEffect(() => {
@@ -556,41 +558,146 @@ const Dashboard = () => {
   
   const pnlData = calculatePnL();
   
-  // Draggable wrapper component
+  // Add minimize state for sections
+  const [minimizedSections, setMinimizedSections] = useState<Set<string>>(new Set());
+
+  // Toggle section minimized state
+  const toggleMinimized = (sectionId: string) => {
+    const newMinimized = new Set(minimizedSections);
+    if (newMinimized.has(sectionId)) {
+      newMinimized.delete(sectionId);
+    } else {
+      newMinimized.add(sectionId);
+    }
+    setMinimizedSections(newMinimized);
+  };
+
+  // Get section title
+  const getSectionTitle = (type: string) => {
+    switch (type) {
+      case 'stats': return 'Portfolio Overview';
+      case 'charts': return 'Portfolio Performance';
+      case 'positions': return 'Current Positions';
+      case 'strategies': return 'Active Strategies';
+      case 'watchlist': return 'Watchlist';
+      default: return 'Dashboard Section';
+    }
+  };
+
+  // Draggable wrapper component with Fidelity-style design
   const DraggableSection = ({ section, children }: { 
     section: DashboardSection, 
     children: React.ReactNode 
-  }) => (
-    <div
-      draggable={editMode}
-      onDragStart={() => handleDragStart(section.id)}
-      onDragOver={(e) => handleDragOver(e, section.id)}
-      onDragEnd={handleDragEnd}
-      className={cn(
-        "transition-all duration-300",
-        editMode && "cursor-move border-2 border-dashed border-transparent hover:border-primary/50",
-        draggedSectionId === section.id && "opacity-50",
-        editMode && "relative"
-      )}
-      style={{
-        transition: tempLayout.length > 0 ? 'all 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : undefined
-      }}
-    >
-      {editMode && (
-        <div className="absolute top-2 right-2 z-10 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toggleSection(section.id)}
-            className="h-6 text-xs"
-          >
-            {section.enabled ? 'Hide' : 'Show'}
-          </Button>
+  }) => {
+    const isMinimized = minimizedSections.has(section.id);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+    const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if (!editMode) return;
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      handleDragStart(section.id);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !dragStart) return;
+      const offset = {
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      };
+      setDragOffset(offset);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        setDragStart(null);
+        setDragOffset({ x: 0, y: 0 });
+        handleDragEnd();
+      }
+    };
+
+    React.useEffect(() => {
+      if (isDragging) {
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        return () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        };
+      }
+    }, [isDragging, dragStart]);
+
+    return (
+      <div
+        className={cn(
+          "relative group transition-all duration-200 bg-background border border-border rounded-lg",
+          isDragging && "shadow-lg z-10",
+          editMode && "cursor-move", // Clean design like Fidelity - no dashed borders
+          isMinimized && "!h-auto", // Force minimized sections to auto height
+        )}
+        style={{
+          transform: isDragging ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : undefined,
+          transition: isDragging ? 'none' : tempLayout.length > 0 ? 'all 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : undefined,
+        }}
+        onMouseDown={handleMouseDown}
+        onDragOver={(e) => handleDragOver(e, section.id)}
+      >
+        {/* Section Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="text-lg font-semibold">{getSectionTitle(section.type)}</h3>
+          <div className="flex items-center gap-2">
+            {/* Minimize/Expand Triangle */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMinimized(section.id);
+              }}
+              className={cn(
+                "p-1 hover:bg-muted rounded transition-colors",
+                editMode && "opacity-0" // Hide triangle in edit mode like Fidelity
+              )}
+            >
+              {isMinimized ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </button>
+
+            {/* Edit Mode Controls */}
+            {editMode && (
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 bg-background/80 backdrop-blur-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSection(section.id);
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-      {children}
-    </div>
-  );
+
+        {/* Section Content */}
+        {!isMinimized && (
+          <div className={cn(
+            "p-4",
+            !section.enabled && editMode && "opacity-50"
+          )}>
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Render dashboard sections in order
   const renderSection = (section: DashboardSection) => {
@@ -695,6 +802,15 @@ const Dashboard = () => {
             </Button>
           ) : (
             <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowSectionDialog(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Section
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm"
