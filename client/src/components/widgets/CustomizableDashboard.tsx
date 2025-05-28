@@ -440,8 +440,11 @@ export default function CustomizableDashboard({ dashboardType, data, className }
             onDragUpdate={handleDragUpdate}
             isDraggedWidget={draggedWidgetId === widget.id}
             style={draggedWidgetId && draggedWidgetId !== widget.id ? { 
-              transition: 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Even slower, more elegant easing
+              transition: 'all 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Much slower, like Fidelity
               transform: 'translateZ(0)' // Force hardware acceleration for smooth animation
+            } : draggedWidgetId === widget.id ? {
+              transition: 'none', // No transition for dragged widget to prevent jumping
+              zIndex: 1000 // Keep dragged widget on top
             } : undefined}
           >
             {renderWidget(widget)}
