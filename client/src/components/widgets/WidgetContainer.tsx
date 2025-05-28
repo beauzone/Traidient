@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, X, Move, Maximize2, Minimize2 } from "lucide-react";
+import { Settings, X, Move, Maximize2, Minimize2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface WidgetConfig {
@@ -37,6 +37,7 @@ export default function WidgetContainer({
   className
 }: WidgetContainerProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const getSizeClass = (size: string) => {
     switch (size) {

@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Plus, RotateCcw, Save } from "lucide-react";
+import { Settings, Plus, RotateCcw, Save, Grid2x2, X, ChevronDown, ChevronUp } from "lucide-react";
 import WidgetContainer, { WidgetConfig } from "./WidgetContainer";
 import { WIDGET_DEFINITIONS } from "./WidgetLibrary";
 import { useToast } from "@/hooks/use-toast";
@@ -174,12 +174,47 @@ export default function CustomizableDashboard({ dashboardType, data, className }
           )}
         </div>
         <div className="flex items-center gap-2">
+          {!editMode ? (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setEditMode(true)}
+              className="flex items-center gap-2"
+            >
+              <Grid2x2 className="w-4 h-4" />
+            </Button>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowSettings(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setEditMode(false);
+                  setSelectedPreset('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                size="sm"
+                onClick={saveLayout}
+              >
+                Save
+              </Button>
+            </>
+          )}
+          
           <Dialog open={showSettings} onOpenChange={setShowSettings}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Customize
-              </Button>
+              <div style={{ display: 'none' }} />
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
@@ -189,14 +224,14 @@ export default function CustomizableDashboard({ dashboardType, data, className }
                 </DialogDescription>
               </DialogHeader>
               
-              <Tabs defaultValue="presets" className="w-full">
+              <Tabs defaultValue="widgets" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="presets">Presets</TabsTrigger>
                   <TabsTrigger value="widgets">Add Widgets</TabsTrigger>
+                  <TabsTrigger value="layouts">Custom Layouts</TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="presets" className="space-y-6">
+                <TabsContent value="layouts" className="space-y-6">
                   <div className="space-y-4">
                     {/* Preset Selector */}
                     <div>
