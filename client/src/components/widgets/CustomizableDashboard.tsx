@@ -153,6 +153,11 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     setWidgets(widgets.map(w => w.id === widgetId ? { ...w, size } : w));
   };
 
+  // Move widget (for drag functionality)
+  const moveWidget = (widgetId: string, newPosition: { x: number; y: number }) => {
+    setWidgets(widgets.map(w => w.id === widgetId ? { ...w, position: newPosition } : w));
+  };
+
   // Render widget content
   const renderWidget = (widget: WidgetConfig) => {
     const definition = WIDGET_DEFINITIONS[widget.type as keyof typeof WIDGET_DEFINITIONS];
@@ -365,6 +370,7 @@ export default function CustomizableDashboard({ dashboardType, data, className }
             editMode={editMode}
             onRemove={removeWidget}
             onResize={resizeWidget}
+            onMove={moveWidget}
           >
             {renderWidget(widget)}
           </WidgetContainer>

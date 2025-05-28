@@ -109,11 +109,13 @@ export default function WidgetContainer({
         getSizeClass(widget.size),
         isDragging && "shadow-lg z-10",
         editMode && "border-dashed border-2 border-primary/50 cursor-move",
+        isMinimized && "row-span-1 h-auto", // Force minimized widgets to be smaller
         className
       )}
       style={{
         gridColumn: `span ${widget.size === 'small' ? 1 : widget.size === 'medium' ? 2 : 3}`,
-        gridRow: `span ${widget.size === 'large' ? 2 : 1}`
+        gridRow: isMinimized ? 'span 1' : `span ${widget.size === 'large' ? 2 : 1}`,
+        minHeight: isMinimized ? 'auto' : undefined
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -151,9 +153,9 @@ export default function WidgetContainer({
             onClick={() => setIsMinimized(!isMinimized)}
           >
             {isMinimized ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
               <ChevronUp className="h-3 w-3" />
+            ) : (
+              <ChevronDown className="h-3 w-3" />
             )}
           </Button>
         </div>
