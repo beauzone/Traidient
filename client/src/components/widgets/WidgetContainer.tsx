@@ -200,9 +200,12 @@ export default function WidgetContainer({
       
       {!isMinimized && (
         <CardContent className={cn(
-          widget.size === 'large' ? 'h-64' : widget.size === 'medium' ? 'h-32' : 'h-24'
+          widget.size === 'large' ? 'h-64' : widget.size === 'medium' ? 'h-32' : 'h-24',
+          'p-4 overflow-hidden' // Add proper padding and prevent overflow
         )}>
-          {children}
+          <div className="w-full h-full overflow-hidden">
+            {children}
+          </div>
         </CardContent>
       )}
     </Card>
