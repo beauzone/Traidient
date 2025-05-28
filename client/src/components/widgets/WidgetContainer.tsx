@@ -77,26 +77,23 @@ export default function WidgetContainer({
 
   // Fidelity-style drag functionality
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!editMode) return;
+    if (!editMode || !onMove) return;
     // Don't start drag if clicking on buttons
     if ((e.target as HTMLElement).closest('button')) return;
     
     e.preventDefault();
-    setDragStart({ x: e.clientX, y: e.clientY });
+    const startPos = { x: e.clientX, y: e.clientY };
+    setDragStart(startPos);
     setIsDragging(true);
     
     // Add global listeners for better drag handling
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!dragStart) return;
+      const deltaX = e.clientX - startPos.x;
+      const deltaY = e.clientY - startPos.y;
       
-      const deltaX = e.clientX - dragStart.x;
-      const deltaY = e.clientY - dragStart.y;
-      
-      // Only trigger move if dragged more than 5px to avoid accidental drags
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-        const gridX = Math.round(deltaX / 200); // Approximate grid cell width
-        const gridY = Math.round(deltaY / 150); // Approximate grid cell height
-        onMove?.(widget.id, { x: gridX, y: gridY });
+      // Only trigger move if dragged more than 10px to avoid accidental drags
+      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        onMove(widget.id, { x: deltaX, y: deltaY });
       }
     };
 
@@ -153,18 +150,20 @@ export default function WidgetContainer({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{widget.title}</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-70 hover:opacity-100"
-            onClick={() => setIsMinimized(!isMinimized)}
-          >
-            {isMinimized ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
-          </Button>
+          {!editMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-70 hover:opacity-100"
+              onClick={() => setIsMinimized(!isMinimized)}
+            >
+              {isMinimized ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </Button>
+          )}
         </div>
       </CardHeader>
       
