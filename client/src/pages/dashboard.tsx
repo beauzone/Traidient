@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import MainLayout from "@/components/layout/MainLayout";
-import CustomizableDashboard from "@/components/widgets/CustomizableDashboard";
 import StatsCards from "@/components/dashboard/StatsCards";
 import PortfolioChart from "@/components/dashboard/PortfolioChart";
 import AssetAllocation from "@/components/dashboard/AssetAllocation";
@@ -11,6 +10,9 @@ import StrategyTable from "@/components/dashboard/StrategyTable";
 import WatchlistTable from "@/components/dashboard/WatchlistTable";
 import { useToast } from "@/hooks/use-toast";
 import { useAccountContext } from "@/context/AccountContext";
+import { Button } from "@/components/ui/button";
+import { Grid2x2, Save, RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Strategy {
   id: number;
@@ -27,9 +29,111 @@ interface Strategy {
   status: 'Running' | 'Paused' | 'Inactive' | 'Error';
 }
 
+// Define dashboard layout structure
+interface DashboardSection {
+  id: string;
+  type: 'stats' | 'charts' | 'positions' | 'strategies' | 'watchlist';
+  enabled: boolean;
+  order: number;
+}
+
+const DEFAULT_LAYOUT: DashboardSection[] = [
+  { id: 'stats', type: 'stats', enabled: true, order: 0 },
+  { id: 'charts', type: 'charts', enabled: true, order: 1 },
+  { id: 'positions', type: 'positions', enabled: true, order: 2 },
+  { id: 'strategies', type: 'strategies', enabled: true, order: 3 },
+  { id: 'watchlist', type: 'watchlist', enabled: true, order: 4 }
+];
+
 const Dashboard = () => {
   const { toast } = useToast();
   const { selectedAccount } = useAccountContext();
+  
+  // Dashboard customization state
+  const [editMode, setEditMode] = useState(false);
+  const [layout, setLayout] = useState<DashboardSection[]>(DEFAULT_LAYOUT);
+  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+  const [tempLayout, setTempLayout] = useState<DashboardSection[]>([]);
+
+  // Load saved layout from localStorage
+  useEffect(() => {
+    const savedLayout = localStorage.getItem('dashboard-layout');
+    if (savedLayout) {
+      try {
+        const parsedLayout = JSON.parse(savedLayout);
+        setLayout(parsedLayout);
+      } catch (error) {
+        console.error('Failed to parse saved layout:', error);
+      }
+    }
+  }, []);
+
+  // Save layout to localStorage
+  const saveLayout = () => {
+    localStorage.setItem('dashboard-layout', JSON.stringify(layout));
+    setEditMode(false);
+    toast({
+      title: "Layout saved",
+      description: "Your dashboard layout has been saved successfully.",
+    });
+  };
+
+  // Reset to default layout
+  const resetLayout = () => {
+    setLayout(DEFAULT_LAYOUT);
+    localStorage.removeItem('dashboard-layout');
+    toast({
+      title: "Layout reset",
+      description: "Dashboard layout has been reset to default.",
+    });
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (sectionId: string) => {
+    setDraggedSectionId(sectionId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetSectionId: string) => {
+    e.preventDefault();
+    if (!draggedSectionId || draggedSectionId === targetSectionId) return;
+
+    const draggedIndex = layout.findIndex(s => s.id === draggedSectionId);
+    const targetIndex = layout.findIndex(s => s.id === targetSectionId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newLayout = [...layout];
+    const [draggedSection] = newLayout.splice(draggedIndex, 1);
+    newLayout.splice(targetIndex, 0, draggedSection);
+
+    // Update order values
+    const updatedLayout = newLayout.map((section, index) => ({
+      ...section,
+      order: index
+    }));
+
+    setTempLayout(updatedLayout);
+  };
+
+  const handleDragEnd = () => {
+    if (tempLayout.length > 0) {
+      setLayout(tempLayout);
+      setTempLayout([]);
+    }
+    setDraggedSectionId(null);
+  };
+
+  // Toggle section visibility
+  const toggleSection = (sectionId: string) => {
+    setLayout(layout.map(section => 
+      section.id === sectionId 
+        ? { ...section, enabled: !section.enabled }
+        : section
+    ));
+  };
+
+  // Get current layout (temp if dragging, otherwise saved)
+  const currentLayout = tempLayout.length > 0 ? tempLayout : layout;
   
   // Fetch strategies
   const { data: strategies = [] } = useQuery({
@@ -452,61 +556,188 @@ const Dashboard = () => {
   
   const pnlData = calculatePnL();
   
-  // Prepare comprehensive data for widgets
-  const dashboardData = {
-    // Portfolio metrics
-    portfolio: {
-      totalValue: Array.isArray(accountData) 
-        ? (selectedAccount === "all"
-          ? accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0)
-          : accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.equity || 
-            accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.balance || 
-            (accountData.length > 0 ? accountData[0].equity || accountData[0].balance || 0 : 0)
-        )
-        : 0,
-      dailyPnL: pnlData,
-      chartData: portfolioData,
-      assetAllocation: assetAllocationData,
-      timeRange: portfolioTimeRange,
-      onTimeRangeChange: setPortfolioTimeRange
-    },
-    
-    // Strategy data
-    strategies: {
-      list: strategies,
-      active: strategies.filter(s => s.status === 'Running').length,
-      onPause: handlePauseStrategy,
-      onPlay: handlePlayStrategy,
-      onEdit: handleEditStrategy,
-      onDelete: handleDeleteStrategy
-    },
-    
-    // Trading data
-    trading: {
-      positions: filteredPositions,
-      orders: orders,
-      todayTrades: orders.filter((o: Order) => new Date(o.createdAt).toDateString() === new Date().toDateString()).length,
-      isLoadingPositions,
-      isLoadingOrders
-    },
-    
-    // Account info
-    account: {
-      selected: selectedAccount,
-      data: accountData,
-      isLoading: isLoadingAccount
-    },
-    
-    // Utility functions
-    formatCurrency
+  // Draggable wrapper component
+  const DraggableSection = ({ section, children }: { 
+    section: DashboardSection, 
+    children: React.ReactNode 
+  }) => (
+    <div
+      draggable={editMode}
+      onDragStart={() => handleDragStart(section.id)}
+      onDragOver={(e) => handleDragOver(e, section.id)}
+      onDragEnd={handleDragEnd}
+      className={cn(
+        "transition-all duration-300",
+        editMode && "cursor-move border-2 border-dashed border-transparent hover:border-primary/50",
+        draggedSectionId === section.id && "opacity-50",
+        editMode && "relative"
+      )}
+      style={{
+        transition: tempLayout.length > 0 ? 'all 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : undefined
+      }}
+    >
+      {editMode && (
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toggleSection(section.id)}
+            className="h-6 text-xs"
+          >
+            {section.enabled ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+
+  // Render dashboard sections in order
+  const renderSection = (section: DashboardSection) => {
+    if (!section.enabled && !editMode) return null;
+
+    const sectionContent = (() => {
+      switch (section.type) {
+        case 'stats':
+          return (
+            <StatsCards
+              activeStrategies={strategies.filter(s => s.status === 'Running').length}
+              totalPnL={pnlData}
+              todayTrades={orders.filter((o: Order) => new Date(o.createdAt).toDateString() === new Date().toDateString()).length}
+              alerts={0}
+            />
+          );
+        case 'charts':
+          return (
+            <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <PortfolioChart
+                data={portfolioData}
+                currentValue={
+                  Array.isArray(accountData) 
+                    ? (selectedAccount === "all"
+                      ? formatCurrency(accountData.reduce((sum: number, acc: any) => sum + (acc.equity || acc.balance || 0), 0))
+                      : formatCurrency(
+                          accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.equity || 
+                          accountData.find((acc: any) => acc.id.toString() === selectedAccount)?.balance || 
+                          (accountData.length > 0 ? accountData[0].equity || accountData[0].balance || 0 : 0)
+                        )
+                    )
+                    : formatCurrency(0)
+                }
+                change={{
+                  value: pnlData.value,
+                  percentage: pnlData.percentage,
+                  isPositive: pnlData.isPositive
+                }}
+                onTimeRangeChange={setPortfolioTimeRange}
+              />
+              
+              <AssetAllocation 
+                key={`asset-allocation-${selectedAccount}-${new Date().getTime()}`} 
+                data={assetAllocationData} 
+              />
+            </div>
+          );
+        case 'positions':
+          return (
+            <PositionsTable 
+              passedPositions={filteredPositions} 
+              isLoading={isLoadingPositions}
+            />
+          );
+        case 'strategies':
+          return (
+            <StrategyTable
+              strategies={strategies}
+              onPause={handlePauseStrategy}
+              onPlay={handlePlayStrategy}
+              onEdit={handleEditStrategy}
+              onDelete={handleDeleteStrategy}
+            />
+          );
+        case 'watchlist':
+          return <WatchlistTable />;
+        default:
+          return null;
+      }
+    })();
+
+    return (
+      <DraggableSection key={section.id} section={section}>
+        <div className={cn(!section.enabled && editMode && "opacity-50")}>
+          {sectionContent}
+        </div>
+      </DraggableSection>
+    );
   };
   
   return (
     <MainLayout title="Dashboard">
-      <CustomizableDashboard 
-        dashboardType="main"
-        data={dashboardData}
-      />
+      {/* Dashboard Controls */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          {editMode && (
+            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+              Edit Mode - Drag sections to reorder
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!editMode ? (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setEditMode(true)}
+              className="flex items-center gap-2"
+            >
+              <Grid2x2 className="w-4 h-4" />
+              Customize Layout
+            </Button>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={resetLayout}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setEditMode(false);
+                  setTempLayout([]);
+                  setDraggedSectionId(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                size="sm"
+                onClick={saveLayout}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Layout
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {isLoadingAccount ? (
+        <div className="flex items-center justify-center h-24">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {currentLayout
+            .sort((a, b) => a.order - b.order)
+            .map(renderSection)
+            .filter(Boolean)}
+        </div>
+      )}
     </MainLayout>
   );
 };
