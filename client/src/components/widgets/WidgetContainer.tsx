@@ -21,9 +21,12 @@ interface WidgetContainerProps {
   onRemove?: (id: string) => void;
   onResize?: (id: string, size: 'small' | 'medium' | 'large') => void;
   onMove?: (id: string, position: { x: number; y: number }) => void;
+  onDragUpdate?: (id: string, offset: { x: number; y: number }) => void;
   onSettings?: (id: string) => void;
   editMode?: boolean;
+  isDraggedWidget?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export default function WidgetContainer({
@@ -32,9 +35,12 @@ export default function WidgetContainer({
   onRemove,
   onResize,
   onMove,
+  onDragUpdate,
   onSettings,
   editMode = false,
-  className
+  isDraggedWidget = false,
+  className,
+  style
 }: WidgetContainerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -76,7 +82,7 @@ export default function WidgetContainer({
     onResize?.(widget.id, nextSize);
   };
 
-  // Fidelity-style drag functionality
+  // Fidelity-style drag functionality with real-time repositioning
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!editMode || !onMove) return;
     // Don't start drag if clicking on buttons
@@ -102,6 +108,11 @@ export default function WidgetContainer({
       // Update visual position during drag
       if (hasMoved) {
         setDragOffset({ x: deltaX, y: deltaY });
+        
+        // Trigger real-time widget repositioning
+        if (onDragUpdate && Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+          onDragUpdate(widget.id, { x: deltaX, y: deltaY });
+        }
       }
     };
 
@@ -141,7 +152,8 @@ export default function WidgetContainer({
         height: isMinimized ? 'auto' : undefined,
         maxHeight: isMinimized ? '60px' : undefined, // Limit height when minimized like Fidelity
         transform: isDragging ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : undefined,
-        transition: isDragging ? 'none' : undefined
+        transition: isDragging ? 'none' : undefined,
+        ...style // Apply external styles for smooth repositioning
       }}
       onMouseDown={handleMouseDown}
     >

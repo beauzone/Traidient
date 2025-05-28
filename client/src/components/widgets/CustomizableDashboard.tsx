@@ -65,6 +65,8 @@ export default function CustomizableDashboard({ dashboardType, data, className }
   const [editMode, setEditMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState('');
+  const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
+  const [tempWidgetOrder, setTempWidgetOrder] = useState<WidgetConfig[]>([]);
   const { toast } = useToast();
 
   // Load widgets from localStorage or use defaults
@@ -153,25 +155,54 @@ export default function CustomizableDashboard({ dashboardType, data, className }
     setWidgets(widgets.map(w => w.id === widgetId ? { ...w, size } : w));
   };
 
-  // Move widget (for drag functionality)
-  const moveWidget = (widgetId: string, delta: { x: number; y: number }) => {
+  // Calculate target position during drag
+  const calculateDragTarget = (widgetId: string, dragOffset: { x: number; y: number }) => {
     const currentIndex = widgets.findIndex(w => w.id === widgetId);
-    if (currentIndex === -1) return;
+    if (currentIndex === -1) return currentIndex;
 
-    // Simple reordering based on drag direction
-    let targetIndex = currentIndex;
+    // Grid-based calculation (assuming 6 columns max)
+    const columnsPerRow = 6;
+    const currentRow = Math.floor(currentIndex / columnsPerRow);
+    const currentCol = currentIndex % columnsPerRow;
     
-    // Move based on significant drag distance
-    if (Math.abs(delta.x) > 100) {
-      targetIndex = delta.x > 0 ? Math.min(widgets.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+    // Calculate new position based on drag offset
+    const cellWidth = 200; // Approximate widget width
+    const cellHeight = 150; // Approximate widget height
+    
+    const colOffset = Math.round(dragOffset.x / cellWidth);
+    const rowOffset = Math.round(dragOffset.y / cellHeight);
+    
+    const newCol = Math.max(0, Math.min(columnsPerRow - 1, currentCol + colOffset));
+    const newRow = Math.max(0, currentRow + rowOffset);
+    const newIndex = Math.min(widgets.length - 1, newRow * columnsPerRow + newCol);
+    
+    return newIndex;
+  };
+
+  // Real-time widget repositioning during drag
+  const handleDragUpdate = (widgetId: string, dragOffset: { x: number; y: number }) => {
+    if (!draggedWidgetId) {
+      setDraggedWidgetId(widgetId);
+      setTempWidgetOrder([...widgets]);
     }
     
-    if (Math.abs(delta.y) > 100) {
-      // Move up/down by 3 positions (assuming 3 columns)
-      targetIndex = delta.y > 0 ? Math.min(widgets.length - 1, currentIndex + 3) : Math.max(0, currentIndex - 3);
-    }
+    const targetIndex = calculateDragTarget(widgetId, dragOffset);
+    const currentIndex = widgets.findIndex(w => w.id === widgetId);
     
     if (targetIndex !== currentIndex) {
+      const newOrder = [...widgets];
+      const [draggedWidget] = newOrder.splice(currentIndex, 1);
+      newOrder.splice(targetIndex, 0, draggedWidget);
+      setTempWidgetOrder(newOrder);
+    }
+  };
+
+  // Finalize widget position on drag end
+  const moveWidget = (widgetId: string, delta: { x: number; y: number }) => {
+    const targetIndex = calculateDragTarget(widgetId, delta);
+    const currentIndex = widgets.findIndex(w => w.id === widgetId);
+    
+    if (targetIndex !== currentIndex && Math.abs(delta.x) > 20 || Math.abs(delta.y) > 20) {
       const newWidgets = [...widgets];
       const [movedWidget] = newWidgets.splice(currentIndex, 1);
       newWidgets.splice(targetIndex, 0, movedWidget);
@@ -180,6 +211,10 @@ export default function CustomizableDashboard({ dashboardType, data, className }
       // Save to localStorage
       localStorage.setItem(`dashboard-widgets-${dashboardType}`, JSON.stringify(newWidgets));
     }
+    
+    // Reset drag state
+    setDraggedWidgetId(null);
+    setTempWidgetOrder([]);
   };
 
   // Render widget content
@@ -387,7 +422,8 @@ export default function CustomizableDashboard({ dashboardType, data, className }
 
       {/* Widget Grid */}
       <div className="grid grid-cols-6 auto-rows-min gap-4">
-        {widgets.filter(w => w.enabled).map((widget) => (
+        {(tempWidgetOrder.length > 0 ? tempWidgetOrder : widgets)
+          .filter(w => w.enabled).map((widget, index) => (
           <WidgetContainer
             key={widget.id}
             widget={widget}
@@ -395,6 +431,12 @@ export default function CustomizableDashboard({ dashboardType, data, className }
             onRemove={removeWidget}
             onResize={resizeWidget}
             onMove={moveWidget}
+            onDragUpdate={handleDragUpdate}
+            isDraggedWidget={draggedWidgetId === widget.id}
+            style={draggedWidgetId && draggedWidgetId !== widget.id ? { 
+              transition: 'all 0.2s ease-out',
+              transform: 'translateZ(0)' // Force hardware acceleration for smooth animation
+            } : undefined}
           >
             {renderWidget(widget)}
           </WidgetContainer>
