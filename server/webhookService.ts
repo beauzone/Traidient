@@ -424,6 +424,29 @@ async function processEntrySignal(
       'success', 
       `Order placed: ${signal.action} ${quantity} shares of ${ticker}`
     );
+
+    // Create notification for successful order placement
+    await storage.createNotification({
+      userId: webhook.userId,
+      title: 'Order Placed Successfully',
+      message: `${signal.action} order for ${quantity} shares of ${ticker} placed successfully`,
+      type: 'trading',
+      severity: 'info',
+      metadata: {
+        symbol: ticker,
+        additionalInfo: {
+          quantity: quantity,
+          action: signal.action,
+          orderId: order.id,
+          webhookId: webhook.id,
+          orderType: params.type,
+          entryPrice: signal.entry_price,
+          stopLoss: signal.stop_loss,
+          takeProfit: signal.take_profit
+        }
+      },
+      deliveredChannels: []
+    });
     
     return { success: true, data: order };
   } catch (error) {
@@ -435,6 +458,29 @@ async function processEntrySignal(
       'error', 
       (error as Error).message
     );
+
+    // Create notification for failed order placement
+    await storage.createNotification({
+      userId: webhook.userId,
+      title: 'Order Failed',
+      message: `Failed to place ${signal.action} order for ${signal.quantity || 'N/A'} shares of ${signal.ticker}: ${(error as Error).message}`,
+      type: 'trading',
+      severity: 'error',
+      metadata: {
+        symbol: signal.ticker,
+        quantity: signal.quantity,
+        action: signal.action,
+        webhookId: webhook.id,
+        error: (error as Error).message,
+        additionalInfo: {
+          entryPrice: signal.entry_price,
+          stopLoss: signal.stop_loss,
+          takeProfit: signal.take_profit
+        }
+      },
+      deliveredChannels: []
+    });
+
     return { success: false, error: (error as Error).message };
   }
 }
