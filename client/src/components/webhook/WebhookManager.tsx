@@ -384,8 +384,9 @@ export function WebhookManager() {
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-end mb-6">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
         <Button onClick={handleNewWebhook}>New Webhook</Button>
       </div>
 
