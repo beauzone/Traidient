@@ -127,11 +127,15 @@ const Dashboard = () => {
 
   // Toggle section visibility
   const toggleSection = (sectionId: string) => {
-    setLayout(layout.map(section => 
+    const newLayout = layout.map(section => 
       section.id === sectionId 
         ? { ...section, enabled: !section.enabled }
         : section
-    ));
+    );
+    setLayout(newLayout);
+    
+    // Update localStorage immediately
+    localStorage.setItem('dashboard-layout', JSON.stringify(newLayout));
   };
 
   // Get current layout (temp if dragging, otherwise saved)
