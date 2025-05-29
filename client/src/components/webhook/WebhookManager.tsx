@@ -79,7 +79,7 @@ export function WebhookManager() {
 
   // Get webhook logs if a webhook is selected
   const { data: webhookLogs = [], isLoading: isLoadingLogs } = useQuery<any[]>({
-    queryKey: ["/api/webhooks", currentWebhook?.id, "logs"],
+    queryKey: [`/api/webhooks/${currentWebhook?.id}/logs`],
     enabled: !!currentWebhook?.id,
     staleTime: 10000
   });
@@ -1303,7 +1303,12 @@ export function WebhookManager() {
                     <div>
                       <CardTitle>Activity Logs</CardTitle>
                     </div>
-                    <Button variant="outline" size="sm" className="h-8">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8"
+                      onClick={() => queryClient.invalidateQueries({ queryKey: [`/api/webhooks/${currentWebhook?.id}/logs`] })}
+                    >
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Refresh
                     </Button>
