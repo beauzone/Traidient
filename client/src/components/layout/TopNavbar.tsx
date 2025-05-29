@@ -17,7 +17,8 @@ import {
   ShoppingCart,
   ShieldAlert,
   Loader2,
-  Database
+  Database,
+  X
 } from "lucide-react";
 import { useMarketData } from "@/hooks/useMarketData";
 import {
@@ -33,7 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAccountContext, BrokerageAccount } from "@/context/AccountContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { fetchData, updateData } from "@/lib/api";
+import { fetchData, updateData, apiRequest } from "@/lib/api";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
@@ -110,6 +111,16 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       return await updateData('/api/notifications/mark-all-read', {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+    }
+  });
+
+  // Mutation to delete a notification
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/notifications/${id}`, { method: 'DELETE' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
