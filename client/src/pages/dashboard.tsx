@@ -798,7 +798,6 @@ const Dashboard = () => {
               className="flex items-center gap-2"
             >
               <Grid2x2 className="w-4 h-4" />
-              Customize Layout
             </Button>
           ) : (
             <>
