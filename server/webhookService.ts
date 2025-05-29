@@ -444,8 +444,7 @@ async function processEntrySignal(
           stopLoss: signal.stop_loss,
           takeProfit: signal.take_profit
         }
-      },
-      deliveredChannels: []
+      }
     });
     
     return { success: true, data: order };
@@ -468,17 +467,16 @@ async function processEntrySignal(
       severity: 'error',
       metadata: {
         symbol: signal.ticker,
-        quantity: signal.quantity,
-        action: signal.action,
-        webhookId: webhook.id,
-        error: (error as Error).message,
         additionalInfo: {
+          quantity: signal.quantity,
+          action: signal.action,
+          webhookId: webhook.id,
+          error: (error as Error).message,
           entryPrice: signal.entry_price,
           stopLoss: signal.stop_loss,
           takeProfit: signal.take_profit
         }
-      },
-      deliveredChannels: []
+      }
     });
 
     return { success: false, error: (error as Error).message };
