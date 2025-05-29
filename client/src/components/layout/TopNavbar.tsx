@@ -130,38 +130,31 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   // Count unread notifications
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0;
 
-  // Provide a realistic fallback countdown value that matches the current market status
+  // Initialize time remaining from market status
   useEffect(() => {
-    if (!timeRemaining && marketStatus.isMarketOpen !== undefined) {
-      // Generate a reasonable fallback time until real data arrives
-      // Market generally opens at 9:30 AM ET and closes at 4:00 PM ET
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+    if (marketStatus.timing && !timeRemaining) {
+      const isOpen = marketStatus.timing.isOpen;
+      const msToChange = isOpen 
+        ? (marketStatus.timing.timeToClose?.milliseconds || 0)
+        : (marketStatus.timing.timeToOpen?.milliseconds || 0);
       
-      let hours, minutes, seconds;
+      // Convert to hours, minutes, seconds
+      const hours = Math.floor(msToChange / (1000 * 60 * 60));
+      const minutes = Math.floor((msToChange % (1000 * 60 * 60)) / (1000 * 60));
+      let seconds = Math.floor((msToChange % (1000 * 60)) / 1000);
       
-      if (marketStatus.isMarketOpen) {
-        // If market is open, calculate time until 4:00 PM ET (roughly)
-        // Assuming ET is 4 hours behind current time for simplicity
-        const closeHour = 16; // 4:00 PM
-        const etHour = (currentHour + 20) % 24; // Rough estimate of ET hour
-        
-        if (etHour < closeHour) {
-          hours = closeHour - etHour - 1;
-          minutes = 60 - currentMinute;
-        } else {
-          hours = 0;
-          minutes = 30; // Fallback value
-        }
-      } else {
-        // If market is closed, use a reasonable time until open
-        hours = 2;
-        minutes = 30;
-      }
+      // Debugging to see what we actually get
+      console.log(`[DEBUG] Market Status Data:`, {
+        isOpen,
+        msToChange,
+        hours,
+        minutes,
+        seconds,
+        rawTiming: marketStatus.timing
+      });
       
       // Always set some seconds so it looks like it's counting
-      seconds = now.getSeconds();
+      seconds = new Date().getSeconds();
       
       setTimeRemaining({
         hours,
@@ -259,287 +252,282 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
         await updateUser({
           settings: {
             ...user.settings,
-            theme: newTheme,
-          },
+            theme: newTheme
+          }
         });
       } catch (error) {
-        console.error('Failed to update theme preference:', error);
+        console.error('Failed to update theme:', error);
       }
     }
   };
-  
-  // Format currency
-  const formatCurrency = (value: number) => {
-    // Ensure value is a number and not NaN
-    const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+
+  // Format timer display
+  const formatTimer = () => {
+    if (!timeRemaining) return "00:00:00";
     
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(validValue);
-  };
-  
-  // Format percentage
-  const formatPercentage = (value: number) => {
-    // Ensure value is a number and not NaN
-    const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
-    return `${validValue >= 0 ? '+' : ''}${validValue.toFixed(2)}%`;
+    const { hours, minutes, seconds } = timeRemaining;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className="bg-dark-surface border-b border-border">
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            {/* Empty space on left side of top nav */}
-          </div>
-          
-          <div className="flex items-center">
-            {/* Market Status Indicators */}
-            <div className="flex items-center mr-4">
-              {/* Market open/close countdown */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center mr-3">
-                      <Clock className="h-3.5 w-3.5 mr-1" />
-                      {timeRemaining ? (
-                        <>
-                          {/* Full text for desktop */}
-                          <span className="text-xs font-medium hidden md:inline">
-                            {timeRemaining.isOpen 
-                              ? `US markets close in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}` 
-                              : `US markets open in ${timeRemaining.hours}:${String(timeRemaining.minutes).padStart(2, '0')}:${String(timeRemaining.seconds).padStart(2, '0')}`
-                            }
-                          </span>
-                          
-                          {/* Simplified text for mobile */}
-                          <span className="text-xs font-medium md:hidden">
-                            {timeRemaining.hours}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          {/* Full text for desktop */}
-                          <span className="text-xs font-medium hidden md:inline">
-                            US markets {marketStatus.isMarketOpen ? 'close' : 'open'} soon
-                          </span>
-                          
-                          {/* Simplified text for mobile */}
-                          <span className="text-xs font-medium md:hidden">
-                            Soon
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      {timeRemaining 
-                        ? (timeRemaining.isOpen 
-                            ? `Market closes at ${new Date(marketStatus.timing?.nextCloseTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET` 
-                            : `Market opens at ${new Date(marketStatus.timing?.nextOpenTime || '').toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} ET`
-                          )
-                        : `US stock market hours are 9:30 AM - 4:00 PM ET, Monday to Friday`
-                      }
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center mr-3">
-                      <div className={`w-2 h-2 rounded-full mr-1.5 ${marketStatus.isMarketOpen ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      {/* Full text for desktop */}
-                      <span className="text-xs font-medium hidden md:inline">
-                        Market {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
-                      </span>
-                      {/* Simplified indicator for mobile */}
-                      <span className="text-xs font-medium md:hidden">
-                        {marketStatus.isMarketOpen ? 'Open' : 'Closed'}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">U.S. Stock Market status</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="hidden md:flex items-center">
-                      <Database className="h-3.5 w-3.5 mr-1" />
-                      <span className="text-xs font-medium">
-                        {marketStatus.dataSource || 'Unknown'}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Current data provider</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+    <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-14 items-center px-4">
+        <div className="mr-4 flex items-center space-x-2">
+          <h1 className="text-sm font-semibold">{title || "Trading Dashboard"}</h1>
+        </div>
+        
+        {/* Center section with market status */}
+        <div className="flex-1 flex justify-center">
+          <div className="flex items-center space-x-4 text-sm">
+            {/* Market Status */}
+            <div className="flex items-center space-x-2">
+              <div className={`h-2 w-2 rounded-full ${timeRemaining?.isOpen ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-muted-foreground">
+                {timeRemaining?.isOpen ? 'Market Open' : 'Market Closed'}
+              </span>
+              {timeRemaining && (
+                <span className="font-mono text-sm">
+                  {timeRemaining.isOpen ? 'Closes in' : 'Opens in'} {formatTimer()}
+                </span>
+              )}
             </div>
             
-            {/* Notification dropdown */}
+            {/* Account Balance */}
+            {selectedAccount && (
+              <div className="flex items-center space-x-2">
+                <CircleDollarSign className="h-4 w-4 text-green-500" />
+                <span className="font-medium">
+                  ${selectedAccount.portfolioValue.toLocaleString()}
+                </span>
+                <span className={`text-xs ${selectedAccount.performance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {selectedAccount.performance >= 0 ? '+' : ''}${selectedAccount.performance.toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Right section */}
+        <div className="flex items-center space-x-2">
+          {/* Account Selector */}
+          {accounts && accounts.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-accent rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white">{unreadCount}</span>
-                    </span>
-                  )}
+                <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                  <span className="text-xs">
+                    {selectedAccount?.name || 'Select Account'}
+                  </span>
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[360px] p-0 max-h-[70vh] overflow-y-auto">
-                <div className="flex items-center justify-between py-2 px-4 border-b">
-                  <div className="font-semibold">Notifications</div>
-                  {unreadCount > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 px-2 text-xs" 
-                      onClick={() => markAllAsReadMutation.mutate()}
-                      disabled={markAllAsReadMutation.isPending}
-                    >
-                      {markAllAsReadMutation.isPending ? (
-                        <span className="flex items-center">
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          Marking...
-                        </span>
-                      ) : "Mark all as read"}
-                    </Button>
-                  )}
-                </div>
-                
-                {isLoadingNotifications && (
-                  <div className="py-4 px-4">
-                    <div className="space-y-4">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="flex items-start space-x-3">
-                          <Skeleton className="h-8 w-8 rounded-full" />
-                          <div className="space-y-2 flex-1">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-full" />
-                          </div>
-                        </div>
-                      ))}
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Trading Accounts</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {accounts.map((account: BrokerageAccount) => (
+                  <DropdownMenuItem
+                    key={account.id}
+                    onClick={() => setSelectedAccount(account)}
+                    className="flex justify-between cursor-pointer"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium">{account.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {account.provider} • {account.accountType}
+                      </span>
                     </div>
-                  </div>
-                )}
-                
-                {!isLoadingNotifications && (!Array.isArray(notifications) || notifications.length === 0) && (
-                  <div className="py-6 px-4 text-center text-muted-foreground">
-                    <div className="flex justify-center mb-2">
-                      <Bell className="h-8 w-8 opacity-40" />
+                    <div className="text-right">
+                      <div className="font-medium">${account.portfolioValue.toLocaleString()}</div>
+                      <div className={`text-xs ${account.performance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {account.performance >= 0 ? '+' : ''}${account.performance.toFixed(2)}
+                      </div>
                     </div>
-                    <p>No notifications yet</p>
-                  </div>
-                )}
-                
-                {!isLoadingNotifications && Array.isArray(notifications) && notifications.length > 0 && (
-                  <div>
-                    {notifications.map((notification) => {
-                      // Helper to get icon based on notification type
-                      const getNotificationIcon = () => {
-                        switch(notification.type) {
-                          case 'order_placed':
-                          case 'order_filled': 
-                          case 'order_rejected':
-                            return <ShoppingCart className="h-5 w-5" />;
-                          case 'backtest_finished':
-                            return <Clock className="h-5 w-5" />;
-                          case 'strategy_performance':
-                            return <BarChart4 className="h-5 w-5" />;
-                          case 'price':
-                          case 'price_change_percent':
-                          case 'volume':
-                            return <AlertCircle className="h-5 w-5" />;
-                          case 'market_events':
-                            return <Briefcase className="h-5 w-5" />;
-                          default:
-                            return <ShieldAlert className="h-5 w-5" />;
-                        }
-                      };
-                      
-                      // Get icon color based on severity
-                      const getSeverityColor = () => {
-                        switch(notification.severity) {
-                          case 'critical': return 'text-red-500';
-                          case 'high': return 'text-orange-500';
-                          case 'medium': return 'text-yellow-500';
-                          case 'low': return 'text-blue-500';
-                          default: return 'text-green-500';
-                        }
-                      };
-                      
-                      // Format notification time
-                      const formattedTime = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
-                      
-                      return (
-                        <DropdownMenuItem 
-                          key={notification.id}
-                          className={`py-3 px-4 border-b cursor-pointer flex items-start hover:bg-accent/10 ${!notification.isRead ? 'bg-accent/5' : ''}`}
-                          onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
-                        >
-                          <div className="flex items-start w-full">
-                            <div className={`mr-3 mt-1 ${getSeverityColor()}`}>
-                              {getNotificationIcon()}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <span className="font-medium text-sm">{notification.title}</span>
-                                  <span className="text-xs text-muted-foreground ml-2">{formattedTime}</span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive ml-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteNotificationMutation.mutate(notification.id);
-                                  }}
-                                  disabled={deleteNotificationMutation.isPending}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                              
-         
-                    })}
-                    
-                    {/* View all notifications link */}
-                    <div className="border-t">
-                      <DropdownMenuItem asChild>
-                        <Link href="/settings?tab=notifications" className="w-full flex justify-center py-2">
-                          <span className="text-sm font-medium text-primary">View all notifications</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    </div>
-                  </div>
-                )}
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            
-            {/* Theme toggle */}
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-3">
-              {theme === 'dark' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-            </Button>
+          )}
+          
+          {/* Data Source Indicator */}
+          <div className="flex items-center">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center space-x-1 text-muted-foreground">
+                    <Database className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-xs font-medium">
+                      {marketStatus.dataSource || 'Unknown'}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Current data provider</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
+          
+          {/* Notification dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-accent rounded-full flex items-center justify-center">
+                    <span className="text-xs text-white">{unreadCount}</span>
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[360px] p-0 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center justify-between py-2 px-4 border-b">
+                <div className="font-semibold">Notifications</div>
+                {unreadCount > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-8 px-2 text-xs" 
+                    onClick={() => markAllAsReadMutation.mutate()}
+                    disabled={markAllAsReadMutation.isPending}
+                  >
+                    {markAllAsReadMutation.isPending ? (
+                      <span className="flex items-center">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Marking...
+                      </span>
+                    ) : "Mark all as read"}
+                  </Button>
+                )}
+              </div>
+              
+              {isLoadingNotifications && (
+                <div className="py-4 px-4">
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-start space-x-3">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-full" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {!isLoadingNotifications && (!Array.isArray(notifications) || notifications.length === 0) && (
+                <div className="py-6 px-4 text-center text-muted-foreground">
+                  <div className="flex justify-center mb-2">
+                    <Bell className="h-8 w-8 opacity-40" />
+                  </div>
+                  <p>No notifications yet</p>
+                </div>
+              )}
+              
+              {!isLoadingNotifications && Array.isArray(notifications) && notifications.length > 0 && (
+                <div>
+                  {notifications.map((notification) => {
+                    // Helper to get icon based on notification type
+                    const getNotificationIcon = () => {
+                      switch(notification.type) {
+                        case 'order_placed':
+                        case 'order_filled': 
+                        case 'order_rejected':
+                        case 'trading':
+                          return <ShoppingCart className="h-5 w-5" />;
+                        case 'backtest_finished':
+                          return <Clock className="h-5 w-5" />;
+                        case 'strategy_performance':
+                          return <BarChart4 className="h-5 w-5" />;
+                        case 'price':
+                        case 'price_change_percent':
+                        case 'volume':
+                          return <AlertCircle className="h-5 w-5" />;
+                        case 'market_events':
+                          return <Briefcase className="h-5 w-5" />;
+                        default:
+                          return <ShieldAlert className="h-5 w-5" />;
+                      }
+                    };
+                    
+                    // Get icon color based on severity
+                    const getSeverityColor = () => {
+                      switch(notification.severity) {
+                        case 'critical': return 'text-red-500';
+                        case 'high': return 'text-orange-500';
+                        case 'medium': return 'text-yellow-500';
+                        case 'low': return 'text-blue-500';
+                        case 'error': return 'text-red-500';
+                        default: return 'text-green-500';
+                      }
+                    };
+                    
+                    // Format notification time
+                    const formattedTime = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
+                    
+                    return (
+                      <DropdownMenuItem 
+                        key={notification.id}
+                        className={`py-3 px-4 border-b cursor-pointer flex items-start hover:bg-accent/10 ${!notification.isRead ? 'bg-accent/5' : ''}`}
+                        onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
+                      >
+                        <div className="flex items-start w-full">
+                          <div className={`mr-3 mt-1 ${getSeverityColor()}`}>
+                            {getNotificationIcon()}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <span className="font-medium text-sm">{notification.title}</span>
+                                <span className="text-xs text-muted-foreground ml-2">{formattedTime}</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive ml-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteNotificationMutation.mutate(notification.id);
+                                }}
+                                disabled={deleteNotificationMutation.isPending}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                            
+                            {notification.metadata && notification.metadata.symbol && (
+                              <Badge variant="outline" className="mt-2">
+                                {notification.metadata.symbol}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                  
+                  {/* View all notifications link */}
+                  <div className="border-t">
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings?tab=notifications" className="w-full flex justify-center py-2">
+                        <span className="text-sm font-medium text-primary">View all notifications</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </div>
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Theme toggle */}
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-3">
+            {theme === 'dark' ? (
+              <Moon className="h-5 w-5" />
+            ) : (
+              <Sun className="h-5 w-5" />
+            )}
+          </Button>
         </div>
       </div>
     </div>
