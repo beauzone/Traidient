@@ -385,14 +385,11 @@ export function WebhookManager() {
 
   return (
     <div className="container mx-auto py-6">
-      <Heading 
-        title="Webhook Management" 
-        actions={
-          <Button onClick={handleNewWebhook}>New Webhook</Button>
-        }
-      />
+      <div className="flex justify-end mb-6">
+        <Button onClick={handleNewWebhook}>New Webhook</Button>
+      </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="mt-6">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="create">Create</TabsTrigger>
