@@ -77,6 +77,9 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
   const { user, updateUser } = useAuth();
   const [theme, setTheme] = useState<'dark' | 'light'>(user?.settings?.theme || 'dark');
   const { accounts, selectedAccount, setSelectedAccount, isLoadingAccounts } = useAccountContext();
+  
+  // Get the actual account object from the selectedAccount ID
+  const currentAccount = accounts?.find(acc => acc.id.toString() === selectedAccount) || null;
   const { marketStatus } = useMarketData();
   
   // State for countdown timer
@@ -293,14 +296,14 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
             </div>
             
             {/* Account Balance */}
-            {selectedAccount && (
+            {currentAccount && currentAccount.portfolioValue !== undefined && (
               <div className="flex items-center space-x-2">
                 <CircleDollarSign className="h-4 w-4 text-green-500" />
                 <span className="font-medium">
-                  ${selectedAccount.portfolioValue.toLocaleString()}
+                  ${currentAccount.portfolioValue.toLocaleString()}
                 </span>
-                <span className={`text-xs ${selectedAccount.performance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {selectedAccount.performance >= 0 ? '+' : ''}${selectedAccount.performance.toFixed(2)}
+                <span className={`text-xs ${(currentAccount.performance || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {(currentAccount.performance || 0) >= 0 ? '+' : ''}${(currentAccount.performance || 0).toFixed(2)}
                 </span>
               </div>
             )}
@@ -315,7 +318,7 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="flex items-center space-x-2">
                   <span className="text-xs">
-                    {selectedAccount?.name || 'Select Account'}
+                    {currentAccount?.name || 'Select Account'}
                   </span>
                   <ChevronDown className="h-3 w-3" />
                 </Button>
@@ -326,19 +329,21 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
                 {accounts.map((account: BrokerageAccount) => (
                   <DropdownMenuItem
                     key={account.id}
-                    onClick={() => setSelectedAccount(account)}
+                    onClick={() => setSelectedAccount(account.id.toString())}
                     className="flex justify-between cursor-pointer"
                   >
                     <div className="flex flex-col">
-                      <span className="font-medium">{account.name}</span>
+                      <span className="font-medium">{account.name || 'Unnamed Account'}</span>
                       <span className="text-xs text-muted-foreground">
-                        {account.provider} • {account.accountType}
+                        {account.provider || 'Unknown'} • {account.accountType || 'Unknown'}
                       </span>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">${account.portfolioValue.toLocaleString()}</div>
-                      <div className={`text-xs ${account.performance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {account.performance >= 0 ? '+' : ''}${account.performance.toFixed(2)}
+                      <div className="font-medium">
+                        ${account.portfolioValue ? account.portfolioValue.toLocaleString() : '0'}
+                      </div>
+                      <div className={`text-xs ${(account.performance || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {(account.performance || 0) >= 0 ? '+' : ''}${(account.performance || 0).toFixed(2)}
                       </div>
                     </div>
                   </DropdownMenuItem>
