@@ -600,6 +600,13 @@ const Dashboard = () => {
 
     const handleMouseDown = (e: React.MouseEvent) => {
       if (!editMode) return;
+      
+      // Don't start dragging if clicking on a button or control
+      const target = e.target as HTMLElement;
+      if (target.closest('button') || target.closest('[role="button"]')) {
+        return;
+      }
+      
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
       handleDragStart(section.id);
