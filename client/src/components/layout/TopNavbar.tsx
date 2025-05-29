@@ -490,26 +490,32 @@ const TopNavbar = ({ title }: TopNavbarProps) => {
                           className={`py-3 px-4 border-b cursor-pointer flex items-start hover:bg-accent/10 ${!notification.isRead ? 'bg-accent/5' : ''}`}
                           onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
                         >
-                          <div className="flex items-start">
+                          <div className="flex items-start w-full">
                             <div className={`mr-3 mt-1 ${getSeverityColor()}`}>
                               {getNotificationIcon()}
                             </div>
                             <div className="flex-1">
-                              <div className="flex justify-between">
-                                <span className="font-medium text-sm">{notification.title}</span>
-                                <span className="text-xs text-muted-foreground ml-2">{formattedTime}</span>
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <span className="font-medium text-sm">{notification.title}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">{formattedTime}</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive ml-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotificationMutation.mutate(notification.id);
+                                  }}
+                                  disabled={deleteNotificationMutation.isPending}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
                               
-                              {notification.metadata && notification.metadata.symbol && (
-                                <Badge variant="outline" className="mt-2">
-                                  {notification.metadata.symbol}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </DropdownMenuItem>
-                      );
+         
                     })}
                     
                     {/* View all notifications link */}

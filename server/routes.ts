@@ -4043,6 +4043,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/notifications/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const notification = await storage.getNotification(id);
+      
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+      
+      // Check if the notification belongs to the user
+      if (notification.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this notification' });
+      }
+      
+      await storage.deleteNotification(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      res.status(500).json({ message: 'Error deleting notification' });
+    }
+  });
+
   // Market Data Provider API for Python Screeners
   
   // Get historical market data
