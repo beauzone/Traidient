@@ -21,8 +21,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
         <CardContent className="p-0">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 bg-primary bg-opacity-20 rounded-md p-3">
-                <LucideIcons.Cpu className="text-primary" />
+              <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/20 rounded-md p-3">
+                <LucideIcons.Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -49,8 +49,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
         <CardContent className="p-0">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 bg-secondary bg-opacity-20 rounded-md p-3">
-                <LucideIcons.BarChart className="text-secondary" />
+              <div className="flex-shrink-0 bg-green-100 dark:bg-green-900/20 rounded-md p-3">
+                <LucideIcons.TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -86,8 +86,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
         <CardContent className="p-0">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 bg-accent bg-opacity-20 rounded-md p-3">
-                <LucideIcons.DollarSign className="text-accent" />
+              <div className="flex-shrink-0 bg-gray-100 dark:bg-gray-800 rounded-md p-3">
+                <LucideIcons.BarChart3 className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -114,8 +114,8 @@ const StatsCards = ({ activeStrategies, totalPnL, todayTrades, alerts }: StatsCa
         <CardContent className="p-0">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 bg-destructive bg-opacity-20 rounded-md p-3">
-                <LucideIcons.AlertTriangle className="text-destructive" />
+              <div className="flex-shrink-0 bg-red-100 dark:bg-red-900/20 rounded-md p-3">
+                <LucideIcons.Bell className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
