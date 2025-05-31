@@ -4906,7 +4906,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       const payload = req.body;
       const ip = req.ip || req.socket.remoteAddress || '';
-      const signature = req.headers['x-signature'] as string || '';
+      // Check for signature in both header (traditional) and URL parameter (TradingView compatibility)
+      const signature = req.headers['x-signature'] as string || req.query.signature as string || '';
       const bypassIpCheck = req.headers['x-bypass-ip-check'] === 'true' || 
                            req.headers['X-Bypass-IP-Check'] === 'true';
       

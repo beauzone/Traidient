@@ -318,7 +318,17 @@ export function WebhookManager() {
   // Copy webhook URL
   const handleCopyWebhookUrl = (token: string) => {
     const baseUrl = window.location.origin;
-    const webhookUrl = `${baseUrl}/api/webhook-triggers/${token}`;
+    const webhook = webhooks?.find(w => w.token === token);
+    
+    let webhookUrl = `${baseUrl}/api/webhook-triggers/${token}`;
+    
+    // If signature verification is enabled, include the signature secret as a URL parameter
+    if (webhook?.configuration?.securitySettings?.useSignature && 
+        webhook?.configuration?.securitySettings?.signatureSecret) {
+      const secret = webhook.configuration.securitySettings.signatureSecret;
+      webhookUrl += `?signature=${encodeURIComponent(secret)}`;
+    }
+    
     navigator.clipboard.writeText(webhookUrl);
     toast({
       title: "Copied!",
