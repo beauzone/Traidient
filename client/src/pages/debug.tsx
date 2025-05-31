@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fetchData } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WebhookTester } from "@/components/webhook/WebhookTester";
+import MainLayout from "@/components/layout/MainLayout";
 
 export default function DebugPage() {
   const { user, token, login, logout } = useAuth();
@@ -120,7 +121,7 @@ export default function DebugPage() {
   };
 
   return (
-    <div className="container mx-auto p-8">
+    <MainLayout title="Debug Tools">
       <h1 className="text-3xl font-bold mb-6">Debug Tools</h1>
       
       <Tabs defaultValue="auth" className="w-full">
@@ -338,6 +339,6 @@ export default function DebugPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </MainLayout>
   );
 }
