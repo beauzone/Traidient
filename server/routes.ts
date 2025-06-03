@@ -87,6 +87,25 @@ interface AuthRequest extends Request {
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
+  // Health check endpoint for deployment verification
+  app.get('/health', (req: Request, res: Response) => {
+    res.status(200).json({ 
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: process.env.npm_package_version || '1.0.0'
+    });
+  });
+
+  // Readiness probe endpoint
+  app.get('/ready', (req: Request, res: Response) => {
+    res.status(200).json({ 
+      status: 'ready',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
   // Initialize WebSocket server on a different path than Vite's HMR
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   

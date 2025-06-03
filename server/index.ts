@@ -80,28 +80,82 @@ app.use((req, res, next) => {
     }
   }
 
-  // Define port and host for deployment
+  // Define port and host for deployment with GCE compatibility
   const port = parseInt(process.env.PORT || '5000');
-  const host = process.env.HOST || '0.0.0.0';
+  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : (process.env.HOST || '0.0.0.0');
 
-  // Set up error handler for the server
+  log(`Initializing server startup...`);
+  log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  log(`Binding to host: ${host}, port: ${port}`);
+  
+  // Enhanced error handler for the server
   server.on('error', (err: any) => {
+    console.error(`Server startup error: ${err.message}`, err);
+    
     if (err.code === 'EADDRINUSE') {
-      log(`Port ${port} is already in use. This may be due to a previous instance still running.`);
-      log('Trying to start on the same port after a short delay...');
-
+      log(`Port ${port} is already in use. Attempting graceful restart...`);
+      
       setTimeout(() => {
-        server.close();
-        server.listen(port, host);
-      }, 1000);
+        try {
+          server.close(() => {
+            log(`Retrying server startup on ${host}:${port}...`);
+            server.listen(port, host);
+          });
+        } catch (retryError) {
+          console.error(`Failed to restart server: ${retryError}`);
+          process.exit(1);
+        }
+      }, 2000);
+    } else if (err.code === 'EACCES') {
+      console.error(`Permission denied binding to port ${port}. Try a different port.`);
+      process.exit(1);
     } else {
-      console.error(`Server error: ${err.message}`);
+      console.error(`Unhandled server error: ${err.code || 'UNKNOWN'} - ${err.message}`);
+      process.exit(1);
     }
   });
 
-  // Start the server with proper host binding
+  // Graceful shutdown handling
+  const gracefulShutdown = (signal: string) => {
+    log(`Received ${signal}. Starting graceful shutdown...`);
+    
+    server.close((err) => {
+      if (err) {
+        console.error('Error during server shutdown:', err);
+        process.exit(1);
+      }
+      
+      log('Server closed successfully.');
+      process.exit(0);
+    });
+    
+    // Force exit after 30 seconds if graceful shutdown fails
+    setTimeout(() => {
+      console.error('Forceful shutdown after timeout');
+      process.exit(1);
+    }, 30000);
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+  // Start the server with proper host binding and startup verification
   server.listen(port, host, () => {
-    log(`Server listening on ${host}:${port} (NODE_ENV: ${process.env.NODE_ENV})`);
+    log(`✓ Server successfully started on ${host}:${port}`);
+    log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+    log(`✓ Process ID: ${process.pid}`);
+    log(`✓ Health check available at: http://${host}:${port}/health`);
+    log(`✓ Ready check available at: http://${host}:${port}/ready`);
+    
+    // Verify server is actually listening
+    setTimeout(() => {
+      const address = server.address();
+      if (address) {
+        log(`✓ Server verified listening on ${typeof address === 'string' ? address : `${address.address}:${address.port}`}`);
+      } else {
+        console.error('Server address verification failed');
+      }
+    }, 1000);
   });
 
 })();
