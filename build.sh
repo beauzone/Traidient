@@ -1,4 +1,3 @@
-
 #!/bin/bash
 set -e
 echo "Building application for production deployment..."

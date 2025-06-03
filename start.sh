@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Production start script for Traidient.AI trading platform
