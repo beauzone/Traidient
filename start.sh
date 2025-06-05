@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# ✅ Prevent accidental production run from the wrong branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "🚫 Server start aborted. You are on '$CURRENT_BRANCH', not 'main'."
+  exit 1
+fi
+
 # Production start script for Traidient.AI trading platform
 echo "Starting Traidient.AI production server..."
 

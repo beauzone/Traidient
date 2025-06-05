@@ -1,5 +1,13 @@
 #!/bin/bash
 set -e
+
+# ✅ Prevent deployment from the wrong branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "🚫 Deployment aborted. You are on '$CURRENT_BRANCH', not 'main'."
+  exit 1
+fi
+
 echo "Building application for production deployment..."
 
 # Add startup logging
