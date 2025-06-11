@@ -20,9 +20,21 @@ export function verifySignature(payload: string, signature: string, secret: stri
     const hmac = crypto.createHmac('sha256', secret);
     hmac.update(payload);
     const computedSignature = hmac.digest('hex');
+    
+    // Clean the incoming signature - remove any prefixes like "sha256="
+    const cleanSignature = signature.replace(/^sha256=/, '').toLowerCase();
+    const cleanComputedSignature = computedSignature.toLowerCase();
+    
+    console.log('[DEBUG] Signature verification:');
+    console.log('  Payload:', payload);
+    console.log('  Secret length:', secret.length);
+    console.log('  Computed signature:', cleanComputedSignature);
+    console.log('  Received signature:', cleanSignature);
+    console.log('  Match:', cleanComputedSignature === cleanSignature);
+    
     return crypto.timingSafeEqual(
-      Buffer.from(computedSignature),
-      Buffer.from(signature)
+      Buffer.from(cleanComputedSignature),
+      Buffer.from(cleanSignature)
     );
   } catch (error) {
     console.error('Error verifying signature:', error);
